@@ -60,13 +60,13 @@ interface ClassTypeFormData {
 }
 
 const DAYS_OF_WEEK = [
-  { value: 0, label: "Sunday" },
-  { value: 1, label: "Monday" },
-  { value: 2, label: "Tuesday" },
-  { value: 3, label: "Wednesday" },
-  { value: 4, label: "Thursday" },
-  { value: 5, label: "Friday" },
-  { value: 6, label: "Saturday" },
+  { value: 0, label: "Domingo" },
+  { value: 1, label: "Segunda-feira" },
+  { value: 2, label: "Terça-feira" },
+  { value: 3, label: "Quarta-feira" },
+  { value: 4, label: "Quinta-feira" },
+  { value: 5, label: "Sexta-feira" },
+  { value: 6, label: "Sábado" },
 ];
 
 export function ClassManagement() {
@@ -125,13 +125,13 @@ export function ClassManagement() {
         endTime: ""
       });
       toast({
-        title: "Class Added",
-        description: "New class has been successfully scheduled.",
+        title: "Aula Adicionada",
+        description: "Nova aula foi agendada com sucesso.",
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to Add Class",
+        title: "Erro ao Adicionar Aula",
         description: error.message,
         variant: "destructive",
       });
@@ -150,13 +150,13 @@ export function ClassManagement() {
         maxCapacity: 20
       });
       toast({
-        title: "Class Type Added",
-        description: "New class type has been created successfully.",
+        title: "Modalidade Adicionada",
+        description: "Nova modalidade foi criada com sucesso.",
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to Add Class Type",
+        title: "Erro ao Adicionar Modalidade",
         description: error.message,
         variant: "destructive",
       });
@@ -203,7 +203,7 @@ export function ClassManagement() {
       <Card>
         <CardContent className="p-8 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Loading class data...</p>
+          <p>Carregando dados das aulas...</p>
         </CardContent>
       </Card>
     );
@@ -214,9 +214,9 @@ export function ClassManagement() {
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <CardTitle>Class Management</CardTitle>
+            <CardTitle>Gerenciamento de Aulas</CardTitle>
             <CardDescription>
-              Manage your academy's class schedule and class types
+              Gerencie o cronograma de aulas e modalidades da sua academia
             </CardDescription>
           </div>
         </div>
@@ -225,42 +225,42 @@ export function ClassManagement() {
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="schedule" data-testid="tab-schedule">Class Schedule</TabsTrigger>
-            <TabsTrigger value="types" data-testid="tab-types">Class Types</TabsTrigger>
+            <TabsTrigger value="schedule" data-testid="tab-schedule">Cronograma</TabsTrigger>
+            <TabsTrigger value="types" data-testid="tab-types">Modalidades</TabsTrigger>
           </TabsList>
 
           {/* Class Schedule Tab */}
           <TabsContent value="schedule" className="space-y-6">
             <div className="flex justify-between items-center">
               <div>
-                <h3 className="text-lg font-semibold">Weekly Schedule</h3>
-                <p className="text-sm text-muted-foreground">Schedule multiple classes per day for different times and student levels</p>
+                <h3 className="text-lg font-semibold">Cronograma Semanal</h3>
+                <p className="text-sm text-muted-foreground">Agende múltiplas aulas por dia para diferentes horários e níveis de alunos</p>
               </div>
               <Dialog open={isAddClassDialogOpen} onOpenChange={setIsAddClassDialogOpen}>
                 <DialogTrigger asChild>
                   <Button data-testid="button-add-class">
                     <CalendarPlus className="mr-2 h-4 w-4" />
-                    Schedule Class
+                    Agendar Aula
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Schedule New Class</DialogTitle>
+                    <DialogTitle>Agendar Nova Aula</DialogTitle>
                     <DialogDescription>
-                      Add a recurring class to your academy schedule. You can schedule multiple classes for the same day and same martial art at different times.
+                      Adicione uma aula recorrente ao cronograma da sua academia. Você pode agendar múltiplas aulas para o mesmo dia e mesma arte marcial em horários diferentes.
                     </DialogDescription>
                   </DialogHeader>
                   
                   <form onSubmit={handleClassSubmit}>
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="class-type">Class Type</Label>
+                        <Label htmlFor="class-type">Modalidade</Label>
                         <Select 
                           value={classFormData.classTypeId}
                           onValueChange={(value) => setClassFormData(prev => ({ ...prev, classTypeId: value }))}
                         >
                           <SelectTrigger data-testid="select-class-type">
-                            <SelectValue placeholder="Select class type" />
+                            <SelectValue placeholder="Selecionar modalidade" />
                           </SelectTrigger>
                           <SelectContent>
                             {classTypes.map((classType) => (
@@ -273,13 +273,13 @@ export function ClassManagement() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="instructor">Instructor</Label>
+                        <Label htmlFor="instructor">Instrutor</Label>
                         <Select 
                           value={classFormData.instructorId}
                           onValueChange={(value) => setClassFormData(prev => ({ ...prev, instructorId: value }))}
                         >
                           <SelectTrigger data-testid="select-instructor">
-                            <SelectValue placeholder="Select instructor" />
+                            <SelectValue placeholder="Selecionar instrutor" />
                           </SelectTrigger>
                           <SelectContent>
                             {instructors.map((instructor) => (
@@ -292,13 +292,13 @@ export function ClassManagement() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="day-of-week">Day of Week</Label>
+                        <Label htmlFor="day-of-week">Dia da Semana</Label>
                         <Select 
                           value={classFormData.dayOfWeek.toString()}
                           onValueChange={(value) => setClassFormData(prev => ({ ...prev, dayOfWeek: parseInt(value) }))}
                         >
                           <SelectTrigger data-testid="select-day-of-week">
-                            <SelectValue placeholder="Select day" />
+                            <SelectValue placeholder="Selecionar dia" />
                           </SelectTrigger>
                           <SelectContent>
                             {DAYS_OF_WEEK.map((day) => (
@@ -312,7 +312,7 @@ export function ClassManagement() {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="start-time">Start Time</Label>
+                          <Label htmlFor="start-time">Horário de Início</Label>
                           <Input
                             id="start-time"
                             type="time"
@@ -324,7 +324,7 @@ export function ClassManagement() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="end-time">End Time</Label>
+                          <Label htmlFor="end-time">Horário de Término</Label>
                           <Input
                             id="end-time"
                             type="time"
@@ -343,14 +343,14 @@ export function ClassManagement() {
                         variant="outline"
                         onClick={() => setIsAddClassDialogOpen(false)}
                       >
-                        Cancel
+                        Cancelar
                       </Button>
                       <Button
                         type="submit"
                         disabled={createClassMutation.isPending}
                         data-testid="button-submit-class"
                       >
-                        {createClassMutation.isPending ? "Scheduling..." : "Schedule Class"}
+                        {createClassMutation.isPending ? "Agendando..." : "Agendar Aula"}
                       </Button>
                     </DialogFooter>
                   </form>
@@ -361,15 +361,15 @@ export function ClassManagement() {
             {classes.length === 0 ? (
               <div className="text-center py-12 border border-dashed rounded-lg">
                 <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Classes Scheduled</h3>
+                <h3 className="text-lg font-semibold mb-2">Nenhuma Aula Agendada</h3>
                 <p className="text-muted-foreground mb-4">
-                  Start by creating some class types, then schedule your classes. You can create multiple sessions per day - for example, Muay Thai at 08:00 and again at 18:00.
+                  Comece criando algumas modalidades, depois agende suas aulas. Você pode criar múltiplas sessões por dia - por exemplo, Muay Thai às 08:00 e novamente às 18:00.
                 </p>
                 <Button 
                   onClick={() => setIsAddClassDialogOpen(true)}
                   data-testid="button-schedule-first-class"
                 >
-                  Schedule First Class
+                  Agendar Primeira Aula
                 </Button>
               </div>
             ) : (
@@ -380,14 +380,14 @@ export function ClassManagement() {
                       <Calendar className="h-5 w-5 mr-2" />
                       {daySchedule.label}
                       <Badge variant="secondary" className="ml-2">
-                        {daySchedule.classes.length} classes
+                        {daySchedule.classes.length} aulas
                       </Badge>
                     </h4>
                     
                     {daySchedule.classes.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground border border-dashed rounded-lg">
-                        <p>No classes scheduled for {daySchedule.label}</p>
-                        <p className="text-xs mt-1">You can schedule multiple classes for this day</p>
+                        <p>Nenhuma aula agendada para {daySchedule.label}</p>
+                        <p className="text-xs mt-1">Você pode agendar múltiplas aulas para este dia</p>
                       </div>
                     ) : (
                       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -402,10 +402,10 @@ export function ClassManagement() {
                                 <div className="space-y-3">
                                   <div className="flex items-start justify-between">
                                     <h5 className="font-medium leading-tight" data-testid={`text-class-name-${classItem.id}`}>
-                                      {classType?.name || 'Unknown Class'}
+                                      {classType?.name || 'Modalidade Desconhecida'}
                                     </h5>
                                     <Badge variant="outline" data-testid={`badge-active-${classItem.id}`}>
-                                      {classItem.active ? 'Active' : 'Inactive'}
+                                      {classItem.active ? 'Ativa' : 'Inativa'}
                                     </Badge>
                                   </div>
                                   
@@ -421,7 +421,7 @@ export function ClassManagement() {
                                     <div className="flex items-center space-x-2">
                                       <Users className="h-4 w-4" />
                                       <span data-testid={`text-instructor-${classItem.id}`}>
-                                        {instructor?.name || 'Unknown Instructor'}
+                                        {instructor?.name || 'Instrutor Desconhecido'}
                                       </span>
                                     </div>
                                     
@@ -429,7 +429,7 @@ export function ClassManagement() {
                                       <div className="flex items-center space-x-2">
                                         <Users className="h-4 w-4" />
                                         <span data-testid={`text-capacity-${classItem.id}`}>
-                                          Max {classType.maxCapacity} students
+                                          Máx {classType.maxCapacity} alunos
                                         </span>
                                       </div>
                                     )}
@@ -458,50 +458,50 @@ export function ClassManagement() {
           {/* Class Types Tab */}
           <TabsContent value="types" className="space-y-6">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Class Types</h3>
+              <h3 className="text-lg font-semibold">Modalidades</h3>
               <Dialog open={isAddClassTypeDialogOpen} onOpenChange={setIsAddClassTypeDialogOpen}>
                 <DialogTrigger asChild>
                   <Button data-testid="button-add-class-type">
                     <Plus className="mr-2 h-4 w-4" />
-                    Add Class Type
+                    Adicionar Modalidade
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Create Class Type</DialogTitle>
+                    <DialogTitle>Criar Modalidade</DialogTitle>
                     <DialogDescription>
-                      Define a new type of class for your academy.
+                      Defina um novo tipo de aula para sua academia.
                     </DialogDescription>
                   </DialogHeader>
                   
                   <form onSubmit={handleClassTypeSubmit}>
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="class-type-name">Class Type Name</Label>
+                        <Label htmlFor="class-type-name">Nome da Modalidade</Label>
                         <Input
                           id="class-type-name"
                           value={classTypeFormData.name}
                           onChange={(e) => setClassTypeFormData(prev => ({ ...prev, name: e.target.value }))}
-                          placeholder="e.g., Jiu-Jitsu Fundamentals, Advanced Karate"
+                          placeholder="ex: Jiu-Jitsu Fundamentos, Karatê Avançado"
                           required
                           data-testid="input-class-type-name"
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="class-type-description">Description</Label>
+                        <Label htmlFor="class-type-description">Descrição</Label>
                         <Textarea
                           id="class-type-description"
                           value={classTypeFormData.description}
                           onChange={(e) => setClassTypeFormData(prev => ({ ...prev, description: e.target.value }))}
-                          placeholder="Describe what this class covers..."
+                          placeholder="Descreva o que esta aula abrange..."
                           data-testid="input-class-type-description"
                         />
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="duration">Duration (minutes)</Label>
+                          <Label htmlFor="duration">Duração (minutos)</Label>
                           <Input
                             id="duration"
                             type="number"
@@ -515,7 +515,7 @@ export function ClassManagement() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="max-capacity">Max Capacity</Label>
+                          <Label htmlFor="max-capacity">Capacidade Máxima</Label>
                           <Input
                             id="max-capacity"
                             type="number"
@@ -536,14 +536,14 @@ export function ClassManagement() {
                         variant="outline"
                         onClick={() => setIsAddClassTypeDialogOpen(false)}
                       >
-                        Cancel
+                        Cancelar
                       </Button>
                       <Button
                         type="submit"
                         disabled={createClassTypeMutation.isPending}
                         data-testid="button-submit-class-type"
                       >
-                        {createClassTypeMutation.isPending ? "Creating..." : "Create Class Type"}
+                        {createClassTypeMutation.isPending ? "Criando..." : "Criar Modalidade"}
                       </Button>
                     </DialogFooter>
                   </form>
@@ -554,15 +554,15 @@ export function ClassManagement() {
             {classTypes.length === 0 ? (
               <div className="text-center py-12 border border-dashed rounded-lg">
                 <Plus className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Class Types</h3>
+                <h3 className="text-lg font-semibold mb-2">Nenhuma Modalidade</h3>
                 <p className="text-muted-foreground mb-4">
-                  Create your first class type to start scheduling classes.
+                  Crie sua primeira modalidade para começar a agendar aulas.
                 </p>
                 <Button 
                   onClick={() => setIsAddClassTypeDialogOpen(true)}
                   data-testid="button-create-first-class-type"
                 >
-                  Create First Class Type
+                  Criar Primeira Modalidade
                 </Button>
               </div>
             ) : (
@@ -576,7 +576,7 @@ export function ClassManagement() {
                             {classType.name}
                           </h5>
                           <Badge variant={classType.active ? "default" : "secondary"} data-testid={`badge-class-type-status-${classType.id}`}>
-                            {classType.active ? 'Active' : 'Inactive'}
+                            {classType.active ? 'Ativa' : 'Inativa'}
                           </Badge>
                         </div>
                         
@@ -590,7 +590,7 @@ export function ClassManagement() {
                           <div className="flex items-center space-x-2">
                             <Clock className="h-4 w-4" />
                             <span data-testid={`text-class-type-duration-${classType.id}`}>
-                              {classType.duration} minutes
+                              {classType.duration} minutos
                             </span>
                           </div>
                           
@@ -598,7 +598,7 @@ export function ClassManagement() {
                             <div className="flex items-center space-x-2">
                               <Users className="h-4 w-4" />
                               <span data-testid={`text-class-type-capacity-${classType.id}`}>
-                                Max {classType.maxCapacity} students
+                                Máx {classType.maxCapacity} alunos
                               </span>
                             </div>
                           )}
