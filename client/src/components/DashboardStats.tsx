@@ -49,46 +49,46 @@ export function DashboardStats() {
   // TODO: Remove mock data - replace with real data from API
   const stats = [
     {
-      title: "Total Students",
+      title: "Total de Alunos",
       value: 147,
-      description: "Active enrolled students",
+      description: "Alunos ativos matriculados",
       icon: <Users className="h-4 w-4" />,
-      trend: { value: "+12% from last month", isPositive: true }
+      trend: { value: "+12% desde o mês passado", isPositive: true }
     },
     {
-      title: "Classes This Week",
+      title: "Aulas desta Semana",
       value: 28,
-      description: "Scheduled classes",
+      description: "Aulas agendadas",
       icon: <Calendar className="h-4 w-4" />,
-      trend: { value: "+2 more than last week", isPositive: true }
+      trend: { value: "+2 a mais que na semana passada", isPositive: true }
     },
     {
-      title: "Monthly Revenue",
-      value: "$8,940",
-      description: "Current month earnings",
+      title: "Receita Mensal",
+      value: "R$ 8.940",
+      description: "Ganhos do mês atual",
       icon: <DollarSign className="h-4 w-4" />,
-      trend: { value: "+8% from last month", isPositive: true }
+      trend: { value: "+8% desde o mês passado", isPositive: true }
     },
     {
-      title: "Attendance Rate",
+      title: "Taxa de Presença",
       value: "89%",
-      description: "Average this month",
+      description: "Média deste mês",
       icon: <UserCheck className="h-4 w-4" />,
-      trend: { value: "+3% from last month", isPositive: true }
+      trend: { value: "+3% desde o mês passado", isPositive: true }
     },
     {
-      title: "Pending Payments",
+      title: "Pagamentos Pendentes",
       value: 12,
-      description: "Overdue student payments",
+      description: "Pagamentos em atraso",
       icon: <Clock className="h-4 w-4" />,
-      trend: { value: "-5 from last week", isPositive: true }
+      trend: { value: "-5 desde a semana passada", isPositive: true }
     },
     {
-      title: "New Enrollments",
+      title: "Novas Matrículas",
       value: 8,
-      description: "This month",
+      description: "Neste mês",
       icon: <TrendingUp className="h-4 w-4" />,
-      trend: { value: "+60% from last month", isPositive: true }
+      trend: { value: "+60% desde o mês passado", isPositive: true }
     }
   ];
 

@@ -7,9 +7,9 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Academy Dashboard</h1>
+        <h1 className="text-3xl font-bold">Painel da Academia</h1>
         <p className="text-muted-foreground mt-2">
-          Overview of your martial arts academy operations
+          Visão geral das operações da sua academia de artes marciais
         </p>
       </div>
 
@@ -19,8 +19,8 @@ export default function Dashboard() {
       {/* Management Tabs */}
       <Tabs defaultValue="students" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="students" data-testid="tab-students">Students</TabsTrigger>
-          <TabsTrigger value="classes" data-testid="tab-classes">Classes</TabsTrigger>
+          <TabsTrigger value="students" data-testid="tab-students">Alunos</TabsTrigger>
+          <TabsTrigger value="classes" data-testid="tab-classes">Aulas</TabsTrigger>
         </TabsList>
         
         <TabsContent value="students">

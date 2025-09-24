@@ -48,13 +48,13 @@ export function StudentManagement() {
       setIsAddDialogOpen(false);
       setFormData({ name: "", email: "", password: "", phone: "" });
       toast({
-        title: "Student Added",
-        description: "New student has been successfully added to your academy.",
+        title: "Aluno Adicionado",
+        description: "Novo aluno foi adicionado com sucesso à sua academia.",
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to Add Student",
+        title: "Erro ao Adicionar Aluno",
         description: error.message,
         variant: "destructive",
       });
@@ -78,11 +78,11 @@ export function StudentManagement() {
   const getStatusBadge = (active?: boolean) => {
     return active ? (
       <Badge variant="default" data-testid="badge-status-active">
-        Active
+        Ativo
       </Badge>
     ) : (
       <Badge variant="secondary" data-testid="badge-status-inactive">
-        Inactive
+        Inativo
       </Badge>
     );
   };
@@ -95,7 +95,7 @@ export function StudentManagement() {
     return (
       <Card>
         <CardContent className="p-8 text-center">
-          <p className="text-destructive">Failed to load students: {error.message}</p>
+          <p className="text-destructive">Erro ao carregar alunos: {error.message}</p>
         </CardContent>
       </Card>
     );
@@ -106,9 +106,9 @@ export function StudentManagement() {
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <CardTitle>Student Management</CardTitle>
+            <CardTitle>Gerenciamento de Alunos</CardTitle>
             <CardDescription>
-              Manage your academy students and their enrollments
+              Gerencie os alunos e matrículas da sua academia
             </CardDescription>
           </div>
 
@@ -116,26 +116,26 @@ export function StudentManagement() {
             <DialogTrigger asChild>
               <Button data-testid="button-add-student">
                 <UserPlus className="mr-2 h-4 w-4" />
-                Add Student
+                Adicionar Aluno
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add New Student</DialogTitle>
+                <DialogTitle>Adicionar Novo Aluno</DialogTitle>
                 <DialogDescription>
-                  Create a new student account for your martial arts academy.
+                  Crie uma nova conta de aluno para sua academia de artes marciais.
                 </DialogDescription>
               </DialogHeader>
               
               <form onSubmit={handleSubmit}>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="student-name">Full Name</Label>
+                    <Label htmlFor="student-name">Nome Completo</Label>
                     <Input
                       id="student-name"
                       value={formData.name}
                       onChange={(e) => handleInputChange("name", e.target.value)}
-                      placeholder="Student's full name"
+                      placeholder="Nome completo do aluno"
                       required
                       data-testid="input-student-name"
                     />
@@ -148,14 +148,14 @@ export function StudentManagement() {
                       type="email"
                       value={formData.email}
                       onChange={(e) => handleInputChange("email", e.target.value)}
-                      placeholder="student@email.com"
+                      placeholder="aluno@email.com"
                       required
                       data-testid="input-student-email"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="student-phone">Phone (Optional)</Label>
+                    <Label htmlFor="student-phone">Telefone (Opcional)</Label>
                     <Input
                       id="student-phone"
                       value={formData.phone}
@@ -166,13 +166,13 @@ export function StudentManagement() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="student-password">Temporary Password</Label>
+                    <Label htmlFor="student-password">Senha Temporária</Label>
                     <Input
                       id="student-password"
                       type="password"
                       value={formData.password}
                       onChange={(e) => handleInputChange("password", e.target.value)}
-                      placeholder="Student will change on first login"
+                      placeholder="Aluno alterará no primeiro login"
                       required
                       data-testid="input-student-password"
                     />
@@ -185,14 +185,14 @@ export function StudentManagement() {
                     variant="outline"
                     onClick={() => setIsAddDialogOpen(false)}
                   >
-                    Cancel
+                    Cancelar
                   </Button>
                   <Button
                     type="submit"
                     disabled={createStudentMutation.isPending}
                     data-testid="button-submit-student"
                   >
-                    {createStudentMutation.isPending ? "Adding..." : "Add Student"}
+                    {createStudentMutation.isPending ? "Adicionando..." : "Adicionar Aluno"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -206,7 +206,7 @@ export function StudentManagement() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search students..."
+            placeholder="Buscar alunos..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -218,7 +218,7 @@ export function StudentManagement() {
         {isLoading && (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p>Loading students...</p>
+            <p>Carregando alunos...</p>
           </div>
         )}
 
@@ -228,18 +228,18 @@ export function StudentManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Contact</TableHead>
+                  <TableHead>Aluno</TableHead>
+                  <TableHead>Contato</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead className="w-[100px]">Actions</TableHead>
+                  <TableHead>Entrada</TableHead>
+                  <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredStudents.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8">
-                      {students.length === 0 ? "No students found" : "No students match your search"}
+                      {students.length === 0 ? "Nenhum aluno encontrado" : "Nenhum aluno corresponde à sua busca"}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -258,7 +258,7 @@ export function StudentManagement() {
                       <TableCell>
                         <div className="text-sm">
                           <div data-testid={`text-student-email-${student.id}`}>{student.email}</div>
-                          <div className="text-muted-foreground">{student.phone || 'No phone'}</div>
+                          <div className="text-muted-foreground">{student.phone || 'Sem telefone'}</div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -275,7 +275,7 @@ export function StudentManagement() {
                               className="h-8 w-8 p-0"
                               data-testid={`button-student-actions-${student.id}`}
                             >
-                              <span className="sr-only">Open menu</span>
+                              <span className="sr-only">Abrir menu</span>
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -285,14 +285,14 @@ export function StudentManagement() {
                               data-testid={`button-view-student-${student.id}`}
                             >
                               <Eye className="mr-2 h-4 w-4" />
-                              View Details
+                              Ver Detalhes
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               onClick={() => console.log('Edit student:', student)}
                               data-testid={`button-edit-student-${student.id}`}
                             >
                               <Edit className="mr-2 h-4 w-4" />
-                              Edit
+                              Editar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
@@ -301,7 +301,7 @@ export function StudentManagement() {
                               data-testid={`button-delete-student-${student.id}`}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
-                              Deactivate
+                              Desativar
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
