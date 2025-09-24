@@ -230,6 +230,8 @@ export default function StudentManagement() {
     setSelectedStudent(undefined);
   };
 
+  const { toast } = useToast();
+
   const deleteMutation = useMutation({
     mutationFn: (studentId: string) => apiRequest('DELETE', `/api/students/${studentId}`),
     onSuccess: () => {
