@@ -28,21 +28,21 @@ export function Navbar() {
               className="text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => console.log('Features clicked')}
             >
-              Features
+              Recursos
             </a>
             <a 
               href="#pricing" 
               className="text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => console.log('Pricing clicked')}
             >
-              Pricing
+              Preços
             </a>
             <a 
               href="#about" 
               className="text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => console.log('About clicked')}
             >
-              About
+              Sobre
             </a>
           </div>
 
@@ -53,13 +53,13 @@ export function Navbar() {
               data-testid="button-login"
               onClick={() => console.log('Login clicked')}
             >
-              Login
+              Entrar
             </Button>
             <Button 
               data-testid="button-signup"
               onClick={() => console.log('Sign up clicked')}
             >
-              Sign Up
+              Cadastrar
             </Button>
             <ThemeToggle />
           </div>
@@ -87,21 +87,21 @@ export function Navbar() {
                 className="text-muted-foreground hover:text-foreground transition-colors"
                 onClick={() => console.log('Mobile Features clicked')}
               >
-                Features
+                Recursos
               </a>
               <a 
                 href="#pricing" 
                 className="text-muted-foreground hover:text-foreground transition-colors"
                 onClick={() => console.log('Mobile Pricing clicked')}
               >
-                Pricing
+                Preços
               </a>
               <a 
                 href="#about" 
                 className="text-muted-foreground hover:text-foreground transition-colors"
                 onClick={() => console.log('Mobile About clicked')}
               >
-                About
+                Sobre
               </a>
               <div className="flex flex-col space-y-2 pt-4 border-t">
                 <Button 
@@ -109,13 +109,13 @@ export function Navbar() {
                   data-testid="button-mobile-login"
                   onClick={() => console.log('Mobile Login clicked')}
                 >
-                  Login
+                  Entrar
                 </Button>
                 <Button 
                   data-testid="button-mobile-signup"
                   onClick={() => console.log('Mobile Sign up clicked')}
                 >
-                  Sign Up
+                  Cadastrar
                 </Button>
               </div>
             </div>
