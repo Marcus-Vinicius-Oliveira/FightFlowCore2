@@ -1,6 +1,6 @@
 import { DashboardStats } from "@/components/DashboardStats";
 import { StudentManagement } from "@/components/StudentManagement";
-import { ClassSchedule } from "@/components/ClassSchedule";
+import { ClassManagement } from "@/components/ClassManagement";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Dashboard() {
@@ -28,7 +28,7 @@ export default function Dashboard() {
         </TabsContent>
         
         <TabsContent value="classes">
-          <ClassSchedule />
+          <ClassManagement />
         </TabsContent>
       </Tabs>
     </div>
