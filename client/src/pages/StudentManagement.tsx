@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Edit, Mail, Phone, Calendar, MoreHorizontal, Trash2 } from "lucide-react";
+import { Plus, Search, Edit, Mail, Phone, Calendar, MoreHorizontal, Trash2, Eye, UserX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
@@ -210,6 +210,7 @@ export default function StudentManagement() {
   const [selectedStudent, setSelectedStudent] = useState<Student | undefined>();
   const [showForm, setShowForm] = useState(false);
   const [deleteStudent, setDeleteStudent] = useState<Student | undefined>();
+  const [viewStudent, setViewStudent] = useState<Student | undefined>();
 
   const { data: students = [], isLoading } = useQuery<Student[]>({
     queryKey: ['/api/students'],
@@ -221,8 +222,14 @@ export default function StudentManagement() {
   );
 
   const handleEdit = (student: Student) => {
+    console.log("handleEdit called for:", student.id);
     setSelectedStudent(student);
     setShowForm(true);
+  };
+
+  const handleViewDetails = (student: Student) => {
+    console.log("handleViewDetails called for:", student.id);
+    setViewStudent(student);
   };
 
   const handleCloseForm = () => {
@@ -311,10 +318,10 @@ export default function StudentManagement() {
         <AlertDialog open={!!deleteStudent} onOpenChange={(open) => !open && setDeleteStudent(undefined)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+              <AlertDialogTitle>Confirmar Desativação</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja excluir o aluno <strong>{deleteStudent?.name}</strong>?
-                Esta ação não pode ser desfeita.
+                Tem certeza que deseja desativar o aluno <strong>{deleteStudent?.name}</strong>?
+                O aluno será marcado como inativo mas seus dados serão preservados.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -327,11 +334,88 @@ export default function StudentManagement() {
                 className="bg-destructive hover:bg-destructive/90"
                 data-testid="button-confirm-delete"
               >
-                {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+                {deleteMutation.isPending ? "Desativando..." : "Desativar"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog open={!!viewStudent} onOpenChange={(open) => !open && setViewStudent(undefined)}>
+          {/* Debug: This should render when viewStudent is set */}
+          {console.log("Dialog render - viewStudent:", viewStudent?.id, "isOpen:", !!viewStudent)}
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Detalhes do Aluno</DialogTitle>
+              <DialogDescription>
+                Informações completas de {viewStudent?.name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Nome</Label>
+                <div className="p-2 bg-muted rounded-md text-sm">
+                  {viewStudent?.name}
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Email</Label>
+                <div className="p-2 bg-muted rounded-md text-sm flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  {viewStudent?.email}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Telefone</Label>
+                <div className="p-2 bg-muted rounded-md text-sm flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  {formatPhone(viewStudent?.phone)}
+                </div>
+              </div>
+
+              {viewStudent?.dateOfBirth && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Data de Nascimento</Label>
+                  <div className="p-2 bg-muted rounded-md text-sm">
+                    {new Date(viewStudent.dateOfBirth).toLocaleDateString('pt-BR')}
+                  </div>
+                </div>
+              )}
+
+              {viewStudent?.belt && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Graduação</Label>
+                  <div className="p-2 bg-muted rounded-md text-sm">
+                    <Badge variant="secondary">{viewStudent.belt}</Badge>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Status</Label>
+                <div className="p-2 bg-muted rounded-md text-sm">
+                  <Badge variant={viewStudent?.active ? "default" : "secondary"}>
+                    {viewStudent?.active ? "Ativo" : "Inativo"}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Data de Cadastro</Label>
+                <div className="p-2 bg-muted rounded-md text-sm flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  {viewStudent && formatDate(viewStudent.createdAt)}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={() => setViewStudent(undefined)}>
+                Fechar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>
@@ -428,10 +512,29 @@ export default function StudentManagement() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem 
-                            onSelect={(e) => {
+                            onClick={(e) => {
+                              try {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log("View student details:", student);
+                                console.log("About to call handleViewDetails...");
+                                handleViewDetails(student);
+                                console.log("handleViewDetails completed");
+                              } catch (error) {
+                                console.error("Error in View Details onClick:", error);
+                              }
+                            }}
+                            data-testid={`button-view-student-${student.id}`}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            Ver Detalhes
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={(e) => {
                               e.preventDefault();
-                              setSelectedStudent(student);
-                              setShowForm(true);
+                              e.stopPropagation();
+                              console.log("Edit student:", student);
+                              handleEdit(student);
                             }}
                             data-testid={`button-edit-student-${student.id}`}
                           >
@@ -439,15 +542,18 @@ export default function StudentManagement() {
                             Editar
                           </DropdownMenuItem>
                           <DropdownMenuItem 
-                            onSelect={(e) => {
+                            onClick={(e) => {
                               e.preventDefault();
+                              e.stopPropagation();
+                              console.log("Deactivate student:", student);
+                              console.log("Setting deleteStudent for confirmation");
                               setDeleteStudent(student);
                             }}
                             className="text-destructive focus:text-destructive"
                             data-testid={`button-delete-student-${student.id}`}
                           >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Excluir
+                            <UserX className="h-4 w-4 mr-2" />
+                            Desativar
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

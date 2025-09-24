@@ -1,0 +1,65 @@
+Com certeza. Com base na minha sugestão anterior e nas melhores práticas para guiar a IA, preparei um prompt completo e detalhado.
+
+Copie e cole o texto abaixo diretamente na caixa de diálogo do Replit Agent.
+
+-----
+
+### **Prompt para Replit: Implementação do Módulo 2 - Aulas e Horários**
+
+```
+Sim, excelente trabalho no Módulo 1. Aprovo a sua sugestão para continuar com a implementação do **Módulo 2 - Sistema de Aulas e Horários**.
+
+Por favor, siga estes requisitos técnicos detalhados para garantir que o novo módulo seja robusto, seguro e bem integrado à arquitetura existente.
+
+**1. Modelo de Dados (Schema do Banco de Dados)**
+
+Crie as seguintes tabelas no PostgreSQL, garantindo que todas elas contenham uma coluna `academia_id` para manter o isolamento de dados (multi-tenancy):
+
+* **`Turmas`**:
+    * `id`: Chave primária (UUID).
+    * `nome`: Texto (ex: "Jiu-Jitsu Adulto - Iniciantes").
+    * `modalidade`: Texto (ex: "Jiu-Jitsu").
+    * `professor_id`: Chave estrangeira para a tabela `usuarios`.
+    * `academia_id`: Chave estrangeira para a tabela `academias`.
+
+* **`Horarios`**: Tabela para definir a grade semanal recorrente.
+    * `id`: Chave primária (UUID).
+    * `turma_id`: Chave estrangeira para a tabela `Turmas`.
+    * `dia_da_semana`: Inteiro (0 para Domingo, 1 para Segunda, ..., 6 para Sábado).
+    * `hora_inicio`: Time (formato HH:MM).
+    * `hora_fim`: Time (formato HH:MM).
+    * `academia_id`: Chave estrangeira para a tabela `academias`.
+
+* **`Presencas`**: Tabela para registrar a frequência dos alunos.
+    * `id`: Chave primária (UUID).
+    * `aluno_id`: Chave estrangeira para a tabela `usuarios`.
+    * `turma_id`: Chave estrangeira para a tabela `Turmas`.
+    * `data`: Date (a data exata em que a aula ocorreu, ex: '2025-09-24').
+    * `status`: Texto ou Enum (ex: 'Presente', 'Falta', 'Justificado').
+    * `academia_id`: Chave estrangeira para a tabela `academias`.
+
+**2. Funcionalidades do Painel do Administrador (`ADMIN_ACADEMIA`)**
+
+* **Gestão de Turmas:**
+    * Implemente uma seção no dashboard para o CRUD (Criar, Ler, Atualizar, Excluir) completo de `Turmas`.
+    * Ao criar ou editar uma turma, o admin deve poder associar um professor (da sua academia) a ela.
+* **Gestão de Horários:**
+    * Crie uma interface onde, para cada `Turma`, o admin possa adicionar múltiplos `Horarios` na semana (ex: Segunda às 19:00 e Quarta às 19:00).
+* **Visualização da Grade Semanal:**
+    * Desenvolva uma tela principal chamada "Grade de Aulas" ou "Horários".
+    * **REQUISITO DE UI:** Esta tela DEVE usar um componente de calendário visual (view semanal) para mostrar todas as aulas agendadas, separadas por dia da semana e horário.
+
+**3. Funcionalidades do Painel do Professor (`PROFESSOR`)**
+
+* **Controle de Presença:**
+    * O professor, ao acessar a "Grade de Aulas", deve poder clicar em uma aula que ele ministra.
+    * Ao clicar, deve abrir uma nova view ou modal com a lista de todos os alunos matriculados naquela `Turma`.
+    * Nesta lista, o professor deve poder marcar o `status` da presença de cada aluno para a `data` atual. A ação deve criar ou atualizar um registro na tabela `Presencas`.
+
+**4. Requisitos de Segurança (Não Funcionais)**
+
+* **Multi-tenancy é Mandatório:** Continue aplicando rigorosamente o isolamento de dados. Todas as queries, mutações e endpoints relacionados a turmas, horários e presenças devem ser filtrados pelo `academia_id` extraído do JWT do usuário autenticado.
+* **Controle de Acesso:** Apenas o `ADMIN_ACADEMIA` pode criar ou editar turmas e horários. O `PROFESSOR` só pode visualizar as aulas e registrar a presença dos alunos nas turmas que lhe foram atribuídas.
+
+Execute este plano para o Módulo 2.
+```
