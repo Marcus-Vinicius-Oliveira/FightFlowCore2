@@ -534,6 +534,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           academyId: req.user!.academyId // Always set from authenticated user
         });
 
+        // Validate that instructorId belongs to same academy
+        const instructor = await storage.getUser(classData.instructorId);
+        if (!instructor || instructor.academyId !== req.user!.academyId || instructor.role !== 'PROFESSOR') {
+          return res.status(400).json({ error: 'Invalid instructor or instructor does not belong to your academy' });
+        }
+
+        // Validate that classTypeId belongs to same academy
+        const classType = await storage.getClassType(classData.classTypeId);
+        if (!classType || classType.academyId !== req.user!.academyId) {
+          return res.status(400).json({ error: 'Invalid class type or class type does not belong to your academy' });
+        }
+
         const newClass = await storage.createClass(classData);
         res.status(201).json(newClass);
 
@@ -573,6 +585,303 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         console.error('Create class type error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Update class (turma)
+  app.patch('/api/classes/:id',
+    authenticateToken,
+    requireRole(['ADMIN_ACADEMIA']),
+    requireSameAcademy,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const classId = req.params.id;
+        
+        // Verify class exists and belongs to the same academy
+        const existingClass = await storage.getClass(classId);
+        if (!existingClass || existingClass.academyId !== req.user!.academyId) {
+          return res.status(404).json({ error: 'Class not found or access denied' });
+        }
+
+        const updateClassSchema = z.object({
+          classTypeId: z.string().uuid().optional(),
+          instructorId: z.string().uuid().optional(),
+          dayOfWeek: z.number().min(0).max(6).optional(),
+          startTime: z.string().optional(),
+          endTime: z.string().optional(),
+          active: z.boolean().optional(),
+        });
+
+        const updateData = updateClassSchema.parse(req.body);
+
+        // Validate that instructorId belongs to same academy (if provided)
+        if (updateData.instructorId) {
+          const instructor = await storage.getUser(updateData.instructorId);
+          if (!instructor || instructor.academyId !== req.user!.academyId || instructor.role !== 'PROFESSOR') {
+            return res.status(400).json({ error: 'Invalid instructor or instructor does not belong to your academy' });
+          }
+        }
+
+        // Validate that classTypeId belongs to same academy (if provided)
+        if (updateData.classTypeId) {
+          const classType = await storage.getClassType(updateData.classTypeId);
+          if (!classType || classType.academyId !== req.user!.academyId) {
+            return res.status(400).json({ error: 'Invalid class type or class type does not belong to your academy' });
+          }
+        }
+
+        const updatedClass = await storage.updateClass(classId, updateData);
+
+        if (!updatedClass) {
+          return res.status(404).json({ error: 'Class not found' });
+        }
+
+        res.json(updatedClass);
+
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ 
+            error: 'Validation error', 
+            details: error.errors 
+          });
+        }
+        console.error('Update class error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Delete class (turma) - soft delete
+  app.delete('/api/classes/:id',
+    authenticateToken,
+    requireRole(['ADMIN_ACADEMIA']),
+    requireSameAcademy,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const classId = req.params.id;
+        
+        // Verify class exists and belongs to the same academy
+        const existingClass = await storage.getClass(classId);
+        if (!existingClass || existingClass.academyId !== req.user!.academyId) {
+          return res.status(404).json({ error: 'Class not found or access denied' });
+        }
+
+        // Soft delete by setting active to false
+        const deletedClass = await storage.updateClass(classId, { active: false });
+
+        if (!deletedClass) {
+          return res.status(404).json({ error: 'Class not found' });
+        }
+
+        res.json({ message: 'Class deleted successfully' });
+
+      } catch (error) {
+        console.error('Delete class error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // ============================================================================
+  // MÓDULO 2: PRESENÇA (Professor and Admin access)
+  // ============================================================================
+
+  // Get attendance for a specific class
+  app.get('/api/classes/:classId/attendance',
+    authenticateToken,
+    requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+    requireSameAcademy,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const classId = req.params.classId;
+        const date = req.query.date as string;
+
+        // Verify class exists and belongs to the same academy
+        const existingClass = await storage.getClass(classId);
+        if (!existingClass || existingClass.academyId !== req.user!.academyId) {
+          return res.status(404).json({ error: 'Class not found or access denied' });
+        }
+
+        // For professors, verify they are the instructor of this class
+        if (req.user!.role === 'PROFESSOR' && existingClass.instructorId !== req.user!.id) {
+          return res.status(403).json({ error: 'You can only access attendance for classes you teach' });
+        }
+
+        // Get enrolled students for this class
+        const enrollments = await storage.getEnrollmentsByClass(classId);
+        
+        // Get attendance records for the specified date
+        const attendanceRecords = date 
+          ? await storage.getAttendanceByClassAndDate(classId, new Date(date))
+          : await storage.getAttendanceByClass(classId);
+
+        // Combine enrollment and attendance data
+        const studentsWithAttendance = enrollments.map(enrollment => {
+          const attendanceRecord = attendanceRecords.find(
+            record => record.studentId === enrollment.studentId && 
+            (!date || record.date.toDateString() === new Date(date).toDateString())
+          );
+
+          return {
+            studentId: enrollment.studentId,
+            studentName: enrollment.student?.name,
+            studentEmail: enrollment.student?.email,
+            attendance: attendanceRecord ? {
+              id: attendanceRecord.id,
+              status: attendanceRecord.status,
+              notes: attendanceRecord.notes,
+              date: attendanceRecord.date
+            } : null
+          };
+        });
+
+        res.json({
+          classId,
+          className: existingClass.classType?.name,
+          instructor: existingClass.instructor?.name,
+          date,
+          students: studentsWithAttendance
+        });
+
+      } catch (error) {
+        console.error('Get attendance error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Record attendance for a student in a class
+  app.post('/api/classes/:classId/attendance',
+    authenticateToken,
+    requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+    requireSameAcademy,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const classId = req.params.classId;
+
+        // Verify class exists and belongs to the same academy
+        const existingClass = await storage.getClass(classId);
+        if (!existingClass || existingClass.academyId !== req.user!.academyId) {
+          return res.status(404).json({ error: 'Class not found or access denied' });
+        }
+
+        // For professors, verify they are the instructor of this class
+        if (req.user!.role === 'PROFESSOR' && existingClass.instructorId !== req.user!.id) {
+          return res.status(403).json({ error: 'You can only record attendance for classes you teach' });
+        }
+
+        const attendanceSchema = z.object({
+          studentId: z.string().uuid(),
+          date: z.string(),
+          status: z.enum(['presente', 'falta', 'justificado']),
+          notes: z.string().optional(),
+        });
+
+        const attendanceData = attendanceSchema.parse(req.body);
+
+        // Verify student is enrolled in this class and belongs to same academy
+        const student = await storage.getUser(attendanceData.studentId);
+        if (!student || student.academyId !== req.user!.academyId || student.role !== 'ALUNO') {
+          return res.status(400).json({ error: 'Student not found or does not belong to your academy' });
+        }
+
+        const enrollment = await storage.getEnrollmentByStudentAndClass(attendanceData.studentId, classId);
+        if (!enrollment || !enrollment.active) {
+          return res.status(400).json({ error: 'Student is not enrolled in this class or enrollment is inactive' });
+        }
+
+        // Check if attendance already exists for this student, class, and date
+        const existingAttendance = await storage.getAttendanceByStudentClassAndDate(
+          attendanceData.studentId, 
+          classId, 
+          new Date(attendanceData.date)
+        );
+
+        let attendanceRecord;
+        if (existingAttendance) {
+          // Update existing attendance
+          attendanceRecord = await storage.updateAttendance(existingAttendance.id, {
+            status: attendanceData.status,
+            notes: attendanceData.notes,
+          });
+        } else {
+          // Create new attendance record
+          attendanceRecord = await storage.createAttendance({
+            studentId: attendanceData.studentId,
+            classId,
+            academyId: req.user!.academyId,
+            date: new Date(attendanceData.date),
+            status: attendanceData.status,
+            notes: attendanceData.notes,
+            present: attendanceData.status === 'presente' // legacy field for compatibility
+          });
+        }
+
+        res.status(201).json(attendanceRecord);
+
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ 
+            error: 'Validation error', 
+            details: error.errors 
+          });
+        }
+        console.error('Record attendance error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Get weekly schedule (grade semanal)
+  app.get('/api/classes/schedule/weekly',
+    authenticateToken,
+    requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+    requireSameAcademy,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const classes = await storage.getClassesByAcademy(req.user!.academyId);
+        
+        // For professors, filter to only classes they teach
+        const filteredClasses = req.user!.role === 'PROFESSOR' 
+          ? classes.filter(cls => cls.instructorId === req.user!.id)
+          : classes;
+
+        // Group classes by day of week
+        const weeklySchedule: Record<string, any[]> = {
+          "0": [], // Sunday
+          "1": [], // Monday
+          "2": [], // Tuesday
+          "3": [], // Wednesday
+          "4": [], // Thursday
+          "5": [], // Friday
+          "6": []  // Saturday
+        };
+
+        filteredClasses.forEach(cls => {
+          const dayOfWeek = cls.dayOfWeek.toString();
+          weeklySchedule[dayOfWeek].push({
+            id: cls.id,
+            classType: cls.classType?.name,
+            instructor: cls.instructor?.name,
+            startTime: cls.startTime,
+            endTime: cls.endTime,
+            active: cls.active
+          });
+        });
+
+        // Sort classes within each day by start time
+        Object.keys(weeklySchedule).forEach(day => {
+          weeklySchedule[day].sort((a, b) => 
+            a.startTime.localeCompare(b.startTime)
+          );
+        });
+
+        res.json(weeklySchedule);
+
+      } catch (error) {
+        console.error('Get weekly schedule error:', error);
         res.status(500).json({ error: 'Internal server error' });
       }
     }

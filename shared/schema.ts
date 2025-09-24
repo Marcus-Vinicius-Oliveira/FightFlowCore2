@@ -257,6 +257,18 @@ export type Enrollment = typeof enrollments.$inferSelect;
 export type Attendance = typeof attendance.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 
+// DTOs with relations (for API responses)
+export type ClassWithRefs = Class & {
+  classType?: ClassType;
+  instructor?: User;
+};
+
+export type EnrollmentWithRefs = Enrollment & {
+  student?: User;
+  class?: Class;
+  membershipPlan?: MembershipPlan;
+};
+
 export type InsertAcademy = z.infer<typeof insertAcademySchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertMembershipPlan = z.infer<typeof insertMembershipPlanSchema>;
