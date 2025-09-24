@@ -62,8 +62,8 @@ export function AppSidebar({
         roles: ["ADMIN_ACADEMIA"]
       },
       {
-        title: "Aulas e Horários",
-        url: "/dashboard/aulas",
+        title: "Grade de Aulas",
+        url: "/dashboard/grade",
         icon: Calendar,
         roles: ["ADMIN_ACADEMIA", "PROFESSOR"]
       },

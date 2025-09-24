@@ -301,6 +301,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Get instructors (with academy isolation) - Admin only
+  app.get('/api/instructors', 
+    authenticateToken, 
+    requireRole(['ADMIN_ACADEMIA']),
+    requireSameAcademy,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        // Always use academyId from authenticated user, never from request
+        const instructors = await storage.getUsersByAcademy(req.user!.academyId, 'PROFESSOR');
+        
+        // Remove sensitive information
+        const sanitizedInstructors = instructors.map(instructor => ({
+          id: instructor.id,
+          name: instructor.name,
+          email: instructor.email,
+          phone: instructor.phone,
+          active: instructor.active,
+          createdAt: instructor.createdAt
+        }));
+
+        res.json(sanitizedInstructors);
+
+      } catch (error) {
+        console.error('Get instructors error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
   // Create student (Admin only)
   app.post('/api/students', 
     authenticateToken, 

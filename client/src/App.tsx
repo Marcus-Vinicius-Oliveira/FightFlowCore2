@@ -16,6 +16,9 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import StudentDashboard from "@/pages/StudentDashboard";
 import StudentManagement from "@/pages/StudentManagement";
+import ClassManagement from "@/pages/ClassManagement";
+import WeeklySchedule from "@/pages/WeeklySchedule";
+import AttendanceControl from "@/pages/AttendanceControl";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
@@ -34,6 +37,21 @@ function Router() {
       <Route path="/dashboard/alunos">
         <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
           <StudentManagement />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/dashboard/aulas">
+        <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
+          <ClassManagement />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/dashboard/grade">
+        <ProtectedRoute requireRole={['ADMIN_ACADEMIA', 'PROFESSOR']}>
+          <WeeklySchedule />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/dashboard/presenca/:classId">
+        <ProtectedRoute requireRole={['ADMIN_ACADEMIA', 'PROFESSOR']}>
+          <AttendanceControl />
         </ProtectedRoute>
       </Route>
       <Route path="/student-portal">
