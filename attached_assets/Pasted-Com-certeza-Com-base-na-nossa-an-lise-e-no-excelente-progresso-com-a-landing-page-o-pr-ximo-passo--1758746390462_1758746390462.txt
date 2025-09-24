@@ -1,0 +1,69 @@
+Com certeza. Com base na nossa análise e no excelente progresso com a landing page, o próximo passo lógico é dar vida ao sistema, implementando a funcionalidade de cadastro, login e o esqueleto do painel de administração. Este é o prompt que validará a arquitetura de segurança e multitenancy que planejamos.
+
+Aqui está um prompt completo e detalhado, pronto para ser copiado e colado no Replit.
+
+-----
+
+### **Prompt para Replit: Implementação do Fluxo de Admin e Dashboard**
+
+```
+Continue the development of the "Centro de Lutas Management" full-stack application. The Next.js landing page is complete. The next critical step is to implement the core functionality for an academy administrator to sign up, log in, and access a protected dashboard.
+
+This will be the first real-world test of the NestJS backend, the PostgreSQL database schema, and the security architecture.
+
+**Technology Stack Reminder:**
+* **Frontend:** Next.js with TypeScript
+* **Backend:** NestJS with TypeScript
+* **Database:** PostgreSQL
+* **ORM:** Prisma or TypeORM
+
+**Core Tasks to Implement:**
+
+**1. User Registration Flow (Admin da Academia):**
+* Create a new page at `/cadastro`.
+* This page must contain a form with the following fields: "Nome da Academia", "Seu Nome Completo", "Seu Email", "Senha".
+* When the form is submitted, it must make a `POST` request to a new backend API endpoint: `/auth/register`.
+* **Backend Logic (`/auth/register`):**
+    * Validate the incoming data.
+    * Check if the email already exists in the `usuarios` table.
+    * Use `bcrypt` to hash the password before saving.
+    * Execute a database transaction to:
+        1.  Create a new entry in the `academias` table.
+        2.  Create a new entry in the `usuarios` table, setting the `role` to `'ADMIN_ACADEMIA'` and associating it with the `academia_id` just created.
+    * On success, return a 201 Created status.
+* **Frontend Logic:** After a successful registration, redirect the user to the `/login` page and display a success message (e.g., "Cadastro realizado com sucesso! Faça o login para continuar.").
+
+**2. User Login Flow:**
+* Create a new page at `/login`.
+* This page must contain a form with fields for "Email" and "Senha".
+* When the form is submitted, it must make a `POST` request to the backend API endpoint: `/auth/login`.
+* **Backend Logic (`/auth/login`):**
+    * Find the user by email.
+    * Compare the submitted password with the stored hash using `bcrypt.compare`.
+    * If credentials are valid, generate a JSON Web Token (JWT).
+    * **CRITICAL:** The JWT payload MUST contain `userId`, `role`, and `academiaId` (our tenant ID).
+    * Return the JWT to the client.
+* **Frontend Logic:**
+    * Upon receiving the JWT, store it securely (e.g., in an HttpOnly cookie for security).
+    * Redirect the user to the `/dashboard`.
+    * Handle login errors by displaying a message like "Email ou senha inválidos."
+
+**3. Protected Admin Dashboard:**
+* Create a new page at `/dashboard`.
+* **Frontend Logic (Route Protection):** This page must be a protected route. Implement logic (e.g., a Higher-Order Component or middleware in Next.js) that checks for the presence and validity of the JWT. If the user is not authenticated, they must be redirected to the `/login` page.
+* **Dashboard UI (MVP):**
+    * Keep it simple for now. The page should display a welcome message using the data from the JWT, for example: "Bem-vindo(a) ao painel da [Nome da Academia]".
+    * Add a "Sair" (Logout) button. Clicking it should clear the user's authentication token/cookie and redirect them to the homepage (`/`).
+
+**4. Backend Security (API Guards):**
+* In NestJS, create an `AuthGuard` that protects API routes.
+* Apply this guard to a new test endpoint, for example, `GET /dashboard/info`.
+* **Backend Logic (`/dashboard/info`):** This protected endpoint should extract the `academiaId` from the JWT payload and use it to fetch information specific to that academy (e.g., return the academy's name from the database). This proves that the multitenancy security context is working correctly.
+
+**Final Instructions:**
+* Ensure all frontend forms have basic validation (e.g., required fields, email format).
+* Connect the frontend pages (`/cadastro`, `/login`) to the corresponding backend API endpoints you create.
+* The UI for these new pages should be clean and consistent with the style of the landing page.
+
+This prompt focuses on building the critical user authentication and authorization foundation, moving the project from a static landing page to a functional and secure web application.
+```

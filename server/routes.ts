@@ -220,6 +220,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dashboard info endpoint - proves multitenancy security context is working
+  app.get('/api/dashboard/info', authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      // Extract academyId from JWT payload (our tenant ID)
+      const academyId = req.user!.academyId;
+      
+      // Get academy information
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) {
+        return res.status(404).json({ error: 'Academy not found' });
+      }
+
+      // Get statistics specific to this academy (multitenancy in action)
+      const [students, instructors, classTypes] = await Promise.all([
+        storage.getUsersByAcademy(academyId, 'ALUNO'),
+        storage.getUsersByAcademy(academyId, 'PROFESSOR'),
+        storage.getClassTypesByAcademy(academyId)
+      ]);
+
+      res.json({
+        academy: {
+          id: academy.id,
+          name: academy.name,
+          slug: academy.slug,
+          email: academy.email,
+          createdAt: academy.createdAt
+        },
+        statistics: {
+          totalStudents: students.length,
+          totalInstructors: instructors.length,
+          totalClassTypes: classTypes.length
+        },
+        message: `Bem-vindo ao painel da ${academy.name}`,
+        multitenancyProof: {
+          requestorRole: req.user!.role,
+          isolatedByAcademyId: academyId,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+    } catch (error) {
+      console.error('Dashboard info error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // ============================================================================
   // STUDENT MANAGEMENT (Admin and Professor access)
   // ============================================================================

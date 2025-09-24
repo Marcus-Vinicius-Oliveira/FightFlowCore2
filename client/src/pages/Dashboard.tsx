@@ -1,3 +1,4 @@
+import { DashboardInfo } from "@/components/DashboardInfo";
 import { DashboardStats } from "@/components/DashboardStats";
 import { StudentManagement } from "@/components/StudentManagement";
 import { ClassManagement } from "@/components/ClassManagement";
@@ -13,6 +14,9 @@ export default function Dashboard() {
         </p>
       </div>
 
+      {/* Academy Info with Multitenancy Proof */}
+      <DashboardInfo />
+      
       {/* Stats Overview */}
       <DashboardStats />
 

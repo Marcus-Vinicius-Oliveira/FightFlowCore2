@@ -11,17 +11,30 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/Landing";
 import AuthPage from "@/pages/AuthPage";
+import Cadastro from "@/pages/Cadastro";
+import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import StudentDashboard from "@/pages/StudentDashboard";
 import NotFound from "@/pages/not-found";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/auth" component={AuthPage} />
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/student-portal" component={StudentDashboard} />
+      <Route path="/cadastro" component={Cadastro} />
+      <Route path="/login" component={Login} />
+      <Route path="/dashboard">
+        <ProtectedRoute>
+          <Dashboard />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/student-portal">
+        <ProtectedRoute requireRole={['ALUNO']}>
+          <StudentDashboard />
+        </ProtectedRoute>
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
