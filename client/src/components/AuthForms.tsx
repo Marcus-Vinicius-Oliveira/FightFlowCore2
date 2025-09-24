@@ -37,9 +37,9 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         <div className="flex justify-center mb-4">
           <Shield className="h-12 w-12 text-primary" />
         </div>
-        <CardTitle className="text-2xl">Welcome Back</CardTitle>
+        <CardTitle className="text-2xl">Bem-vindo de Volta</CardTitle>
         <CardDescription>
-          Sign in to your academy management account
+          Entre na sua conta de gerenciamento da academia
         </CardDescription>
       </CardHeader>
       
@@ -50,7 +50,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
             <Input
               id="email"
               type="email"
-              placeholder="admin@academy.com"
+              placeholder="admin@academia.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -59,12 +59,12 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Senha</Label>
             <div className="relative">
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Enter your password"
+                placeholder="Digite sua senha"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -91,12 +91,12 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
             disabled={isLoggingIn}
             data-testid="button-login-submit"
           >
-            {isLoggingIn ? "Signing In..." : "Sign In"}
+            {isLoggingIn ? "Entrando..." : "Entrar"}
           </Button>
           
           <div className="text-sm text-center">
             <a href="#" className="text-primary hover:underline">
-              Forgot your password?
+              Esqueceu sua senha?
             </a>
           </div>
         </CardFooter>
@@ -148,20 +148,20 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         <div className="flex justify-center mb-4">
           <Shield className="h-12 w-12 text-primary" />
         </div>
-        <CardTitle className="text-2xl">Create Account</CardTitle>
+        <CardTitle className="text-2xl">Criar Conta</CardTitle>
         <CardDescription>
-          Start managing your martial arts academy
+          Comece a gerenciar sua academia de artes marciais
         </CardDescription>
       </CardHeader>
       
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="signup-name">Full Name</Label>
+            <Label htmlFor="signup-name">Nome Completo</Label>
             <Input
               id="signup-name"
               type="text"
-              placeholder="John Silva"
+              placeholder="João Silva"
               value={formData.name}
               onChange={(e) => handleInputChange("name", e.target.value)}
               required
@@ -174,7 +174,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
             <Input
               id="signup-email"
               type="email"
-              placeholder="admin@academy.com"
+              placeholder="admin@academia.com"
               value={formData.email}
               onChange={(e) => handleInputChange("email", e.target.value)}
               required
@@ -183,26 +183,26 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="role">Role</Label>
+            <Label htmlFor="role">Função</Label>
             <Select value={formData.role} onValueChange={(value) => handleInputChange("role", value)}>
               <SelectTrigger data-testid="select-role">
-                <SelectValue placeholder="Select your role" />
+                <SelectValue placeholder="Selecione sua função" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ADMIN_ACADEMIA">Academy Administrator</SelectItem>
-                <SelectItem value="PROFESSOR">Professor/Instructor</SelectItem>
-                <SelectItem value="ALUNO">Student</SelectItem>
+                <SelectItem value="ADMIN_ACADEMIA">Administrador da Academia</SelectItem>
+                <SelectItem value="PROFESSOR">Professor/Instrutor</SelectItem>
+                <SelectItem value="ALUNO">Aluno</SelectItem>
               </SelectContent>
             </Select>
           </div>
           
           {formData.role === "ADMIN_ACADEMIA" && (
             <div className="space-y-2">
-              <Label htmlFor="academy-name">Academy Name</Label>
+              <Label htmlFor="academy-name">Nome da Academia</Label>
               <Input
                 id="academy-name"
                 type="text"
-                placeholder="Dragon Martial Arts Academy"
+                placeholder="Academia Dragão de Artes Marciais"
                 value={formData.academyName}
                 onChange={(e) => handleInputChange("academyName", e.target.value)}
                 required
@@ -212,12 +212,12 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
           )}
           
           <div className="space-y-2">
-            <Label htmlFor="signup-password">Password</Label>
+            <Label htmlFor="signup-password">Senha</Label>
             <div className="relative">
               <Input
                 id="signup-password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Create a strong password"
+                placeholder="Crie uma senha forte"
                 value={formData.password}
                 onChange={(e) => handleInputChange("password", e.target.value)}
                 required
@@ -237,11 +237,11 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="confirm-password">Confirm Password</Label>
+            <Label htmlFor="confirm-password">Confirmar Senha</Label>
             <Input
               id="confirm-password"
               type="password"
-              placeholder="Confirm your password"
+              placeholder="Confirme sua senha"
               value={formData.confirmPassword}
               onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
               required
@@ -257,7 +257,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
             disabled={isSigningUp}
             data-testid="button-signup-submit"
           >
-            {isSigningUp ? "Creating Account..." : "Create Account"}
+            {isSigningUp ? "Criando Conta..." : "Criar Conta"}
           </Button>
         </CardFooter>
       </form>
@@ -270,8 +270,8 @@ export function AuthTabs() {
     <div className="w-full max-w-md mx-auto">
       <Tabs defaultValue="login" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="login" data-testid="tab-login">Login</TabsTrigger>
-          <TabsTrigger value="signup" data-testid="tab-signup">Sign Up</TabsTrigger>
+          <TabsTrigger value="login" data-testid="tab-login">Entrar</TabsTrigger>
+          <TabsTrigger value="signup" data-testid="tab-signup">Cadastrar</TabsTrigger>
         </TabsList>
         <TabsContent value="login">
           <LoginForm onSuccess={() => console.log('Login successful')} />
