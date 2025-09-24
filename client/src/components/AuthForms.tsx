@@ -6,37 +6,29 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Eye, EyeOff, Shield } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface LoginFormProps {
-  onSubmit?: (email: string, password: string) => void;
+  onSuccess?: () => void;
 }
 
 interface SignupFormProps {
-  onSubmit?: (data: {
-    email: string;
-    password: string;
-    name: string;
-    role: string;
-    academyName?: string;
-  }) => void;
+  onSuccess?: () => void;
 }
 
-export function LoginForm({ onSubmit }: LoginFormProps) {
+export function LoginForm({ onSuccess }: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const { login, isLoggingIn } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    console.log('Login submitted:', { email, password });
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      onSubmit?.(email, password);
-    }, 1000);
+    login({ email, password }, {
+      onSuccess: () => {
+        onSuccess?.();
+      }
+    });
   };
 
   return (
@@ -96,10 +88,10 @@ export function LoginForm({ onSubmit }: LoginFormProps) {
           <Button 
             type="submit" 
             className="w-full" 
-            disabled={isLoading}
+            disabled={isLoggingIn}
             data-testid="button-login-submit"
           >
-            {isLoading ? "Signing In..." : "Sign In"}
+            {isLoggingIn ? "Signing In..." : "Sign In"}
           </Button>
           
           <div className="text-sm text-center">
@@ -113,7 +105,7 @@ export function LoginForm({ onSubmit }: LoginFormProps) {
   );
 }
 
-export function SignupForm({ onSubmit }: SignupFormProps) {
+export function SignupForm({ onSuccess }: SignupFormProps) {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -123,7 +115,7 @@ export function SignupForm({ onSubmit }: SignupFormProps) {
     academyName: "",
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const { signup, isSigningUp } = useAuth();
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -133,18 +125,21 @@ export function SignupForm({ onSubmit }: SignupFormProps) {
     e.preventDefault();
     
     if (formData.password !== formData.confirmPassword) {
-      console.log('Passwords do not match');
+      // This should show a proper error message
       return;
     }
     
-    setIsLoading(true);
-    console.log('Signup submitted:', formData);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      onSubmit?.(formData);
-    }, 1000);
+    signup({
+      name: formData.name,
+      email: formData.email,
+      password: formData.password,
+      role: formData.role as 'ADMIN_ACADEMIA' | 'PROFESSOR' | 'ALUNO',
+      academyName: formData.academyName || undefined
+    }, {
+      onSuccess: () => {
+        onSuccess?.();
+      }
+    });
   };
 
   return (
@@ -259,10 +254,10 @@ export function SignupForm({ onSubmit }: SignupFormProps) {
           <Button 
             type="submit" 
             className="w-full" 
-            disabled={isLoading}
+            disabled={isSigningUp}
             data-testid="button-signup-submit"
           >
-            {isLoading ? "Creating Account..." : "Create Account"}
+            {isSigningUp ? "Creating Account..." : "Create Account"}
           </Button>
         </CardFooter>
       </form>
@@ -279,10 +274,10 @@ export function AuthTabs() {
           <TabsTrigger value="signup" data-testid="tab-signup">Sign Up</TabsTrigger>
         </TabsList>
         <TabsContent value="login">
-          <LoginForm onSubmit={(email, password) => console.log('Login:', { email, password })} />
+          <LoginForm onSuccess={() => console.log('Login successful')} />
         </TabsContent>
         <TabsContent value="signup">
-          <SignupForm onSubmit={(data) => console.log('Signup:', data)} />
+          <SignupForm onSuccess={() => console.log('Signup successful')} />
         </TabsContent>
       </Tabs>
     </div>

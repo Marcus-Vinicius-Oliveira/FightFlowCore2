@@ -8,6 +8,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/Landing";
 import AuthPage from "@/pages/AuthPage";
 import Dashboard from "@/pages/Dashboard";
@@ -82,23 +83,101 @@ function AppWithSidebar() {
   );
 }
 
+function AuthPageWithIntegration() {
+  const { isAuthenticated, user, isLoading } = useAuth();
+  const [showDemo, setShowDemo] = useState(false);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <AppWithAuthentication />;
+  }
+
+  return <AuthPage />;
+}
+
+function AppWithAuthentication() {
+  const { user } = useAuth();
+  
+  const style = {
+    "--sidebar-width": "18rem",
+    "--sidebar-width-icon": "4rem",
+  };
+
+  return (
+    <SidebarProvider style={style as React.CSSProperties}>
+      <div className="flex h-screen w-full">
+        <AppSidebar 
+          userRole={user?.role as any}
+          userInfo={{
+            name: user?.name || "",
+            email: user?.email || "",
+            academy: user?.academy?.name || ""
+          }}
+        />
+        <div className="flex flex-col flex-1">
+          <header className="flex items-center justify-between p-4 border-b bg-background">
+            <div className="flex items-center space-x-4">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              <div className="text-sm text-muted-foreground">
+                Welcome back, {user?.name}
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <ThemeToggle />
+              <LogoutButton />
+            </div>
+          </header>
+          <main className="flex-1 overflow-auto p-8">
+            {user?.role === 'ALUNO' ? <StudentDashboard /> : <Dashboard />}
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
+  );
+}
+
+function LogoutButton() {
+  const { logout } = useAuth();
+  
+  return (
+    <button
+      onClick={logout}
+      className="px-3 py-1 text-sm border rounded hover:bg-muted transition-colors"
+      data-testid="button-logout"
+    >
+      Logout
+    </button>
+  );
+}
+
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
+  const [showDemo, setShowDemo] = useState(false);
   
   // Demo navigation controls
   const handleDemoLogin = () => {
-    setIsAuthenticated(true);
+    setShowDemo(true);
     setShowLanding(false);
   };
   
   const handleShowAuth = () => {
     setShowLanding(false);
+    setShowDemo(false);
   };
   
   const handleBackToLanding = () => {
     setShowLanding(true);
-    setIsAuthenticated(false);
+    setShowDemo(false);
   };
   
   return (
@@ -134,10 +213,10 @@ function App() {
             {/* Main Content */}
             {showLanding ? (
               <Landing />
-            ) : isAuthenticated ? (
+            ) : showDemo ? (
               <AppWithSidebar />
             ) : (
-              <AuthPage />
+              <AuthPageWithIntegration />
             )}
           </div>
           <Toaster />
