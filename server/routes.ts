@@ -365,6 +365,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Create class
+  app.post('/api/classes',
+    authenticateToken,
+    requireRole(['ADMIN_ACADEMIA']),
+    requireSameAcademy,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const classData = insertClassSchema.parse({
+          ...req.body,
+          academyId: req.user!.academyId // Always set from authenticated user
+        });
+
+        const newClass = await storage.createClass(classData);
+        res.status(201).json(newClass);
+
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ 
+            error: 'Validation error', 
+            details: error.errors 
+          });
+        }
+        console.error('Create class error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Create class type
+  app.post('/api/class-types',
+    authenticateToken,
+    requireRole(['ADMIN_ACADEMIA']),
+    requireSameAcademy,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const classTypeData = insertClassTypeSchema.parse({
+          ...req.body,
+          academyId: req.user!.academyId // Always set from authenticated user
+        });
+
+        const newClassType = await storage.createClassType(classTypeData);
+        res.status(201).json(newClassType);
+
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ 
+            error: 'Validation error', 
+            details: error.errors 
+          });
+        }
+        console.error('Create class type error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
   // ============================================================================
   // MEMBERSHIP PLANS (Admin access)
   // ============================================================================

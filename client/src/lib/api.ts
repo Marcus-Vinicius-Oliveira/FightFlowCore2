@@ -152,6 +152,31 @@ class ApiClient {
     return this.request('/class-types');
   }
 
+  async createClass(classData: {
+    classTypeId: string;
+    instructorId: string;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+  }): Promise<any> {
+    return this.request('/classes', {
+      method: 'POST',
+      body: JSON.stringify(classData),
+    });
+  }
+
+  async createClassType(classTypeData: {
+    name: string;
+    description?: string;
+    duration: number;
+    maxCapacity?: number;
+  }): Promise<any> {
+    return this.request('/class-types', {
+      method: 'POST',
+      body: JSON.stringify(classTypeData),
+    });
+  }
+
   // Membership Plans
   async getMembershipPlans(): Promise<any[]> {
     return this.request('/membership-plans');
