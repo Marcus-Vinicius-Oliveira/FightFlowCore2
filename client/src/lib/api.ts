@@ -38,6 +38,11 @@ export interface User {
   phone?: string;
   active?: boolean;
   createdAt?: string;
+  academy?: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
 }
 
 export interface Student extends User {

@@ -1,5 +1,5 @@
 import { DashboardStats } from "@/components/DashboardStats";
-import { StudentTable } from "@/components/StudentTable";
+import { StudentManagement } from "@/components/StudentManagement";
 import { ClassSchedule } from "@/components/ClassSchedule";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -24,12 +24,7 @@ export default function Dashboard() {
         </TabsList>
         
         <TabsContent value="students">
-          <StudentTable 
-            onAddStudent={() => console.log('Add student')}
-            onEditStudent={(student) => console.log('Edit student:', student)}
-            onViewStudent={(student) => console.log('View student:', student)}
-            onDeleteStudent={(student) => console.log('Delete student:', student)}
-          />
+          <StudentManagement />
         </TabsContent>
         
         <TabsContent value="classes">

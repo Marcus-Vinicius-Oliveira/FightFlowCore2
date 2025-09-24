@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -105,8 +105,13 @@ function AuthPageWithIntegration() {
   return <AuthPage />;
 }
 
-function AppWithAuthentication() {
-  const { user } = useAuth();
+function AppWithAuthentication({ onLogout }: { onLogout?: () => void }) {
+  const { user, logout } = useAuth();
+  
+  const handleLogout = () => {
+    logout();
+    onLogout?.();
+  };
   
   const style = {
     "--sidebar-width": "18rem",
@@ -134,7 +139,7 @@ function AppWithAuthentication() {
             </div>
             <div className="flex items-center space-x-2">
               <ThemeToggle />
-              <LogoutButton />
+              <LogoutButton onLogout={handleLogout} />
             </div>
           </header>
           <main className="flex-1 overflow-auto p-8">
@@ -146,12 +151,10 @@ function AppWithAuthentication() {
   );
 }
 
-function LogoutButton() {
-  const { logout } = useAuth();
-  
+function LogoutButton({ onLogout }: { onLogout?: () => void }) {
   return (
     <button
-      onClick={logout}
+      onClick={onLogout}
       className="px-3 py-1 text-sm border rounded hover:bg-muted transition-colors"
       data-testid="button-logout"
     >
@@ -160,9 +163,18 @@ function LogoutButton() {
   );
 }
 
-function App() {
-  const [showLanding, setShowLanding] = useState(true);
+function AppContent() {
+  const { isAuthenticated, user, isLoading } = useAuth();
+  const [showLanding, setShowLanding] = useState(!isAuthenticated);
   const [showDemo, setShowDemo] = useState(false);
+
+  // Update landing state when authentication changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      setShowLanding(false);
+      setShowDemo(false);
+    }
+  }, [isAuthenticated]);
   
   // Demo navigation controls
   const handleDemoLogin = () => {
@@ -179,46 +191,73 @@ function App() {
     setShowLanding(true);
     setShowDemo(false);
   };
+
+  const handleLogout = () => {
+    setShowLanding(true);
+    setShowDemo(false);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If authenticated, show authenticated app
+  if (isAuthenticated && !showLanding && !showDemo) {
+    return <AppWithAuthentication onLogout={handleLogout} />;
+  }
   
+  return (
+    <div className="min-h-screen">
+      {/* Demo Navigation Bar */}
+      <div className="fixed top-0 right-0 z-50 p-4 flex items-center space-x-2 bg-background/95 backdrop-blur-sm border-l border-b rounded-bl-lg">
+        <button
+          onClick={handleBackToLanding}
+          className="px-3 py-1 text-sm border rounded hover:bg-muted transition-colors"
+          data-testid="button-show-landing"
+        >
+          Landing
+        </button>
+        <button
+          onClick={handleShowAuth}
+          className="px-3 py-1 text-sm border rounded hover:bg-muted transition-colors"
+          data-testid="button-show-auth"
+        >
+          Auth
+        </button>
+        <button
+          onClick={handleDemoLogin}
+          className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
+          data-testid="button-demo-login"
+        >
+          Demo App
+        </button>
+      </div>
+      
+      {/* Main Content */}
+      {showLanding ? (
+        <Landing />
+      ) : showDemo ? (
+        <AppWithSidebar />
+      ) : (
+        <AuthPage />
+      )}
+    </div>
+  );
+}
+
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="centro-lutas-theme">
         <TooltipProvider>
-          <div className="min-h-screen">
-            {/* Demo Navigation Bar */}
-            <div className="fixed top-0 right-0 z-50 p-4 flex items-center space-x-2 bg-background/95 backdrop-blur-sm border-l border-b rounded-bl-lg">
-              <button
-                onClick={handleBackToLanding}
-                className="px-3 py-1 text-sm border rounded hover:bg-muted transition-colors"
-                data-testid="button-show-landing"
-              >
-                Landing
-              </button>
-              <button
-                onClick={handleShowAuth}
-                className="px-3 py-1 text-sm border rounded hover:bg-muted transition-colors"
-                data-testid="button-show-auth"
-              >
-                Auth
-              </button>
-              <button
-                onClick={handleDemoLogin}
-                className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
-                data-testid="button-demo-login"
-              >
-                Demo App
-              </button>
-            </div>
-            
-            {/* Main Content */}
-            {showLanding ? (
-              <Landing />
-            ) : showDemo ? (
-              <AppWithSidebar />
-            ) : (
-              <AuthPageWithIntegration />
-            )}
-          </div>
+          <AppContent />
           <Toaster />
         </TooltipProvider>
       </ThemeProvider>
