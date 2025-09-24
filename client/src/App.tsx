@@ -57,9 +57,9 @@ function AppWithSidebar() {
                   className="px-3 py-1 border rounded text-sm"
                   data-testid="select-user-role"
                 >
-                  <option value="ADMIN_ACADEMIA">Admin View</option>
-                  <option value="PROFESSOR">Professor View</option>
-                  <option value="ALUNO">Student View</option>
+                  <option value="ADMIN_ACADEMIA">Visão Admin</option>
+                  <option value="PROFESSOR">Visão Professor</option>
+                  <option value="ALUNO">Visão Aluno</option>
                 </select>
                 <select 
                   value={currentView} 
@@ -67,8 +67,8 @@ function AppWithSidebar() {
                   className="px-3 py-1 border rounded text-sm"
                   data-testid="select-current-view"
                 >
-                  <option value="dashboard">Admin Dashboard</option>
-                  <option value="student-portal">Student Portal</option>
+                  <option value="dashboard">Painel Admin</option>
+                  <option value="student-portal">Portal do Aluno</option>
                 </select>
               </div>
             </div>
@@ -92,7 +92,7 @@ function AuthPageWithIntegration() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Loading...</p>
+          <p>Carregando...</p>
         </div>
       </div>
     );
@@ -134,7 +134,7 @@ function AppWithAuthentication({ onLogout }: { onLogout?: () => void }) {
             <div className="flex items-center space-x-4">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
               <div className="text-sm text-muted-foreground">
-                Welcome back, {user?.name}
+                Bem-vindo, {user?.name}
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -158,7 +158,7 @@ function LogoutButton({ onLogout }: { onLogout?: () => void }) {
       className="px-3 py-1 text-sm border rounded hover:bg-muted transition-colors"
       data-testid="button-logout"
     >
-      Logout
+      Sair
     </button>
   );
 }
@@ -202,7 +202,7 @@ function AppContent() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Loading...</p>
+          <p>Carregando...</p>
         </div>
       </div>
     );
@@ -222,21 +222,21 @@ function AppContent() {
           className="px-3 py-1 text-sm border rounded hover:bg-muted transition-colors"
           data-testid="button-show-landing"
         >
-          Landing
+          Início
         </button>
         <button
           onClick={handleShowAuth}
           className="px-3 py-1 text-sm border rounded hover:bg-muted transition-colors"
           data-testid="button-show-auth"
         >
-          Auth
+          Login
         </button>
         <button
           onClick={handleDemoLogin}
           className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
           data-testid="button-demo-login"
         >
-          Demo App
+          Demo
         </button>
       </div>
       

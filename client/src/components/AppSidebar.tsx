@@ -47,7 +47,7 @@ export function AppSidebar({
   const getMenuItems = () => {
     const baseItems = [
       {
-        title: "Dashboard",
+        title: "Painel",
         url: "/dashboard",
         icon: Home,
         roles: ["ADMIN_ACADEMIA", "PROFESSOR", "ALUNO"]
@@ -56,37 +56,37 @@ export function AppSidebar({
 
     const adminItems = [
       {
-        title: "Students",
+        title: "Alunos",
         url: "/students",
         icon: Users,
         roles: ["ADMIN_ACADEMIA"]
       },
       {
-        title: "Classes & Schedule",
+        title: "Aulas e Horários",
         url: "/classes",
         icon: Calendar,
         roles: ["ADMIN_ACADEMIA", "PROFESSOR"]
       },
       {
-        title: "Attendance",
+        title: "Presença",
         url: "/attendance", 
         icon: UserCheck,
         roles: ["ADMIN_ACADEMIA", "PROFESSOR"]
       },
       {
-        title: "Finances",
+        title: "Financeiro",
         url: "/finances",
         icon: DollarSign,
         roles: ["ADMIN_ACADEMIA"]
       },
       {
-        title: "Reports",
+        title: "Relatórios",
         url: "/reports",
         icon: BarChart3,
         roles: ["ADMIN_ACADEMIA"]
       },
       {
-        title: "Academy Settings",
+        title: "Configurações",
         url: "/settings",
         icon: Settings,
         roles: ["ADMIN_ACADEMIA"]
@@ -95,25 +95,25 @@ export function AppSidebar({
 
     const studentItems = [
       {
-        title: "My Schedule",
+        title: "Meus Horários",
         url: "/my-schedule",
         icon: Calendar,
         roles: ["ALUNO"]
       },
       {
-        title: "My Attendance",
+        title: "Minha Presença",
         url: "/my-attendance",
         icon: BookOpen,
         roles: ["ALUNO"]
       },
       {
-        title: "My Progress",
+        title: "Meu Progresso",
         url: "/my-progress",
         icon: GraduationCap,
         roles: ["ALUNO"]
       },
       {
-        title: "Profile",
+        title: "Perfil",
         url: "/profile",
         icon: Settings,
         roles: ["ALUNO", "PROFESSOR"]
@@ -137,9 +137,9 @@ export function AppSidebar({
 
   const getRoleDisplay = (role: string) => {
     const roleMap = {
-      "ADMIN_ACADEMIA": "Academy Admin",
+      "ADMIN_ACADEMIA": "Administrador",
       "PROFESSOR": "Professor",
-      "ALUNO": "Student"
+      "ALUNO": "Aluno"
     };
     return roleMap[role as keyof typeof roleMap] || role;
   };
@@ -158,7 +158,7 @@ export function AppSidebar({
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel>Navegação</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (

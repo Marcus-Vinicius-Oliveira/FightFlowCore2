@@ -36,8 +36,8 @@ export function useAuth() {
     const handleUnauthorized = (event: CustomEvent) => {
       setUser(null);
       toast({
-        title: 'Session Expired',
-        description: event.detail?.message || 'Please log in again.',
+        title: 'Sessão Expirada',
+        description: event.detail?.message || 'Por favor, faça login novamente.',
         variant: 'destructive',
       });
     };
@@ -57,13 +57,13 @@ export function useAuth() {
     onSuccess: (response) => {
       setUser(response.user);
       toast({
-        title: 'Welcome back!',
-        description: `Logged in as ${response.user.name}`,
+        title: 'Bem-vindo de volta!',
+        description: `Logado como ${response.user.name}`,
       });
     },
     onError: (error: Error) => {
       toast({
-        title: 'Login Failed',
+        title: 'Falha no Login',
         description: error.message,
         variant: 'destructive',
       });
@@ -75,13 +75,13 @@ export function useAuth() {
     onSuccess: (response) => {
       setUser(response.user);
       toast({
-        title: 'Account Created!',
-        description: `Welcome to Centro de Lutas, ${response.user.name}`,
+        title: 'Conta Criada!',
+        description: `Bem-vindo ao Centro de Lutas, ${response.user.name}`,
       });
     },
     onError: (error: Error) => {
       toast({
-        title: 'Signup Failed',
+        title: 'Falha no Cadastro',
         description: error.message,
         variant: 'destructive',
       });
@@ -93,8 +93,8 @@ export function useAuth() {
     setUser(null);
     queryClient.clear();
     toast({
-      title: 'Logged Out',
-      description: 'You have been successfully logged out.',
+      title: 'Desconectado',
+      description: 'Você foi desconectado com sucesso.',
     });
   };
 

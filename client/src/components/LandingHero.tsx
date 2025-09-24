@@ -75,7 +75,7 @@ export function LandingHero() {
                 <DollarSign className="h-8 w-8 text-orange-400" />
               </div>
               <h3 className="font-semibold text-lg mb-2">Controle Financeiro</h3>
-              <p className="text-gray-300">Gestão completa de mensalidades e relatórios financeiros</p>
+              <p className="text-gray-300">Reduza inadimplência com cobranças automáticas via PIX, Boleto e cartão</p>
             </div>
           </div>
         </div>
