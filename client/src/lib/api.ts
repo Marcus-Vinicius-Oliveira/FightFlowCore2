@@ -76,6 +76,19 @@ class ApiClient {
     const response = await fetch(url, config);
     
     if (!response.ok) {
+      // Handle 401 unauthorized - clear tokens and redirect to auth
+      if (response.status === 401) {
+        this.logout();
+        
+        // Dispatch custom event to notify the app of automatic logout
+        const event = new CustomEvent('auth:unauthorized', {
+          detail: { message: 'Session expired. Please log in again.' }
+        });
+        window.dispatchEvent(event);
+        
+        throw new Error('Session expired. Please log in again.');
+      }
+
       const error = await response.json().catch(() => ({ 
         error: `HTTP ${response.status} - ${response.statusText}` 
       }));

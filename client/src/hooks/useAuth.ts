@@ -22,7 +22,7 @@ export function useAuth() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Check if user is logged in on mount
+  // Check if user is logged in on mount and handle automatic logout
   useEffect(() => {
     const checkAuth = () => {
       if (apiClient.isAuthenticated()) {
@@ -32,8 +32,25 @@ export function useAuth() {
       setIsLoading(false);
     };
 
+    // Handle automatic logout on 401 errors
+    const handleUnauthorized = (event: CustomEvent) => {
+      setUser(null);
+      toast({
+        title: 'Session Expired',
+        description: event.detail?.message || 'Please log in again.',
+        variant: 'destructive',
+      });
+    };
+
     checkAuth();
-  }, []);
+    
+    // Listen for unauthorized events
+    window.addEventListener('auth:unauthorized', handleUnauthorized as EventListener);
+    
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleUnauthorized as EventListener);
+    };
+  }, [toast]);
 
   const loginMutation = useMutation({
     mutationFn: (credentials: LoginData) => apiClient.login(credentials),
