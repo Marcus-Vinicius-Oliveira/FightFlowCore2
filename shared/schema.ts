@@ -85,13 +85,15 @@ export const enrollments = pgTable("enrollments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Attendance tracking
+// Attendance tracking (Presencas)
 export const attendance = pgTable("attendance", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   studentId: uuid("student_id").references(() => users.id).notNull(),
   classId: uuid("class_id").references(() => classes.id).notNull(),
+  academyId: uuid("academy_id").references(() => academies.id).notNull(),
   date: timestamp("date").notNull(),
-  present: boolean("present").notNull(),
+  present: boolean("present"), // legacy field, keeping for compatibility
+  status: text("status").notNull().default('presente'), // 'presente', 'falta', 'justificado'
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -186,6 +188,10 @@ export const attendanceRelations = relations(attendance, ({ one }) => ({
   class: one(classes, {
     fields: [attendance.classId],
     references: [classes.id],
+  }),
+  academy: one(academies, {
+    fields: [attendance.academyId],
+    references: [academies.id],
   }),
 }));
 
