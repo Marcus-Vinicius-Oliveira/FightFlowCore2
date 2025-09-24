@@ -270,7 +270,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="centro-lutas-theme">
         <TooltipProvider>
-          <AppContent />
+          <Router />
           <Toaster />
         </TooltipProvider>
       </ThemeProvider>

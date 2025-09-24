@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Users, Calendar, Shield } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface DashboardInfoData {
   academy: {
@@ -25,8 +26,14 @@ interface DashboardInfoData {
 }
 
 export function DashboardInfo() {
+  const { isAuthenticated } = useAuth();
+  
   const { data, isLoading, error } = useQuery<DashboardInfoData>({
     queryKey: ['/api/dashboard/info'],
+    enabled: isAuthenticated, // Only run query when authenticated
+    retry: 1, // Reduce retries to avoid persistent error states
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
   });
 
   if (isLoading) {
