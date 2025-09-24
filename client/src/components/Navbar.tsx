@@ -1,0 +1,127 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "./ThemeToggle";
+import { Menu, X, Shield } from "lucide-react";
+
+export function Navbar() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+    console.log('Mobile menu toggled:', !isMenuOpen);
+  };
+
+  return (
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <div className="flex items-center space-x-2">
+            <Shield className="h-8 w-8 text-primary" />
+            <span className="font-bold text-xl">Centro de Lutas</span>
+          </div>
+
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center space-x-8">
+            <a 
+              href="#features" 
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => console.log('Features clicked')}
+            >
+              Features
+            </a>
+            <a 
+              href="#pricing" 
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => console.log('Pricing clicked')}
+            >
+              Pricing
+            </a>
+            <a 
+              href="#about" 
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => console.log('About clicked')}
+            >
+              About
+            </a>
+          </div>
+
+          {/* Actions */}
+          <div className="hidden md:flex items-center space-x-4">
+            <Button 
+              variant="ghost"
+              data-testid="button-login"
+              onClick={() => console.log('Login clicked')}
+            >
+              Login
+            </Button>
+            <Button 
+              data-testid="button-signup"
+              onClick={() => console.log('Sign up clicked')}
+            >
+              Sign Up
+            </Button>
+            <ThemeToggle />
+          </div>
+
+          {/* Mobile menu button */}
+          <div className="md:hidden flex items-center space-x-2">
+            <ThemeToggle />
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={toggleMenu}
+              data-testid="button-mobile-menu"
+            >
+              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </Button>
+          </div>
+        </div>
+
+        {/* Mobile Navigation */}
+        {isMenuOpen && (
+          <div className="md:hidden py-4 border-t">
+            <div className="flex flex-col space-y-4">
+              <a 
+                href="#features" 
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => console.log('Mobile Features clicked')}
+              >
+                Features
+              </a>
+              <a 
+                href="#pricing" 
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => console.log('Mobile Pricing clicked')}
+              >
+                Pricing
+              </a>
+              <a 
+                href="#about" 
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => console.log('Mobile About clicked')}
+              >
+                About
+              </a>
+              <div className="flex flex-col space-y-2 pt-4 border-t">
+                <Button 
+                  variant="ghost"
+                  data-testid="button-mobile-login"
+                  onClick={() => console.log('Mobile Login clicked')}
+                >
+                  Login
+                </Button>
+                <Button 
+                  data-testid="button-mobile-signup"
+                  onClick={() => console.log('Mobile Sign up clicked')}
+                >
+                  Sign Up
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </nav>
+  );
+}
