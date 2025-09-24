@@ -20,13 +20,13 @@ export function LandingHero() {
       <div className="relative z-10 container px-4 py-20 text-center text-white">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
-            Manage Your Martial Arts
-            <span className="block text-orange-400">Academy with Ease</span>
+            Gerencie sua Academia de
+            <span className="block text-orange-400">Artes Marciais com Facilidade</span>
           </h1>
           
           <p className="text-xl md:text-2xl mb-8 text-gray-200 max-w-3xl mx-auto leading-relaxed">
-            Complete SaaS platform for martial arts academies. Manage students, classes, 
-            attendance, and payments all in one secure, professional system.
+            Plataforma SaaS completa para academias de artes marciais. Gerencie alunos, aulas, 
+            presença e pagamentos tudo em um sistema seguro e profissional.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
@@ -37,7 +37,7 @@ export function LandingHero() {
               data-testid="button-get-started"
               onClick={() => console.log('Get started clicked')}
             >
-              Get Started Free
+              Comece Grátis
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             
@@ -48,7 +48,7 @@ export function LandingHero() {
               data-testid="button-watch-demo"
               onClick={() => console.log('Watch demo clicked')}
             >
-              Watch Demo
+              Ver Demonstração
             </Button>
           </div>
           
@@ -58,24 +58,24 @@ export function LandingHero() {
               <div className="bg-white/10 backdrop-blur-sm rounded-full p-3 mb-4">
                 <Users className="h-8 w-8 text-orange-400" />
               </div>
-              <h3 className="font-semibold text-lg mb-2">Student Management</h3>
-              <p className="text-gray-300">Comprehensive student profiles and enrollment tracking</p>
+              <h3 className="font-semibold text-lg mb-2">Gestão de Alunos</h3>
+              <p className="text-gray-300">Perfis completos de alunos e acompanhamento de matrículas</p>
             </div>
             
             <div className="flex flex-col items-center text-center">
               <div className="bg-white/10 backdrop-blur-sm rounded-full p-3 mb-4">
                 <Calendar className="h-8 w-8 text-orange-400" />
               </div>
-              <h3 className="font-semibold text-lg mb-2">Class Scheduling</h3>
-              <p className="text-gray-300">Easy class management with attendance tracking</p>
+              <h3 className="font-semibold text-lg mb-2">Agendamento de Aulas</h3>
+              <p className="text-gray-300">Gestão fácil de aulas com controle de presença</p>
             </div>
             
             <div className="flex flex-col items-center text-center">
               <div className="bg-white/10 backdrop-blur-sm rounded-full p-3 mb-4">
                 <Shield className="h-8 w-8 text-orange-400" />
               </div>
-              <h3 className="font-semibold text-lg mb-2">Secure & Multi-tenant</h3>
-              <p className="text-gray-300">Enterprise-grade security with data isolation</p>
+              <h3 className="font-semibold text-lg mb-2">Seguro e Multi-inquilino</h3>
+              <p className="text-gray-300">Segurança de nível empresarial com isolamento de dados</p>
             </div>
           </div>
         </div>
