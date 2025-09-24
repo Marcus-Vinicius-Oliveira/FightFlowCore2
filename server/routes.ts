@@ -325,8 +325,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(409).json({ error: 'User with this email already exists' });
         }
 
-        // Generate a default password (first name + 123)
-        const defaultPassword = studentData.name.split(' ')[0].toLowerCase() + '123';
+        // Generate a secure random password for the student
+        const generateRandomPassword = () => {
+          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+          let password = '';
+          for (let i = 0; i < 12; i++) {
+            password += chars.charAt(Math.floor(Math.random() * chars.length));
+          }
+          return password;
+        };
+        
+        const defaultPassword = generateRandomPassword();
         const hashedPassword = await hashPassword(defaultPassword);
 
         const newStudent = await storage.createUser({
@@ -375,10 +384,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const updateData = updateStudentSchema.parse(req.body);
 
-        // Verify student exists and belongs to the same academy
+        // Verify student exists and belongs to the same academy (multi-tenant security)
         const existingStudent = await storage.getUser(studentId);
         if (!existingStudent || existingStudent.academyId !== req.user!.academyId || existingStudent.role !== 'ALUNO') {
-          return res.status(404).json({ error: 'Student not found' });
+          return res.status(404).json({ error: 'Student not found or access denied' });
         }
 
         // If email is being updated, check if it already exists
@@ -412,6 +421,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         console.error('Update student error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Delete student (Admin only)
+  app.delete('/api/students/:id', 
+    authenticateToken, 
+    requireRole(['ADMIN_ACADEMIA']),
+    requireSameAcademy,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const studentId = req.params.id;
+        
+        // Verify student exists and belongs to the same academy (multi-tenant security)
+        const existingStudent = await storage.getUser(studentId);
+        if (!existingStudent || existingStudent.academyId !== req.user!.academyId || existingStudent.role !== 'ALUNO') {
+          return res.status(404).json({ error: 'Student not found or access denied' });
+        }
+
+        // Soft delete by setting active to false
+        const deletedStudent = await storage.updateUser(studentId, { active: false });
+
+        if (!deletedStudent) {
+          return res.status(404).json({ error: 'Student not found' });
+        }
+
+        res.json({ message: 'Student deleted successfully' });
+
+      } catch (error) {
+        console.error('Delete student error:', error);
         res.status(500).json({ error: 'Internal server error' });
       }
     }

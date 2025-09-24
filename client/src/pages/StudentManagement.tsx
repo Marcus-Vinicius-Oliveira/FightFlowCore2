@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Edit, Mail, Phone, Calendar } from "lucide-react";
+import { Plus, Search, Edit, Mail, Phone, Calendar, MoreHorizontal, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
@@ -207,6 +209,7 @@ export default function StudentManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | undefined>();
   const [showForm, setShowForm] = useState(false);
+  const [deleteStudent, setDeleteStudent] = useState<Student | undefined>();
 
   const { data: students = [], isLoading } = useQuery<Student[]>({
     queryKey: ['/api/students'],
@@ -226,6 +229,26 @@ export default function StudentManagement() {
     setShowForm(false);
     setSelectedStudent(undefined);
   };
+
+  const deleteMutation = useMutation({
+    mutationFn: (studentId: string) => apiRequest('DELETE', `/api/students/${studentId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+      toast({
+        title: "Aluno removido com sucesso!",
+        description: `${deleteStudent?.name} foi removido da academia.`,
+      });
+      setDeleteStudent(undefined);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao remover aluno",
+        description: error.message,
+        variant: "destructive",
+      });
+      setDeleteStudent(undefined);
+    },
+  });
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
@@ -261,14 +284,13 @@ export default function StudentManagement() {
             Gerencie todos os alunos da sua academia
           </p>
         </div>
+        <Button onClick={() => setShowForm(true)} data-testid="button-add-student">
+          <Plus className="mr-2 h-4 w-4" />
+          Adicionar Novo Aluno
+        </Button>
+        
         <Dialog open={showForm} onOpenChange={setShowForm}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-student">
-              <Plus className="mr-2 h-4 w-4" />
-              Adicionar Novo Aluno
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[600px]" key={selectedStudent?.id || 'new'}>
             <DialogHeader>
               <DialogTitle>
                 {selectedStudent ? "Editar Aluno" : "Adicionar Novo Aluno"}
@@ -283,6 +305,31 @@ export default function StudentManagement() {
             <StudentForm student={selectedStudent} onClose={handleCloseForm} />
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={!!deleteStudent} onOpenChange={(open) => !open && setDeleteStudent(undefined)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir o aluno <strong>{deleteStudent?.name}</strong>?
+                Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-delete">
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => deleteStudent && deleteMutation.mutate(deleteStudent.id)}
+                disabled={deleteMutation.isPending}
+                className="bg-destructive hover:bg-destructive/90"
+                data-testid="button-confirm-delete"
+              >
+                {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       <Card>
@@ -367,15 +414,41 @@ export default function StudentManagement() {
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEdit(student)}
-                        data-testid={`button-edit-student-${student.id}`}
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Editar
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            data-testid={`button-student-actions-${student.id}`}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem 
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setSelectedStudent(student);
+                              setShowForm(true);
+                            }}
+                            data-testid={`button-edit-student-${student.id}`}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setDeleteStudent(student);
+                            }}
+                            className="text-destructive focus:text-destructive"
+                            data-testid={`button-delete-student-${student.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
