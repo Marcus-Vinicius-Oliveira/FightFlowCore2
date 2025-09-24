@@ -1,0 +1,63 @@
+Create a full-stack web application for "Centro de Lutas Management".
+
+**Core Idea:** A SaaS platform for martial arts academies to manage students, classes, and basic financials, with a student portal. Focus on a modular monolith architecture, with scalability and security in mind from the start.
+
+**Technology Stack:**
+* **Frontend:** Next.js (React) for a fast, modern UI. Use TypeScript.
+* **Backend:** Node.js with NestJS framework for a structured and scalable API. Use TypeScript.
+* **Database:** PostgreSQL for robust data management, with a strong emphasis on security.
+
+**Project Structure (Modular Monolith):**
+The application will be a single deployment unit, but the codebase must be organized into clear, decoupled modules within the NestJS backend and logical components in the Next.js frontend.
+
+**Key Modules/Areas:**
+1.  **Authentication & Authorization:** Secure user login (Admins, Professors, Students) and role-based access control. Assume an external Auth provider (like Auth0/Clerk/Cognito) for identity, so the focus here is on integrating JWTs and applying role/tenant-based authorization on API routes.
+2.  **Academy Management (Tenant):** Core module for a single martial arts academy's settings.
+3.  **Student Management:** CRUD for student profiles.
+4.  **Class & Schedule Management:** Define class types, create specific classes, and manage schedules.
+5.  **Attendance Tracking:** Record student attendance for classes.
+6.  **Basic Finance/Plans:** Define membership plans and mark payments manually. (No payment processing integration for MVP).
+7.  **User Interface (Frontend):** Responsive design for both Admin Dashboard and Student Portal.
+
+**User Roles & Access Control (Security Critical):**
+* **ADMIN_ACADEMIA:** Full access to their academy's data (students, classes, finances).
+* **PROFESSOR:** Can view their assigned classes and mark student attendance.
+* **ALUNO:** Can view their personal profile, class schedule, attendance history, and payment status.
+
+**Security Requirements (Explicitly address):**
+* **Multitenancy:** Data isolation between academies MUST be enforced at the API and database level (e.g., using `tenantId` in every relevant query/mutation and potentially Row-Level Security if Replit's PostgreSQL setup allows it).
+* **Authentication:** JWT-based authentication. The backend should validate tokens and extract user `role` and `tenantId`.
+* **Authorization:** Implement Guard/Interceptor in NestJS to check user roles and `tenantId` for every protected route.
+
+**Minimum Viable Product (MVP) Features to Implement:**
+
+**1. Public Pages:**
+    * **Landing Page (`/`):** Simple marketing page for the "Centro de Lutas Management" platform.
+    * **Public Academy Page (`/academia/[slug]`):** (Optional, can be a later addition) A simple page showing a specific academy's name, address, and a public class schedule (no student data).
+
+**2. Authentication & User Flow:**
+    * **Login Page:** Users can log in. (Assume external auth for initial setup).
+    * **Basic User Profile:** Each user (Admin, Professor, Student) has a profile.
+
+**3. Admin Dashboard (for `ADMIN_ACADEMIA`):**
+    * **Dashboard Overview:** Simple summary (e.g., total active students).
+    * **Student List:** View, add, edit, deactivate students for *their* academy.
+    * **Class/Schedule Management:** Define class names (e.g., "Jiu-Jitsu Adulto"), create schedule entries (day, time, professor).
+    * **Professor Assignment:** Assign professors to classes.
+    * **Basic Plans:** Create membership plans (e.g., "Monthly 3x/week").
+
+**4. Student Portal (for `ALUNO`):**
+    * **My Schedule:** View their enrolled classes.
+    * **My Attendance:** View their attendance history.
+
+**5. Backend APIs:**
+    * Protected API endpoints for all CRUD operations, ensuring `tenantId` and `role` checks.
+    * Examples: `GET /students` (only students of the logged-in admin's academy), `POST /classes` (only admin can create).
+
+**Implementation Details:**
+* Use **TypeORM** or **Prisma** as an ORM for NestJS to interact with PostgreSQL.
+* Set up environment variables for database connection strings and JWT secrets.
+* Provide a `README.md` with instructions on how to run the application, initial setup, and example credentials.
+* Include basic database seed data for one academy and a few users (Admin, Professor, Student) to demonstrate functionality.
+
+**Focus for Replit:** Create the foundational project structure, set up the database, and implement the core authentication and a few key API endpoints/UI components for the MVP features. The emphasis is on demonstrating the modular approach and enforcing security principles for multitenancy.
