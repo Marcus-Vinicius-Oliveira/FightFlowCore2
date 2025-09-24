@@ -232,7 +232,10 @@ export function ClassManagement() {
           {/* Class Schedule Tab */}
           <TabsContent value="schedule" className="space-y-6">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Weekly Schedule</h3>
+              <div>
+                <h3 className="text-lg font-semibold">Weekly Schedule</h3>
+                <p className="text-sm text-muted-foreground">Schedule multiple classes per day for different times and student levels</p>
+              </div>
               <Dialog open={isAddClassDialogOpen} onOpenChange={setIsAddClassDialogOpen}>
                 <DialogTrigger asChild>
                   <Button data-testid="button-add-class">
@@ -244,7 +247,7 @@ export function ClassManagement() {
                   <DialogHeader>
                     <DialogTitle>Schedule New Class</DialogTitle>
                     <DialogDescription>
-                      Add a recurring class to your academy schedule.
+                      Add a recurring class to your academy schedule. You can schedule multiple classes for the same day and same martial art at different times.
                     </DialogDescription>
                   </DialogHeader>
                   
@@ -360,7 +363,7 @@ export function ClassManagement() {
                 <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Classes Scheduled</h3>
                 <p className="text-muted-foreground mb-4">
-                  Start by creating some class types, then schedule your first class.
+                  Start by creating some class types, then schedule your classes. You can create multiple sessions per day - for example, Muay Thai at 08:00 and again at 18:00.
                 </p>
                 <Button 
                   onClick={() => setIsAddClassDialogOpen(true)}
@@ -383,7 +386,8 @@ export function ClassManagement() {
                     
                     {daySchedule.classes.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground border border-dashed rounded-lg">
-                        No classes scheduled for {daySchedule.label}
+                        <p>No classes scheduled for {daySchedule.label}</p>
+                        <p className="text-xs mt-1">You can schedule multiple classes for this day</p>
                       </div>
                     ) : (
                       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
