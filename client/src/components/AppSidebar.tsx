@@ -57,19 +57,19 @@ export function AppSidebar({
     const adminItems = [
       {
         title: "Alunos",
-        url: "/students",
+        url: "/dashboard/alunos",
         icon: Users,
         roles: ["ADMIN_ACADEMIA"]
       },
       {
         title: "Aulas e Horários",
-        url: "/classes",
+        url: "/dashboard/aulas",
         icon: Calendar,
         roles: ["ADMIN_ACADEMIA", "PROFESSOR"]
       },
       {
         title: "Presença",
-        url: "/attendance", 
+        url: "/dashboard/presenca", 
         icon: UserCheck,
         roles: ["ADMIN_ACADEMIA", "PROFESSOR"]
       },
@@ -128,7 +128,7 @@ export function AppSidebar({
   const menuItems = getMenuItems();
 
   const handleMenuClick = (item: typeof menuItems[0]) => {
-    console.log(`Navigating to ${item.title} (${item.url})`);
+    window.location.pathname = item.url;
   };
 
   const getInitials = (name: string) => {

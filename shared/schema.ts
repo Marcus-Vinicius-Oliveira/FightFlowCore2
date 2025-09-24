@@ -30,6 +30,7 @@ export const users = pgTable("users", {
   academyId: uuid("academy_id").references(() => academies.id).notNull(),
   phone: text("phone"),
   dateOfBirth: timestamp("date_of_birth"),
+  belt: text("belt"), // Graduation/belt field for students
   active: boolean("active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });

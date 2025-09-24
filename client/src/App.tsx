@@ -15,6 +15,7 @@ import Cadastro from "@/pages/Cadastro";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import StudentDashboard from "@/pages/StudentDashboard";
+import StudentManagement from "@/pages/StudentManagement";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
@@ -28,6 +29,11 @@ function Router() {
       <Route path="/dashboard">
         <ProtectedRoute>
           <Dashboard />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/dashboard/alunos">
+        <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
+          <StudentManagement />
         </ProtectedRoute>
       </Route>
       <Route path="/student-portal">

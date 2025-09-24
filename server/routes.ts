@@ -286,6 +286,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: student.name,
           email: student.email,
           phone: student.phone,
+          dateOfBirth: student.dateOfBirth,
+          belt: student.belt,
           active: student.active,
           createdAt: student.createdAt
         }));
@@ -306,13 +308,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     requireSameAcademy,
     async (req: AuthenticatedRequest, res) => {
       try {
-        const studentData = insertUserSchema.extend({
-          role: z.literal('ALUNO')
-        }).parse({
-          ...req.body,
-          role: 'ALUNO',
-          academyId: req.user!.academyId // Always set from authenticated user
+        // Schema for student creation (password is auto-generated)
+        const createStudentSchema = z.object({
+          name: z.string().min(1),
+          email: z.string().email(),
+          phone: z.string().optional(),
+          dateOfBirth: z.string().optional(),
+          belt: z.string().optional(),
         });
+
+        const studentData = createStudentSchema.parse(req.body);
 
         // Check if email already exists
         const existingUser = await storage.getUserByEmail(studentData.email);
@@ -320,12 +325,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(409).json({ error: 'User with this email already exists' });
         }
 
-        // Hash password
-        const hashedPassword = await hashPassword(studentData.password);
+        // Generate a default password (first name + 123)
+        const defaultPassword = studentData.name.split(' ')[0].toLowerCase() + '123';
+        const hashedPassword = await hashPassword(defaultPassword);
 
         const newStudent = await storage.createUser({
           ...studentData,
-          password: hashedPassword
+          role: 'ALUNO',
+          academyId: req.user!.academyId,
+          password: hashedPassword,
+          dateOfBirth: studentData.dateOfBirth ? new Date(studentData.dateOfBirth) : undefined
         });
 
         // Remove password from response
@@ -341,6 +350,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         console.error('Create student error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Update student (Admin only)
+  app.patch('/api/students/:id', 
+    authenticateToken, 
+    requireRole(['ADMIN_ACADEMIA']),
+    requireSameAcademy,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const studentId = req.params.id;
+        
+        // Schema for student update (all fields optional)
+        const updateStudentSchema = z.object({
+          name: z.string().min(1).optional(),
+          email: z.string().email().optional(),
+          phone: z.string().optional(),
+          dateOfBirth: z.string().optional(),
+          belt: z.string().optional(),
+        });
+
+        const updateData = updateStudentSchema.parse(req.body);
+
+        // Verify student exists and belongs to the same academy
+        const existingStudent = await storage.getUser(studentId);
+        if (!existingStudent || existingStudent.academyId !== req.user!.academyId || existingStudent.role !== 'ALUNO') {
+          return res.status(404).json({ error: 'Student not found' });
+        }
+
+        // If email is being updated, check if it already exists
+        if (updateData.email && updateData.email !== existingStudent.email) {
+          const existingUser = await storage.getUserByEmail(updateData.email);
+          if (existingUser) {
+            return res.status(409).json({ error: 'User with this email already exists' });
+          }
+        }
+
+        // Update student
+        const updatedStudent = await storage.updateUser(studentId, {
+          ...updateData,
+          dateOfBirth: updateData.dateOfBirth ? new Date(updateData.dateOfBirth) : undefined
+        });
+
+        if (!updatedStudent) {
+          return res.status(404).json({ error: 'Student not found' });
+        }
+
+        // Remove password from response
+        const { password, ...studentResponse } = updatedStudent;
+        
+        res.json(studentResponse);
+
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ 
+            error: 'Validation error', 
+            details: error.errors 
+          });
+        }
+        console.error('Update student error:', error);
         res.status(500).json({ error: 'Internal server error' });
       }
     }

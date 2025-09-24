@@ -1,0 +1,72 @@
+Com certeza. O foco agora é construir o coração funcional do sistema. Este prompt é projetado para ser detalhado e direto, garantindo que o Replit tenha todas as instruções para implementar a Fase 1 de forma coesa com o que já foi construído.
+Aqui está o prompt completo, pronto para ser copiado e colado.
+Prompt para Replit: Implementação da Fase 1 - Core Loop de Gestão
+Continue the development of the "Centro de Lutas Management" full-stack application. The foundation with user registration (ADMIN_ACADEMIA), login, and a basic dashboard skeleton is complete.
+
+Now, we will implement the "Phase 1: Core Management Loop". The objective is to build the essential, interconnected features that allow an authenticated `ADMIN_ACADEMIA` to manage students, set up a class schedule, and track attendance.
+
+**Technology Stack Reminder:**
+* **Frontend:** Next.js with TypeScript
+* **Backend:** NestJS with TypeScript
+* **Database:** PostgreSQL with Prisma (or TypeORM)
+
+**Instructions - Implement the following three modules:**
+
+**1. Gerenciamento Completo de Alunos**
+
+* **Frontend (Next.js):**
+    * Create a new protected page at `/dashboard/alunos`.
+    * Add a link for "Alunos" in the main dashboard navigation sidebar.
+    * This page should display a table of all students belonging to the admin's academy. The table columns should include: "Nome Completo", "Status" (Ativo/Inativo), and "Email".
+    * Include a primary action button: "Adicionar Novo Aluno".
+    * Clicking this button should open a modal or navigate to a new page (`/dashboard/alunos/novo`) containing a form to add a student.
+    * The form must include fields for: Nome Completo, Email, Telefone, Data de Nascimento, e Graduação/Faixa (campo de texto livre por enquanto).
+    * Each row in the student table must have an "Editar" button, leading to a form pre-filled with that student's data.
+
+* **Backend (NestJS):**
+    * Create a new module named `StudentsModule` to encapsulate all student-related logic.
+    * Implement the following protected API endpoints. **EVERY endpoint must use the `academiaId` from the JWT to ensure data is only accessed/modified for the correct tenant.**
+        * `POST /students`: Creates a new student profile. It must be associated with the admin's `academiaId`.
+        * `GET /students`: Returns a list of all students for the admin's academy.
+        * `GET /students/:id`: Returns the details of a single student, ensuring they belong to the admin's academy.
+        * `PATCH /students/:id`: Updates a student's information.
+
+**2. Sistema de Aulas e Horários**
+
+* **Frontend (Next.js):**
+    * Create a new protected page at `/dashboard/aulas`.
+    * Add a link for "Aulas e Horários" in the dashboard navigation.
+    * This page should display the weekly class schedule. A simple list grouped by "Dia da Semana" is sufficient for the MVP.
+    * Each class entry should display: "Nome da Aula", "Professor", "Horário de Início e Fim".
+    * Include a button "Adicionar Nova Aula".
+    * The form for adding/editing a class must include fields for: Nome da Aula (ex: Jiu-Jitsu Adulto), Professor, Dia da Semana (Dropdown), Horário de Início, Horário de Fim.
+
+* **Backend (NestJS):**
+    * Create a new module named `ClassesModule`.
+    * Implement the following protected CRUD endpoints for managing classes, enforcing multitenancy with the `academiaId` from the JWT on every operation:
+        * `POST /classes`
+        * `GET /classes`
+        * `PATCH /classes/:id`
+        * `DELETE /classes/:id`
+
+**3. Controle de Presença**
+
+* **Frontend (Next.js):**
+    * Create a new protected page at `/dashboard/presenca`.
+    * Add a link for "Controle de Presença" in the dashboard navigation.
+    * The page should initially display the classes scheduled for the current day.
+    * When the admin clicks on a class (e.g., "Jiu-Jitsu das 19:00"), the UI should display a list of all active students from the academy.
+    * Next to each student's name, there should be a checkbox or a simple toggle button (Presente/Ausente) to mark their attendance for that specific class and date.
+    * A "Salvar Chamada" button will submit the attendance data to the backend.
+
+* **Backend (NestJS):**
+    * Create a new module named `AttendanceModule`.
+    * Implement the following protected endpoints:
+        * `GET /attendance/class/:classId?date=YYYY-MM-DD`: Returns the list of all students for the academy, along with their attendance status (true/false/null) for the specified class on the specified date.
+        * `POST /attendance`: Receives an array of `{ studentId: string, isPresent: boolean }` along with the `classId` and `date`. The backend logic should perform an "upsert" (create or update) in the `presencas` table for that day. This endpoint must, of course, be protected and honor the `academiaId`.
+
+**Final Instructions:**
+* Integrate these new pages seamlessly into the dashboard layout.
+* The UI should be clean, responsive, and consistent with the existing pages.
+* **CRITICAL SECURITY REMINDER:** All backend endpoints created in this phase MUST be protected by the authentication guard and strictly enforce multitenancy using the `academiaId` from the JWT in every database query. There should be zero possibility of data leakage between academies.
+
