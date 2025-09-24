@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Shield, Users, Calendar } from "lucide-react";
+import { ArrowRight, DollarSign, Users, Calendar } from "lucide-react";
 import heroImage from "@assets/generated_images/martial_arts_academy_hero_4c8fadf9.png";
 
 export function LandingHero() {
@@ -72,10 +72,10 @@ export function LandingHero() {
             
             <div className="flex flex-col items-center text-center">
               <div className="bg-white/10 backdrop-blur-sm rounded-full p-3 mb-4">
-                <Shield className="h-8 w-8 text-orange-400" />
+                <DollarSign className="h-8 w-8 text-orange-400" />
               </div>
-              <h3 className="font-semibold text-lg mb-2">Seguro e Multi-inquilino</h3>
-              <p className="text-gray-300">Segurança de nível empresarial com isolamento de dados</p>
+              <h3 className="font-semibold text-lg mb-2">Controle Financeiro</h3>
+              <p className="text-gray-300">Gestão completa de mensalidades e relatórios financeiros</p>
             </div>
           </div>
         </div>
