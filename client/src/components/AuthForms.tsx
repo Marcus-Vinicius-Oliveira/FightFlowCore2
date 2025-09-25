@@ -34,16 +34,6 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
   return (
     <Card className="w-full max-w-md mx-auto">
-      <CardHeader className="text-center">
-        <div className="flex justify-center mb-4">
-          <Shield className="h-12 w-12 text-primary" />
-        </div>
-        <CardTitle className="text-2xl">Bem-vindo de Volta</CardTitle>
-        <CardDescription>
-          Entre na sua conta de gerenciamento da academia
-        </CardDescription>
-      </CardHeader>
-      
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
