@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, GraduationCap } from "lucide-react";
-import logoIcon from "@assets/image_1758778298254.png";
+import logoIcon from "@assets/Design sem nome (15)_1758779065313.png";
 import { useLocation } from "wouter";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 

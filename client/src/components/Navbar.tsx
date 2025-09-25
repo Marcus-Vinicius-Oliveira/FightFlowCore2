@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./ThemeToggle";
 import { Menu, X } from "lucide-react";
-import logoIcon from "@assets/image_1758778298254.png";
+import logoIcon from "@assets/Design sem nome (15)_1758779065313.png";
 import { useLocation } from "wouter";
 
 export function Navbar() {

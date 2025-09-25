@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { LoginForm } from "@/components/AuthForms";
 import { useAuth } from "@/hooks/useAuth";
-import logoIcon from "@assets/image_1758778298254.png";
+import logoIcon from "@assets/Design sem nome (15)_1758779065313.png";
 
 export default function Login() {
   const { isAuthenticated, user } = useAuth();

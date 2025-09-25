@@ -1,5 +1,5 @@
 import { AuthTabs } from "@/components/AuthForms";
-import logoIcon from "@assets/image_1758778298254.png";
+import logoIcon from "@assets/Design sem nome (15)_1758779065313.png";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function AuthPage() {
