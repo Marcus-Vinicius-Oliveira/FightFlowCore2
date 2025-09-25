@@ -345,8 +345,6 @@ export default function StudentManagement() {
         </AlertDialog>
 
         <Dialog open={!!viewStudent} onOpenChange={(open) => !open && setViewStudent(undefined)}>
-          {/* Debug: This should render when viewStudent is set */}
-          {console.log("Dialog render - viewStudent:", viewStudent?.id, "isOpen:", !!viewStudent)}
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Detalhes do Aluno</DialogTitle>
