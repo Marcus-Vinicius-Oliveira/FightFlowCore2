@@ -83,7 +83,7 @@ export default function Sobre() {
             <Card className="text-center p-8 hover-elevate">
               <CardContent className="pt-6">
                 <div className="bg-accent/20 rounded-full p-4 w-16 h-16 mx-auto mb-6 flex items-center justify-center">
-                  <Eye className="h-8 w-8 text-accent-foreground" />
+                  <Eye className="h-8 w-8 text-primary" />
                 </div>
                 <h3 className="text-xl font-bold text-foreground mb-4">Nossa Visão</h3>
                 <p className="text-muted-foreground leading-relaxed">
