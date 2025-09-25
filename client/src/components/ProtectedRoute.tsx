@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requireRole?: ('ADMIN_ACADEMIA' | 'PROFESSOR' | 'ALUNO')[];
+  requireRole?: ('SUPER_ADMIN' | 'ADMIN_ACADEMIA' | 'PROFESSOR' | 'ALUNO')[];
 }
 
 export function ProtectedRoute({ children, requireRole }: ProtectedRouteProps) {
@@ -14,8 +14,12 @@ export function ProtectedRoute({ children, requireRole }: ProtectedRouteProps) {
   useEffect(() => {
     // If not authenticated, redirect to appropriate login page
     if (!isLoading && !isAuthenticated) {
+      // If trying to access super admin routes, redirect to main login
+      if (location.startsWith('/superadmin/')) {
+        setLocation("/login");
+      }
       // If trying to access portal routes, redirect to portal login
-      if (location.startsWith('/portal/')) {
+      else if (location.startsWith('/portal/')) {
         setLocation("/portal/login");
       } else {
         setLocation("/login");
@@ -31,7 +35,17 @@ export function ProtectedRoute({ children, requireRole }: ProtectedRouteProps) {
       requireRole && 
       !requireRole.includes(user.role as any)
     ) {
-      setLocation("/dashboard");
+      // Redirect based on user role to appropriate dashboard
+      if (user.role === 'SUPER_ADMIN') {
+        setLocation("/superadmin/dashboard");
+      } else if (user.role === 'ALUNO') {
+        setLocation("/portal/dashboard");
+      } else if (user.role === 'ADMIN_ACADEMIA' || user.role === 'PROFESSOR') {
+        setLocation("/dashboard");
+      } else {
+        // Fallback for unknown roles
+        setLocation("/login");
+      }
       return;
     }
 

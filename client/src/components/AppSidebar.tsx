@@ -8,7 +8,9 @@ import {
   Shield,
   BarChart3,
   UserCheck,
-  GraduationCap
+  GraduationCap,
+  Building2,
+  CreditCard
 } from "lucide-react";
 import {
   Sidebar,
@@ -23,9 +25,10 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Link, useLocation } from "wouter";
 
 interface AppSidebarProps {
-  userRole?: "ADMIN_ACADEMIA" | "PROFESSOR" | "ALUNO";
+  userRole?: "SUPER_ADMIN" | "ADMIN_ACADEMIA" | "PROFESSOR" | "ALUNO";
   userInfo?: {
     name: string;
     email: string;
@@ -37,9 +40,9 @@ interface AppSidebarProps {
 export function AppSidebar({ 
   userRole = "ADMIN_ACADEMIA",
   userInfo = {
-    name: "João Silva", 
-    email: "joao@academia.com", 
-    academy: "Dragon Academy"
+    name: userRole === "SUPER_ADMIN" ? "Super Admin" : "João Silva", 
+    email: userRole === "SUPER_ADMIN" ? "admin@centrodelivtas.com" : "joao@academia.com", 
+    academy: userRole === "SUPER_ADMIN" ? "Centro de Lutas Platform" : "Dragon Academy"
   }
 }: AppSidebarProps) {
   
@@ -54,6 +57,28 @@ export function AppSidebar({
       }
     ];
 
+    // Super Admin specific items
+    const superAdminItems = [
+      {
+        title: "Dashboard SA",
+        url: "/superadmin/dashboard",
+        icon: Home,
+        roles: ["SUPER_ADMIN"]
+      },
+      {
+        title: "Academias",
+        url: "/superadmin/academias",
+        icon: Building2,
+        roles: ["SUPER_ADMIN"]
+      },
+      {
+        title: "Planos",
+        url: "/superadmin/planos",
+        icon: CreditCard,
+        roles: ["SUPER_ADMIN"]
+      }
+    ];
+
     const adminItems = [
       {
         title: "Alunos",
@@ -65,12 +90,6 @@ export function AppSidebar({
         title: "Grade de Aulas",
         url: "/dashboard/grade",
         icon: Calendar,
-        roles: ["ADMIN_ACADEMIA", "PROFESSOR"]
-      },
-      {
-        title: "Presença",
-        url: "/dashboard/presenca", 
-        icon: UserCheck,
         roles: ["ADMIN_ACADEMIA", "PROFESSOR"]
       },
       {
@@ -120,16 +139,14 @@ export function AppSidebar({
       }
     ];
 
-    return [...baseItems, ...adminItems, ...studentItems].filter(item =>
+    return [...baseItems, ...superAdminItems, ...adminItems, ...studentItems].filter(item =>
       item.roles.includes(userRole)
     );
   };
 
   const menuItems = getMenuItems();
 
-  const handleMenuClick = (item: typeof menuItems[0]) => {
-    window.location.pathname = item.url;
-  };
+  // Remove handleMenuClick - we'll use Link components directly
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -165,13 +182,12 @@ export function AppSidebar({
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    onClick={() => handleMenuClick(item)}
                     data-testid={`sidebar-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                   >
-                    <button className="w-full justify-start">
+                    <Link href={item.url} className="w-full justify-start">
                       <item.icon className="mr-2 h-4 w-4" />
                       <span>{item.title}</span>
-                    </button>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

@@ -25,6 +25,9 @@ import AttendanceControl from "@/pages/AttendanceControl";
 import PortalLogin from "@/pages/PortalLogin";
 import PortalDashboard from "@/pages/PortalDashboard";
 import PortalSchedule from "@/pages/PortalSchedule";
+import SuperAdminDashboard from "@/pages/SuperAdminDashboard";
+import SuperAdminAcademias from "@/pages/SuperAdminAcademias";
+import SuperAdminPlanos from "@/pages/SuperAdminPlanos";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
@@ -76,6 +79,28 @@ function Router() {
       <Route path="/dashboard/presenca/:classId">
         <ProtectedRoute requireRole={['ADMIN_ACADEMIA', 'PROFESSOR']}>
           <AttendanceControl />
+        </ProtectedRoute>
+      </Route>
+      
+      {/* Super Admin Routes */}
+      <Route path="/superadmin/dashboard">
+        <ProtectedRoute requireRole={['SUPER_ADMIN']}>
+          <SuperAdminDashboard />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/superadmin/academias">
+        <ProtectedRoute requireRole={['SUPER_ADMIN']}>
+          <SuperAdminAcademias />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/superadmin/planos">
+        <ProtectedRoute requireRole={['SUPER_ADMIN']}>
+          <SuperAdminPlanos />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/superadmin/planos/novo">
+        <ProtectedRoute requireRole={['SUPER_ADMIN']}>
+          <SuperAdminPlanos />
         </ProtectedRoute>
       </Route>
       
