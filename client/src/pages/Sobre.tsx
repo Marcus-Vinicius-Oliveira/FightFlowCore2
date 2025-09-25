@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Navbar } from '@/components/Navbar';
 import { Target, Eye, Heart, Users, Star, Trophy, Shield, Zap, User, Quote } from 'lucide-react';
 
 export default function Sobre() {
@@ -23,7 +24,9 @@ export default function Sobre() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-16">
+      <Navbar />
+      <main className="pt-16">
+        <div className="container mx-auto px-4 py-16">
         
         {/* Seção de Título Principal */}
         <section className="text-center mb-20">
@@ -208,7 +211,8 @@ export default function Sobre() {
           </div>
         </section>
 
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
