@@ -79,7 +79,7 @@ export default function SuperAdminPlanos() {
 
   const createPlanoMutation = useMutation({
     mutationFn: (planoData: InsertPlano) =>
-      apiRequest("/api/superadmin/planos", "POST", planoData),
+      apiRequest("POST", "/api/superadmin/planos", planoData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/superadmin/planos"] });
       setIsCreateDialogOpen(false);
@@ -111,7 +111,7 @@ export default function SuperAdminPlanos() {
 
   const updatePlanoMutation = useMutation({
     mutationFn: ({ id, ...data }: { id: string } & Partial<InsertPlano>) =>
-      apiRequest(`/api/superadmin/planos/${id}`, "PATCH", data),
+      apiRequest("PATCH", `/api/superadmin/planos/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/superadmin/planos"] });
       setEditingPlano(null);
@@ -331,7 +331,7 @@ export default function SuperAdminPlanos() {
                   <TableCell>
                     <div className="flex items-center gap-1 text-sm">
                       <Calendar className="h-3 w-3" />
-                      {new Date(plano.createdAt).toLocaleDateString('pt-BR')}
+                      {plano.createdAt ? new Date(plano.createdAt).toLocaleDateString('pt-BR') : 'N/A'}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
@@ -405,7 +405,7 @@ export default function SuperAdminPlanos() {
               <div className="flex items-center space-x-2">
                 <Switch
                   id="edit-ativo"
-                  checked={editingPlano.ativo}
+                  checked={editingPlano.ativo ?? false}
                   onCheckedChange={(checked) => setEditingPlano({ ...editingPlano, ativo: checked })}
                 />
                 <Label htmlFor="edit-ativo">Plano ativo</Label>
