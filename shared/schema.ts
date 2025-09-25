@@ -5,7 +5,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums for user roles
-export const userRoleEnum = pgEnum('user_role', ['ADMIN_ACADEMIA', 'PROFESSOR', 'ALUNO']);
+export const userRoleEnum = pgEnum('user_role', ['SUPER_ADMIN', 'ADMIN_ACADEMIA', 'PROFESSOR', 'ALUNO']);
 
 // Academies table (tenants)
 export const academies = pgTable("academies", {
@@ -27,7 +27,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   name: text("name").notNull(),
   role: userRoleEnum("role").notNull(),
-  academyId: uuid("academy_id").references(() => academies.id).notNull(),
+  academyId: uuid("academy_id").references(() => academies.id), // Nullable for SUPER_ADMIN
   phone: text("phone"),
   dateOfBirth: timestamp("date_of_birth"),
   belt: text("belt"), // Graduation/belt field for students
@@ -112,12 +112,36 @@ export const payments = pgTable("payments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Super Admin tables for SaaS management
+
+// Platform subscription plans (managed by super admin)
+export const planos = pgTable("planos", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  nome: text("nome").notNull(), // e.g., "Faixa Branca", "Beta Gratuito"
+  limiteAlunos: integer("limite_alunos").notNull(),
+  precoMensal: integer("preco_mensal").notNull(), // in cents
+  ativo: boolean("ativo").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Academy subscriptions to platform plans
+export const assinaturas = pgTable("assinaturas", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  academiaId: uuid("academia_id").references(() => academies.id).notNull(),
+  planoId: uuid("plano_id").references(() => planos.id).notNull(),
+  dataInicio: timestamp("data_inicio").notNull(),
+  dataFim: timestamp("data_fim"), // can be null for active subscriptions
+  status: text("status").notNull().default('ativa'), // ativa, cancelada, teste
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const academiesRelations = relations(academies, ({ many }) => ({
   users: many(users),
   membershipPlans: many(membershipPlans),
   classTypes: many(classTypes),
   classes: many(classes),
+  assinaturas: many(assinaturas),
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -207,6 +231,22 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   }),
 }));
 
+// Super Admin table relations
+export const planosRelations = relations(planos, ({ many }) => ({
+  assinaturas: many(assinaturas),
+}));
+
+export const assinaturasRelations = relations(assinaturas, ({ one }) => ({
+  academia: one(academies, {
+    fields: [assinaturas.academiaId],
+    references: [academies.id],
+  }),
+  plano: one(planos, {
+    fields: [assinaturas.planoId],
+    references: [planos.id],
+  }),
+}));
+
 // Insert schemas
 export const insertAcademySchema = createInsertSchema(academies).omit({
   id: true,
@@ -248,6 +288,17 @@ export const insertPaymentSchema = createInsertSchema(payments).omit({
   createdAt: true,
 });
 
+// Super Admin insert schemas
+export const insertPlanoSchema = createInsertSchema(planos).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAssinaturaSchema = createInsertSchema(assinaturas).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type Academy = typeof academies.$inferSelect;
 export type User = typeof users.$inferSelect;
@@ -257,6 +308,8 @@ export type Class = typeof classes.$inferSelect;
 export type Enrollment = typeof enrollments.$inferSelect;
 export type Attendance = typeof attendance.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
+export type Plano = typeof planos.$inferSelect;
+export type Assinatura = typeof assinaturas.$inferSelect;
 
 // DTOs with relations (for API responses)
 export type ClassWithRefs = Class & {
@@ -278,3 +331,5 @@ export type InsertClass = z.infer<typeof insertClassSchema>;
 export type InsertEnrollment = z.infer<typeof insertEnrollmentSchema>;
 export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type InsertPlano = z.infer<typeof insertPlanoSchema>;
+export type InsertAssinatura = z.infer<typeof insertAssinaturaSchema>;

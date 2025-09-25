@@ -1,0 +1,82 @@
+Com certeza. Este é um passo crítico e um dos mais importantes para você, como dono da plataforma. Um Painel de Super Administrador robusto é a sua torre de controle.
+
+Para garantir que o agente do Replit entenda cada nuance desta tarefa complexa, criei um prompt extremamente detalhado. Ele abrange desde as alterações no banco de dados e na arquitetura de permissões até a implementação de cada tela e endpoint da API.
+
+Copie e cole o texto abaixo diretamente no Replit.
+
+-----
+
+### **Prompt para Replit: Implementação do Painel de Super Administrador (Controle Total da Plataforma)**
+
+```
+Com o núcleo da aplicação para clientes validado, a prioridade máxima agora é construir o **Painel de Super Administrador**. Esta é uma área de gestão completamente separada e segura que permitirá ao dono da plataforma (eu) gerenciar todos os clientes (academias), criar contas para testes beta e ter uma visão completa do ecossistema do SaaS.
+
+Esta implementação é crítica e deve ser executada com atenção máxima à segurança e aos detalhes.
+
+**1. Requisitos Fundamentais de Arquitetura e Segurança:**
+
+* **Introdução da Role `SUPER_ADMIN`:**
+    * Modifique o schema da tabela `usuarios` no banco de dados para incluir `'SUPER_ADMIN'` como uma `role` válida.
+    * **Instrução Inicial:** Após a alteração do schema, deve ser criado um script ou uma instrução clara no `README.md` sobre como promover manualmente o primeiro usuário a `SUPER_ADMIN` diretamente no banco de dados (ex: `UPDATE usuarios SET role = 'SUPER_ADMIN' WHERE email = 'seu-email@dominio.com'`).
+
+* **Proteção de Rotas (Backend e Frontend):**
+    * Crie um novo `SuperAdminGuard` no NestJS. Este guard deve proteger todos os endpoints da API sob o prefixo `/api/superadmin/*` e garantir que o JWT do usuário contenha a `role: 'SUPER_ADMIN'`. Qualquer outra role deve receber um erro `403 Forbidden`.
+    * No frontend Next.js, crie um novo layout ou wrapper para todas as páginas sob a rota `/superadmin/*`. Este wrapper deve validar a autenticação e a role do usuário, redirecionando para a página de login caso o acesso seja inválido.
+
+**2. Alterações no Modelo de Dados (Banco de Dados):**
+
+* **Criação da Tabela `Planos`:**
+    * Crie uma nova tabela chamada `Planos` para armazenar os detalhes dos planos de assinatura.
+    * **Colunas:** `id` (UUID), `nome` (Texto, ex: "Faixa Branca", "Beta Gratuito"), `limite_alunos` (Inteiro), `preco_mensal` (Decimal), `ativo` (Booleano).
+
+* **Criação da Tabela `Assinaturas`:**
+    * Crie uma tabela de junção para associar uma academia a um plano.
+    * **Colunas:** `id` (UUID), `academia_id` (FK para `academias`), `plano_id` (FK para `Planos`), `data_inicio` (Timestamp), `data_fim` (Timestamp, pode ser nulo), `status` (Texto, ex: "ativa", "cancelada", "teste").
+
+**3. Funcionalidades e Telas do Painel Super Admin (`/superadmin`):**
+
+* **Fluxo de Login:**
+    * O login será feito pela página `/login` existente. Após a autenticação, a lógica do frontend deve verificar a `role` do usuário. Se for `SUPER_ADMIN`, o redirecionamento deve ser para `/superadmin/dashboard` em vez do dashboard normal da academia.
+
+* **Página: Dashboard (`/superadmin/dashboard`):**
+    * **UI:** Uma página com cards de métricas principais da plataforma.
+    * **Funcionalidade:** Exibir estatísticas globais:
+        * Número total de academias cadastradas.
+        * Número total de alunos em toda a plataforma.
+        * Número total de professores.
+    * **API Endpoint:** `GET /api/superadmin/stats` para buscar esses dados.
+
+* **Página: Gestão de Academias (`/superadmin/academias`):**
+    * **UI:** Uma tabela completa listando todas as academias registradas.
+    * **Colunas da Tabela:** Nome da Academia, Nome do Admin, Email do Admin, Plano Atual, Nº de Alunos, Data de Cadastro.
+    * **Funcionalidades da Tabela:** Paginação, busca por nome da academia ou email do admin.
+    * **Botão:** Um botão de destaque "Criar Nova Academia".
+    * **API Endpoint:** `GET /api/superadmin/academias` para listar os dados.
+
+* **Página: Criação de Academia (`/superadmin/academias/novo`):**
+    * **UI:** Um formulário para o Super Admin criar manualmente uma conta para um novo cliente (perfeito para o teste beta).
+    * **Campos do Formulário:**
+        * Nome da Academia
+        * Nome Completo do Administrador
+        * Email do Administrador
+        * Dropdown para selecionar o **Plano** (deve ser populado pela tabela `Planos`, incluindo o "Beta Gratuito").
+    * **Funcionalidade:** Ao submeter, o sistema deve:
+        1.  Criar a nova `academia`.
+        2.  Criar o `usuario` com role `ADMIN_ACADEMIA` e uma senha temporária segura.
+        3.  Criar a `assinatura` associando a academia ao plano selecionado.
+        4.  (Opcional, mas recomendado) Enviar um email de boas-vindas para o admin com seus dados de login.
+    * **API Endpoint:** `POST /api/superadmin/academias`.
+
+* **Página: Detalhes da Academia (`/superadmin/academias/[id]`):**
+    * **UI:** Uma visão detalhada de uma academia específica, permitindo edições.
+    * **Funcionalidade:**
+        * Mostrar todos os dados da academia.
+        * Permitir a edição do **Plano da Assinatura** através de um dropdown (ex: para fazer upgrade de um cliente).
+        * Um botão para "Desativar/Reativar" a academia.
+    * **API Endpoints:** `GET /api/superadmin/academias/[id]` e `PUT /api/superadmin/academias/[id]`.
+
+**4. Seeds (Dados Iniciais):**
+* Crie um seed para a tabela `Planos`, incluindo os planos "Faixa Branca", "Faixa Preta", "Mestre" e, crucialmente, um plano chamado **"Beta Gratuito"** com `limite_alunos` alto e `preco_mensal` igual a 0.
+
+Esta implementação completa do Painel de Super Administrador é o passo final para preparar a plataforma para um lançamento controlado, dando a você as ferramentas necessárias para gerenciar seus primeiros usuários de forma profissional e segura.
+```
