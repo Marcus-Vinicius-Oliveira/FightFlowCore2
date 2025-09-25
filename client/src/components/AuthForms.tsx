@@ -116,10 +116,50 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     academyName: "",
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState({ score: 0, text: "", color: "" });
   const { signup, isSigningUp } = useAuth();
+
+  const calculatePasswordStrength = (password: string) => {
+    if (!password) return { score: 0, text: "", color: "" };
+    
+    let score = 0;
+    const checks = {
+      length: password.length >= 8,
+      lowercase: /[a-z]/.test(password),
+      uppercase: /[A-Z]/.test(password),
+      numbers: /\d/.test(password),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    };
+    
+    // Calculate score based on criteria
+    if (checks.length) score += 20;
+    if (checks.lowercase) score += 20;
+    if (checks.uppercase) score += 20;
+    if (checks.numbers) score += 20;
+    if (checks.special) score += 20;
+    
+    // Determine strength level
+    if (score < 40) {
+      return { score, text: "Muito fraca", color: "bg-red-500" };
+    } else if (score < 60) {
+      return { score, text: "Fraca", color: "bg-orange-500" };
+    } else if (score < 80) {
+      return { score, text: "Boa", color: "bg-yellow-500" };
+    } else if (score < 100) {
+      return { score, text: "Forte", color: "bg-green-500" };
+    } else {
+      return { score, text: "Muito forte", color: "bg-green-600" };
+    }
+  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Update password strength when password changes
+    if (field === "password") {
+      const strength = calculatePasswordStrength(value);
+      setPasswordStrength(strength);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -235,6 +275,57 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
             </div>
+            
+            {/* Password Strength Meter */}
+            {formData.password && (
+              <div className="mt-2 space-y-2" data-testid="password-strength-meter">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Força da senha:</span>
+                  <span className={`text-xs font-medium ${
+                    passwordStrength.score < 40 ? "text-red-600" :
+                    passwordStrength.score < 60 ? "text-orange-600" :
+                    passwordStrength.score < 80 ? "text-yellow-600" :
+                    "text-green-600"
+                  }`}>
+                    {passwordStrength.text}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+                  <div 
+                    className={`h-2 rounded-full transition-all duration-300 ${passwordStrength.color}`}
+                    style={{ width: `${passwordStrength.score}%` }}
+                  ></div>
+                </div>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <div className="grid grid-cols-1 gap-1">
+                    <div className={`flex items-center gap-1 ${
+                      formData.password.length >= 8 ? "text-green-600" : "text-gray-400"
+                    }`}>
+                      <span className="text-xs">{formData.password.length >= 8 ? "✓" : "○"}</span>
+                      <span>Pelo menos 8 caracteres</span>
+                    </div>
+                    <div className={`flex items-center gap-1 ${
+                      /[A-Z]/.test(formData.password) ? "text-green-600" : "text-gray-400"
+                    }`}>
+                      <span className="text-xs">{/[A-Z]/.test(formData.password) ? "✓" : "○"}</span>
+                      <span>Letra maiúscula</span>
+                    </div>
+                    <div className={`flex items-center gap-1 ${
+                      /\d/.test(formData.password) ? "text-green-600" : "text-gray-400"
+                    }`}>
+                      <span className="text-xs">{/\d/.test(formData.password) ? "✓" : "○"}</span>
+                      <span>Número</span>
+                    </div>
+                    <div className={`flex items-center gap-1 ${
+                      /[!@#$%^&*(),.?":{}|<>]/.test(formData.password) ? "text-green-600" : "text-gray-400"
+                    }`}>
+                      <span className="text-xs">{/[!@#$%^&*(),.?":{}|<>]/.test(formData.password) ? "✓" : "○"}</span>
+                      <span>Caractere especial</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           
           <div className="space-y-2">
