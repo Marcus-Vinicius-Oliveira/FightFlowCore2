@@ -28,6 +28,7 @@ function StatCard({ title, value, description, icon, trend, href }: StatCardProp
         <div className="text-2xl font-bold" data-testid={`stat-${title.toLowerCase().replace(/\s+/g, '-')}`}>
           {value}
         </div>
+        <div className="sparkline-placeholder h-8 my-2"></div>
         {description && (
           <p className="text-xs text-muted-foreground mt-1">
             {description}
@@ -93,7 +94,7 @@ export function DashboardStats() {
       title: "Receita Mensal",
       value: "R$ 8.940",
       description: "Ganhos do mês atual",
-      icon: <DollarSign className="h-4 w-4" />,
+      icon: <DollarSign className="h-4 w-4 text-green-600" />,
       trend: { value: "+8% desde o mês passado", isPositive: true },
       href: "/financeiro"
     },
@@ -109,7 +110,7 @@ export function DashboardStats() {
       title: "Pagamentos Pendentes",
       value: 12,
       description: "Pagamentos em atraso",
-      icon: <Clock className="h-4 w-4" />,
+      icon: <Clock className="h-4 w-4 text-orange-500" />,
       trend: { value: "-5 desde a semana passada", isPositive: true },
       href: "/pagamentos"
     },
@@ -117,7 +118,7 @@ export function DashboardStats() {
       title: "Novas Matrículas",
       value: 8,
       description: "Neste mês",
-      icon: <TrendingUp className="h-4 w-4" />,
+      icon: <TrendingUp className="h-4 w-4 text-green-600" />,
       trend: { value: "+60% desde o mês passado", isPositive: true },
       href: "/matriculas"
     }
