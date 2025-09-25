@@ -321,14 +321,14 @@ export default function Precos() {
                       <td className="py-4 px-4 text-center"><Check className="h-5 w-5 text-primary mx-auto" /></td>
                     </tr>
                     <tr>
-                      <td className="py-4 px-4 text-foreground">Portal do Aluno</td>
-                      <td className="py-4 px-4 text-center">-</td>
+                      <td className="py-4 px-4 text-foreground">Controle Financeiro</td>
+                      <td className="py-4 px-4 text-center"><Check className="h-5 w-5 text-primary mx-auto" /></td>
                       <td className="py-4 px-4 text-center"><Check className="h-5 w-5 text-primary mx-auto" /></td>
                       <td className="py-4 px-4 text-center"><Check className="h-5 w-5 text-primary mx-auto" /></td>
                     </tr>
                     <tr>
-                      <td className="py-4 px-4 text-foreground">Controle Financeiro</td>
-                      <td className="py-4 px-4 text-center"><Check className="h-5 w-5 text-primary mx-auto" /></td>
+                      <td className="py-4 px-4 text-foreground">Portal do Aluno</td>
+                      <td className="py-4 px-4 text-center">-</td>
                       <td className="py-4 px-4 text-center"><Check className="h-5 w-5 text-primary mx-auto" /></td>
                       <td className="py-4 px-4 text-center"><Check className="h-5 w-5 text-primary mx-auto" /></td>
                     </tr>
