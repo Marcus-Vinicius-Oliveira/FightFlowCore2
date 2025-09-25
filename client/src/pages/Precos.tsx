@@ -83,7 +83,7 @@ export default function Precos() {
                 {/* Elemento de Urgência */}
                 <div className="bg-muted/50 rounded-lg p-4 mb-8">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-muted-foreground">Vagas restantes para a oferta:</span>
+                    <span className="text-sm font-medium text-muted-foreground">Vagas preenchidas na oferta:</span>
                     <span className="text-lg font-bold text-primary">97/100</span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
