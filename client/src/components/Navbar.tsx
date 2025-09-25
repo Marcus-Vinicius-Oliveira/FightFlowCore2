@@ -25,13 +25,13 @@ export function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <a 
-              href="#features" 
+            <button
+              onClick={() => setLocation('/recursos')}
               className="text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => console.log('Features clicked')}
+              data-testid="link-recursos-desktop"
             >
               Recursos
-            </a>
+            </button>
             <a 
               href="#pricing" 
               className="text-muted-foreground hover:text-foreground transition-colors"
@@ -90,13 +90,16 @@ export function Navbar() {
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t">
             <div className="flex flex-col space-y-4">
-              <a 
-                href="#features" 
-                className="text-muted-foreground hover:text-foreground transition-colors"
-                onClick={() => console.log('Mobile Features clicked')}
+              <button
+                onClick={() => {
+                  setLocation('/recursos');
+                  setIsMenuOpen(false);
+                }}
+                className="text-muted-foreground hover:text-foreground transition-colors text-left"
+                data-testid="link-recursos-mobile"
               >
                 Recursos
-              </a>
+              </button>
               <a 
                 href="#pricing" 
                 className="text-muted-foreground hover:text-foreground transition-colors"

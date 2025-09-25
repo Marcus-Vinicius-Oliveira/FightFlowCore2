@@ -1,0 +1,88 @@
+Com certeza. A sugestão fornecida é um excelente briefing de design e estratégia. Meu papel agora é traduzir esse briefing em um prompt detalhado e acionável, pronto para ser interpretado por uma IA de desenvolvimento como a do Replit.
+
+O prompt a seguir organiza todas as suas diretrizes em uma série de instruções claras e lógicas.
+
+-----
+
+### **Prompt para Replit: Construção da Página de Preços Estratégica com Oferta de Lançamento**
+
+```
+Sua tarefa é construir a nova e estratégica página de "Preços" para a plataforma FightFlowCore. O objetivo é criar uma página de vendas de alta conversão, com foco em uma oferta de lançamento irresistível para atrair os primeiros 100 clientes.
+
+O design deve ser limpo e profissional, e o tom de voz deve ser confiante, conectando-se diretamente com donos de academias de artes marciais.
+
+**Instruções Gerais:**
+
+1.  **Criação da Página:** Crie uma nova página na rota `/precos`.
+2.  **Navegação:** Adicione o link funcional para `/precos` no menu principal.
+3.  **Consistência Visual:** Mantenha total consistência de design com as páginas existentes.
+4.  **Responsividade:** Garanta que a página seja perfeitamente visualizada em todos os dispositivos.
+
+**Estrutura e Conteúdo da Página:**
+
+**1. Seção de Título Principal:**
+* Implemente um título principal (H1) e um subtítulo (H2) com os seguintes textos:
+    * **Título:** "Planos flexíveis para sua academia crescer."
+    * **Subtítulo:** "Menos burocracia, mais tempo no tatame."
+
+**2. Seção de Oferta de Lançamento (Alto Destaque):**
+* Posicione esta seção logo abaixo do título. Ela deve ter o maior destaque visual da página.
+* **Título da Seção:** "Oferta Exclusiva de Lançamento: Seja um dos 100 Primeiros!"
+* **Texto Principal:**
+    * **Benefício 1 (Teste Gratuito):** "Experimente o poder máximo da nossa plataforma. Comece hoje com 30 dias de teste gratuito do nosso Plano Mestre, com todos os recursos liberados. Sem compromisso, sem pedir cartão de crédito."
+    * **Benefício 2 (Desconto):** "Gostou do que viu? Para celebrar nosso lançamento, os 100 primeiros assinantes após o período de teste garantirão um desconto de 50% em qualquer plano por 12 meses! Uma oportunidade única para modernizar sua academia pela metade do preço."
+* **Elemento de Urgência:** Inclua um contador ou barra de progresso visual com o texto: "Vagas restantes para a oferta: [implementar contador dinâmico ou estático, ex: 97/100]".
+* **Call-to-Action (CTA) Principal:** Crie um botão grande e chamativo.
+    * **Texto do Botão:** "QUERO MEU TESTE GRÁTIS DE 30 DIAS"
+
+**3. Seção de Planos (3 Tiers):**
+* Crie uma seção com três cards de planos lado a lado. O card central ("Faixa Preta") deve ser visualmente destacado (ex: borda colorida, selo "O MAIS POPULAR").
+
+    * **Card 1: Faixa Branca**
+        * **Nome do Plano:** Faixa Branca
+        * **Ideal para:** Academias pequenas ou em início de operação.
+        * **Preço:** R$ 79 /mês
+        * **Oferta de Lançamento:** (Com destaque) "Por apenas R$ 39,50/mês durante o 1º ano!"
+        * **Recursos:** ✔ Gestão de Alunos Completa, ✔ Agenda e Agendamento de Aulas, ✔ Controle de Presença.
+        * **Limite:** "Até 50 alunos ativos"
+        * **Botão CTA:** "Começar Teste Grátis"
+
+    * **Card 2: Faixa Preta (Destacado)**
+        * **Selo:** "O MAIS POPULAR"
+        * **Nome do Plano:** Faixa Preta
+        * **Ideal para:** Academias que buscam crescimento e profissionalização.
+        * **Preço:** R$ 149 /mês
+        * **Oferta de Lançamento:** (Com destaque) "Por apenas R$ 74,50/mês durante o 1º ano!"
+        * **Recursos:** ✔ Tudo do plano Faixa Branca, ✔ Portal do Aluno (acompanhamento e pagamentos), ✔ Controle Financeiro Completo.
+        * **Limite:** "Até 200 alunos ativos"
+        * **Botão CTA:** "Começar Teste Grátis" (com cor de destaque)
+
+    * **Card 3: Mestre**
+        * **Nome do Plano:** Mestre
+        * **Ideal para:** Grandes academias ou redes com necessidades personalizadas.
+        * **Preço:** Sob Consulta
+        * **Oferta de Lançamento:** (Com destaque) "Condições especiais para os 100 primeiros. Fale conosco!"
+        * **Recursos:** ✔ Tudo do plano Faixa Preta, ✔ Relatórios Avançados de Gestão, ✔ Automação de Pagamentos Recorrentes, ✔ Suporte Prioritário.
+        * **Limite:** "Alunos ilimitados"
+        * **Botão CTA:** "Fale com um Especialista"
+
+**4. Tabela Comparativa de Recursos:**
+* Abaixo dos cards, crie uma tabela comparativa detalhada.
+* **Colunas:** "Recursos", "Faixa Branca", "Faixa Preta", "Mestre".
+* **Linhas (Recursos):** Gestão de Alunos, Agenda e Aulas, Controle de Presença, Portal do Aluno, Controle Financeiro, Relatórios Avançados, Automação de Pagamentos, Suporte Prioritário, Limite de Alunos Ativos.
+* **Preenchimento:** Use ✔ para recursos incluídos. Na linha "Limite de Alunos Ativos", preencha com "Até 50", "Até 200", e "Ilimitado".
+
+**5. Seção de Perguntas Frequentes (FAQ):**
+* **Título:** "Ainda tem dúvidas? Nós respondemos."
+* **Formato:** Utilize um componente de "accordion" (sanfona) que expande ao clicar.
+* **Conteúdo:**
+    * **P: "Posso fazer um teste gratuito?"**
+        * R: "Sim! Oferecemos um teste gratuito de 30 dias do nosso plano mais completo, o Plano Mestre. Você terá acesso a todas as funcionalidades para ver na prática como podemos transformar a gestão da sua academia. Não é necessário cartão de crédito para começar."
+    * **P: "Existe contrato de fidelidade?"**
+        * R: "Não. Acreditamos na liberdade de escolha. Nossos planos são mensais e você pode cancelar a qualquer momento, sem multas ou burocracia. A sua satisfação é a nossa única fidelidade."
+    * **P: "Posso mudar de plano a qualquer momento?"**
+        * R: "Com certeza! Você pode fazer o upgrade ou downgrade do seu plano diretamente na plataforma, de forma simples e rápida. O sistema se ajusta às suas necessidades conforme sua academia cresce."
+
+**6. Requisito Técnico de Arquitetura (Nota para Backend):**
+* A implementação desta página de preços implica um requisito para o backend: a arquitetura do software DEVE ser construída utilizando o conceito de "Feature Flags". Isso permitirá habilitar ou desabilitar funcionalidades específicas (como o Portal do Aluno ou Relatórios Avançados) de forma dinâmica, com base no plano que a academia assinou, garantindo que a estrutura de preços seja refletida perfeitamente no produto.
+```

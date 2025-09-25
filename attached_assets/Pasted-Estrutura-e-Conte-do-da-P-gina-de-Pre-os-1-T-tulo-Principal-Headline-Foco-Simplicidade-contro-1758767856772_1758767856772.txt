@@ -1,0 +1,159 @@
+Estrutura e Conteúdo da Página de Preços
+1. Título Principal (Headline):
+
+Foco: Simplicidade, controle e crescimento.
+
+Exemplo: "Planos flexíveis para sua academia crescer. Menos burocracia, mais tempo no tatame."
+
+2. Seção da Oferta de Lançamento (Posicionar logo abaixo do título, com alto destaque visual):
+
+Título da Seção: "Oferta Exclusiva de Lançamento: Seja um dos 100 Primeiros!"
+
+Texto Principal: Deve comunicar claramente os dois benefícios principais da oferta:
+
+Teste Gratuito: "Experimente o poder máximo da nossa plataforma. Comece hoje com 30 dias de teste gratuito do nosso Plano Mestre, com todos os recursos liberados. Sem compromisso, sem pedir cartão de crédito."
+
+Desconto para os Primeiros Adeptos: "Gostou do que viu? Para celebrar nosso lançamento, os 100 primeiros assinantes após o período de teste garantirão um desconto de 50% em qualquer plano por 12 meses! Uma oportunidade única para modernizar sua academia pela metade do preço."
+
+Elemento de Urgência: Incluir um contador ou uma barra de progresso visual (ex: "Vagas restantes para a oferta: 97/100").
+
+Call-to-Action (CTA) Principal: Um botão grande e chamativo.
+
+Texto do Botão: "QUERO MEU TESTE GRÁTIS DE 30 DIAS"
+
+3. Seção de Planos (Modelo de 3 Tiers):
+
+Layout: Três colunas lado a lado, com o plano "Faixa Preta" visualmente destacado (ex: borda colorida, selo "O mais popular").
+
+Preços Sugeridos (para referência):
+
+Plano Básico: R$ 79/mês
+
+Plano Profissional: R$ 149/mês
+
+Plano Enterprise: Sob Consulta
+
+Card do Plano 1: Faixa Branca
+Nome do Plano: Faixa Branca
+
+Ideal para: Academias pequenas ou em início de operação.
+
+Preço: R$ 79 /mês
+
+Oferta de Lançamento: "Por apenas R$ 39,50/mês durante o 1º ano!" (mostrar este preço com destaque)
+
+Recursos (lista com ícones):
+
+✔ Gestão de Alunos Completa
+
+✔ Agenda e Agendamento de Aulas
+
+✔ Controle de Presença
+
+Limitação Principal: "Até 50 alunos ativos"
+
+Botão CTA: "Começar Teste Grátis"
+
+Card do Plano 2: Faixa Preta (Destacado)
+Selo: "O MAIS POPULAR"
+
+Nome do Plano: Faixa Preta
+
+Ideal para: A maioria das academias que buscam crescimento e profissionalização.
+
+Preço: R$ 149 /mês
+
+Oferta de Lançamento: "Por apenas R$ 74,50/mês durante o 1º ano!"
+
+Recursos (lista com ícones):
+
+✔ Tudo do plano Faixa Branca, e mais:
+
+✔ Portal do Aluno (para acompanhamento e pagamentos)
+
+✔ Controle Financeiro Completo (cobranças, fluxo de caixa)
+
+Limitação Principal: "Até 200 alunos ativos"
+
+Botão CTA: "Começar Teste Grátis" (com cor de destaque)
+
+Card do Plano 3: Mestre
+Nome do Plano: Mestre
+
+Ideal para: Grandes academias ou redes com necessidades personalizadas.
+
+Preço: Sob Consulta
+
+Oferta de Lançamento: "Condições especiais para os 100 primeiros. Fale conosco!"
+
+Recursos (lista com ícones):
+
+✔ Tudo do plano Faixa Preta, e mais:
+
+✔ Relatórios Avançados de Gestão
+
+✔ Automação de Pagamentos Recorrentes
+
+✔ Suporte Prioritário e Gerente de Conta
+
+Limitação Principal: "Alunos ilimitados"
+
+Botão CTA: "Fale com um Especialista"
+
+4. Tabela Comparativa de Recursos:
+
+Instrução: Crie uma tabela visual clara com todos os recursos listados nas linhas e os três planos nas colunas. Use o símbolo ✔ para indicar a inclusão de um recurso.
+
+Linhas de Recursos:
+
+Gestão de Alunos
+
+Agenda e Aulas
+
+Controle de Presença
+
+Portal do Aluno
+
+Controle Financeiro
+
+Relatórios Avançados
+
+Automação de Pagamentos
+
+Suporte Prioritário
+
+Limite de Alunos Ativos (aqui, em vez de ✔, coloque "Até 50", "Até 200", "Ilimitado")
+
+5. Seção de Perguntas Frequentes (FAQ):
+
+Título: "Ainda tem dúvidas? Nós respondemos."
+
+Formato: Lista de perguntas "sanfona" (accordion) que se expandem para revelar as respostas.
+
+Perguntas e Diretrizes para Respostas:
+
+P: "Posso fazer um teste gratuito?"
+
+R: "Sim! Oferecemos um teste gratuito de 30 dias do nosso plano mais completo, o Plano Mestre. Você terá acesso a todas as funcionalidades para ver na prática como podemos transformar a gestão da sua academia. Não é necessário cartão de crédito para começar."
+
+P: "Existe contrato de fidelidade?"
+
+R: "Não. Acreditamos na liberdade de escolha. Nossos planos são mensais e você pode cancelar a qualquer momento, sem multas ou burocracia. A sua satisfação é a nossa única fidelidade."
+
+P: "Posso mudar de plano a qualquer momento?"
+
+R: "Com certeza! Você pode fazer o upgrade ou downgrade do seu plano diretamente na plataforma, de forma simples e rápida. O sistema se ajusta às suas necessidades conforme sua academia cresce."
+
+6. Dica de Arquiteto (Nota para o contexto de desenvolvimento):
+
+Incluir esta nota no prompt para fornecer contexto completo sobre a implementação: "A arquitetura do software deve ser construída utilizando o conceito de 'Feature Flags'. Isso permitirá habilitar ou desabilitar funcionalidades específicas (como o Portal do Aluno ou Relatórios Avançados) de forma dinâmica, com base no plano que a academia assinou, garantindo que a estrutura de preços seja refletida perfeitamente no produto."
+
+Tom de Voz e Estilo:
+
+Profissional e Confiante: Transmita segurança e expertise no gerenciamento de academias.
+
+Direto e Claro: Evite jargões técnicos. A comunicação deve ser fácil de entender.
+
+Conectado com o Público: Use a temática das artes marciais (ex: nomes dos planos) para criar uma conexão imediata e mostrar que o produto foi feito "de lutador para lutador".
+
+Foco no Benefício: Em vez de apenas listar recursos, traduza-os em benefícios diretos (ex: "Controle Financeiro" -> "Reduza a inadimplência e tenha total visibilidade do seu caixa").
