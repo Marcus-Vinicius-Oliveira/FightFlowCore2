@@ -27,24 +27,27 @@ export function Navbar() {
           <div className="hidden md:flex items-center space-x-8">
             <button
               onClick={() => setLocation('/recursos')}
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="relative text-muted-foreground hover:text-foreground transition-colors group"
               data-testid="link-recursos-desktop"
             >
               Recursos
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-orange-500 transition-all duration-300 group-hover:w-full"></span>
             </button>
             <button
               onClick={() => setLocation('/precos')}
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="relative text-muted-foreground hover:text-foreground transition-colors group"
               data-testid="link-precos-desktop"
             >
               Preços
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-orange-500 transition-all duration-300 group-hover:w-full"></span>
             </button>
             <button
               onClick={() => setLocation('/sobre')}
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="relative text-muted-foreground hover:text-foreground transition-colors group"
               data-testid="link-sobre-desktop"
             >
               Sobre
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-orange-500 transition-all duration-300 group-hover:w-full"></span>
             </button>
           </div>
 
