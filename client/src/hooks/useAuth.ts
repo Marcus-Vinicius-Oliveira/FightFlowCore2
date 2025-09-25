@@ -76,7 +76,7 @@ export function useAuth() {
       setUser(response.user);
       toast({
         title: 'Conta Criada!',
-        description: `Bem-vindo ao Centro de Lutas, ${response.user.name}`,
+        description: `Bem-vindo ao Fight Club App, ${response.user.name}`,
       });
     },
     onError: (error: Error) => {
@@ -94,7 +94,7 @@ export function useAuth() {
     queryClient.clear();
     toast({
       title: 'Desconectado',
-      description: 'Você foi desconectado com sucesso.',
+      description: 'Você foi desconectado com sucesso. Até logo!',
     });
   };
 

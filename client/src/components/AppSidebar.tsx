@@ -25,7 +25,10 @@ import {
 } from "@/components/ui/sidebar";
 import logoIcon from "@assets/image_1758778298254.png";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
+import { LogOut } from "lucide-react";
 
 interface AppSidebarProps {
   userRole?: "SUPER_ADMIN" | "ADMIN_ACADEMIA" | "PROFESSOR" | "ALUNO";
@@ -45,6 +48,8 @@ export function AppSidebar({
     academy: userRole === "SUPER_ADMIN" ? "Fight Club App Platform" : "Dragon Academy"
   }
 }: AppSidebarProps) {
+  const { logout } = useAuth();
+  const [, setLocation] = useLocation();
   
   // Menu items based on user role
   const getMenuItems = () => {
@@ -217,6 +222,21 @@ export function AppSidebar({
               </p>
             </div>
           </div>
+          
+          {/* Logout Button */}
+          <Button 
+            variant="ghost" 
+            size="sm"
+            className="w-full justify-start text-sidebar-foreground/60 hover:text-sidebar-foreground"
+            onClick={() => {
+              logout();
+              setLocation('/');
+            }}
+            data-testid="button-logout"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Sair da Conta
+          </Button>
         </div>
       </SidebarFooter>
     </Sidebar>
