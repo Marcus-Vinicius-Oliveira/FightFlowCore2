@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./ThemeToggle";
 import { Menu, X, Shield } from "lucide-react";
+import { useLocation } from "wouter";
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [, setLocation] = useLocation();
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -51,13 +53,19 @@ export function Navbar() {
             <Button 
               variant="ghost"
               data-testid="button-login"
-              onClick={() => console.log('Login clicked')}
+              onClick={() => {
+                console.log('Login clicked');
+                setLocation('/login');
+              }}
             >
               Entrar
             </Button>
             <Button 
               data-testid="button-signup"
-              onClick={() => console.log('Sign up clicked')}
+              onClick={() => {
+                console.log('Sign up clicked');
+                setLocation('/cadastro');
+              }}
             >
               Cadastrar
             </Button>
@@ -107,13 +115,21 @@ export function Navbar() {
                 <Button 
                   variant="ghost"
                   data-testid="button-mobile-login"
-                  onClick={() => console.log('Mobile Login clicked')}
+                  onClick={() => {
+                    console.log('Mobile Login clicked');
+                    setLocation('/login');
+                    setIsMenuOpen(false);
+                  }}
                 >
                   Entrar
                 </Button>
                 <Button 
                   data-testid="button-mobile-signup"
-                  onClick={() => console.log('Mobile Sign up clicked')}
+                  onClick={() => {
+                    console.log('Mobile Sign up clicked');
+                    setLocation('/cadastro');
+                    setIsMenuOpen(false);
+                  }}
                 >
                   Cadastrar
                 </Button>

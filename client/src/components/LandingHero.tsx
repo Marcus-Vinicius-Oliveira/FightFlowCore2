@@ -1,8 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, DollarSign, Users, Calendar } from "lucide-react";
+import { useLocation } from "wouter";
 import heroImage from "@assets/generated_images/martial_arts_academy_hero_4c8fadf9.png";
 
 export function LandingHero() {
+  const [, setLocation] = useLocation();
+  
   return (
     <section className="relative min-h-[600px] flex items-center justify-center overflow-hidden">
       {/* Hero Background Image */}
@@ -35,7 +38,10 @@ export function LandingHero() {
               variant="default"
               className="text-lg px-8 py-3 bg-orange-500 hover:bg-orange-600 border-orange-600"
               data-testid="button-get-started"
-              onClick={() => console.log('Get started clicked')}
+              onClick={() => {
+                console.log('Get started clicked');
+                setLocation('/cadastro');
+              }}
             >
               Comece Grátis
               <ArrowRight className="ml-2 h-5 w-5" />

@@ -55,6 +55,8 @@ function StudentForm({ student, onClose }: StudentFormProps) {
     mutationFn: (data: StudentFormData) => apiRequest('POST', '/api/students', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
       toast({
         title: "Aluno cadastrado com sucesso!",
         description: `${formData.name} foi adicionado à academia.`,
@@ -74,6 +76,8 @@ function StudentForm({ student, onClose }: StudentFormProps) {
     mutationFn: (data: StudentFormData) => apiRequest('PATCH', `/api/students/${student!.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
       toast({
         title: "Aluno atualizado com sucesso!",
         description: `Dados de ${formData.name} foram atualizados.`,

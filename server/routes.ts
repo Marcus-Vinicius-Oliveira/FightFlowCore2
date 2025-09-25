@@ -330,31 +330,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Create student (Admin only)
+  // Get users with optional filtering (with academy isolation) - Admin only
+  app.get('/api/users', 
+    authenticateToken, 
+    requireRole(['ADMIN_ACADEMIA']),
+    requireSameAcademy,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const { email, role } = req.query;
+        
+        // Get all users from the academy
+        const students = await storage.getUsersByAcademy(req.user!.academyId, 'ALUNO');
+        const instructors = await storage.getUsersByAcademy(req.user!.academyId, 'PROFESSOR');
+        const admins = await storage.getUsersByAcademy(req.user!.academyId, 'ADMIN_ACADEMIA');
+        
+        let allUsers = [...students, ...instructors, ...admins];
+        
+        // Filter by email if provided
+        if (email) {
+          allUsers = allUsers.filter(user => user.email === email);
+        }
+        
+        // Filter by role if provided
+        if (role) {
+          allUsers = allUsers.filter(user => user.role === role);
+        }
+        
+        // Remove sensitive information
+        const sanitizedUsers = allUsers.map(user => ({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          phone: user.phone,
+          dateOfBirth: user.dateOfBirth,
+          belt: user.belt,
+          active: user.active,
+          createdAt: user.createdAt
+        }));
+
+        res.json(sanitizedUsers);
+
+      } catch (error) {
+        console.error('Get users error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Create user (student or instructor - Admin only)
   app.post('/api/students', 
     authenticateToken, 
     requireRole(['ADMIN_ACADEMIA']),
     requireSameAcademy,
     async (req: AuthenticatedRequest, res) => {
       try {
-        // Schema for student creation (password is auto-generated)
-        const createStudentSchema = z.object({
+        // Schema for user creation (password is auto-generated)
+        const createUserSchema = z.object({
           name: z.string().min(1),
           email: z.string().email(),
           phone: z.string().optional(),
           dateOfBirth: z.string().optional(),
           belt: z.string().optional(),
+          role: z.enum(['ALUNO', 'PROFESSOR']).default('ALUNO'),
         });
 
-        const studentData = createStudentSchema.parse(req.body);
+        const userData = createUserSchema.parse(req.body);
 
         // Check if email already exists
-        const existingUser = await storage.getUserByEmail(studentData.email);
+        const existingUser = await storage.getUserByEmail(userData.email);
         if (existingUser) {
           return res.status(409).json({ error: 'User with this email already exists' });
         }
 
-        // Generate a secure random password for the student
+        // Generate a secure random password for the user
         const generateRandomPassword = () => {
           const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
           let password = '';
@@ -367,18 +416,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const defaultPassword = generateRandomPassword();
         const hashedPassword = await hashPassword(defaultPassword);
 
-        const newStudent = await storage.createUser({
-          ...studentData,
-          role: 'ALUNO',
+        const newUser = await storage.createUser({
+          ...userData,
+          role: userData.role,
           academyId: req.user!.academyId,
           password: hashedPassword,
-          dateOfBirth: studentData.dateOfBirth ? new Date(studentData.dateOfBirth) : undefined
+          dateOfBirth: userData.dateOfBirth ? new Date(userData.dateOfBirth) : undefined
         });
 
         // Remove password from response
-        const { password, ...studentResponse } = newStudent;
+        const { password, ...userResponse } = newUser;
         
-        res.status(201).json(studentResponse);
+        res.status(201).json(userResponse);
 
       } catch (error) {
         if (error instanceof z.ZodError) {
