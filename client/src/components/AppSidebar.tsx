@@ -105,7 +105,7 @@ export function AppSidebar({
       },
       {
         title: "Financeiro",
-        url: "/finances",
+        url: "/dashboard/financeiro",
         icon: DollarSign,
         roles: ["ADMIN_ACADEMIA"]
       },

@@ -1,0 +1,28 @@
+Please build the main page for our "Financial Control" module. This is a comprehensive task, so follow these steps carefully.
+
+1.  **Create the Page Structure**:
+    * Create a new HTML file named `financeiro.html`.
+    * Add the standard site header for consistent navigation and link to the main CSS file.
+    * Add the main page title: `<h1>Controle Financeiro</h1>`.
+
+2.  **Add KPI Cards and Filters**:
+    * Below the title, create a summary section with three KPI cards styled like our main dashboard: "Receita do Mês (Pago)", "A Receber (Pendente + Atrasado)", and "Inadimplentes (Nº de alunos)". Use placeholder values.
+    * Below the KPIs, create a filter group with buttons: "Todos", "🟢 Pagos", "🔴 Atrasados", "🟡 Próximos ao Vencimento".
+
+3.  **Create the Main Data Table**:
+    * Below the filters, create a full-width `<table>`.
+    * The table header (`<thead>`) must include: "Aluno", "Plano", "Vencimento", "Status", "Data do Pagamento", "Valor", and "Ações".
+    * **Populate the table body (`<tbody>`)** with the following sample data to represent all scenarios. Use a specific class for each status `<td>`:
+        * Row 1: Aluno: "João Silva", Plano: "Faixa Preta", Vencimento: "20/09/2025", Status: `<span class="status-atrasado">Atrasado</span>`, Data Pag.: "-", Valor: "R$ 149,00", Ações: `<button class="btn-marcar-pago">Marcar como Pago</button>`.
+        * Row 2: Aluno: "Maria Oliveira", Vencimento: "30/09/2025", Status: `<span class="status-proximo">Próximo</span>`, Data Pag.: "-", Valor: "R$ 79,00", Ações: `<button class="btn-marcar-pago">Marcar como Pago</button>`.
+        * Row 3: Aluno: "Carlos Souza", Vencimento: "10/10/2025", Status: `<span class="status-pendente">Pendente</span>`, Data Pag.: "-", Valor: "R$ 250,00", Ações: `<button class="btn-marcar-pago">Marcar como Pago</button>`.
+        * Row 4: Aluno: "Ana Pereira", Vencimento: "05/09/2025", Status: `<span class="status-pago">Pago</span>`, Data Pag.: "04/09/2025", Valor: "R$ 149,00", Ações: `<a href="#">Ver Detalhes</a>`.
+
+4.  **Apply CSS Styling**:
+    * Ensure the table is styled cleanly (full-width, proper padding, etc.).
+    * **Crucially, create the CSS classes for the status pills**:
+        * `.status-atrasado`: Red background, white text.
+        * `.status-proximo`: Yellow background, dark text.
+        * `.status-pago`: Green background, white text.
+        * `.status-pendente`: Blue or Gray background, white text.
+    * Style the `.btn-marcar-pago` as a primary action button within the table.

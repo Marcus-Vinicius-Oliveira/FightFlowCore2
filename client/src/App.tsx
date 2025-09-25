@@ -24,6 +24,7 @@ import WeeklySchedule from "@/pages/WeeklySchedule";
 import AttendanceControl from "@/pages/AttendanceControl";
 import PlanManagement from "@/pages/PlanManagement";
 import CreatePlan from "@/pages/CreatePlan";
+import FinancialControl from "@/pages/FinancialControl";
 import PortalLogin from "@/pages/PortalLogin";
 import PortalDashboard from "@/pages/PortalDashboard";
 import PortalSchedule from "@/pages/PortalSchedule";
@@ -81,6 +82,11 @@ function Router() {
       <Route path="/dashboard/planos/novo">
         <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
           <CreatePlan />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/dashboard/financeiro">
+        <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
+          <FinancialControl />
         </ProtectedRoute>
       </Route>
       <Route path="/dashboard/grade">
