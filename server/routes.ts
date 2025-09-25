@@ -9,6 +9,7 @@ import {
   authenticateToken, 
   requireRole, 
   requireSameAcademy,
+  requireSuperAdmin,
   type AuthenticatedRequest 
 } from "./auth";
 import { 
@@ -18,7 +19,9 @@ import {
   insertClassTypeSchema,
   insertClassSchema,
   insertEnrollmentSchema,
-  insertAttendanceSchema 
+  insertAttendanceSchema,
+  insertPlanoSchema,
+  insertAssinaturaSchema 
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -62,8 +65,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: user.name
       });
 
-      // Get academy info
-      const academy = await storage.getAcademy(user.academyId);
+      // Get academy info (null for SUPER_ADMIN)
+      const academy = user.academyId ? await storage.getAcademy(user.academyId) : null;
 
       res.json({
         token,
@@ -260,7 +263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'User not found' });
       }
 
-      const academy = await storage.getAcademy(user.academyId);
+      const academy = user.academyId ? await storage.getAcademy(user.academyId) : null;
 
       res.json({
         id: user.id,
@@ -286,6 +289,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Extract academyId from JWT payload (our tenant ID)
       const academyId = req.user!.academyId;
+      
+      // SUPER_ADMIN users don't have academyId
+      if (!academyId) {
+        return res.status(403).json({ error: 'Academy ID required for this operation' });
+      }
       
       // Get academy information
       const academy = await storage.getAcademy(academyId);
@@ -338,8 +346,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     requireSameAcademy,
     async (req: AuthenticatedRequest, res) => {
       try {
+        const academyId = req.user!.academyId;
+        if (!academyId) {
+          return res.status(403).json({ error: 'Academy ID required for this operation' });
+        }
+        
         // Always use academyId from authenticated user, never from request
-        const students = await storage.getUsersByAcademy(req.user!.academyId, 'ALUNO');
+        const students = await storage.getUsersByAcademy(academyId, 'ALUNO');
         
         // Remove sensitive information
         const sanitizedStudents = students.map(student => ({
@@ -369,8 +382,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     requireSameAcademy,
     async (req: AuthenticatedRequest, res) => {
       try {
+        const academyId = req.user!.academyId;
+        if (!academyId) {
+          return res.status(403).json({ error: 'Academy ID required for this operation' });
+        }
+        
         // Always use academyId from authenticated user, never from request
-        const instructors = await storage.getUsersByAcademy(req.user!.academyId, 'PROFESSOR');
+        const instructors = await storage.getUsersByAcademy(academyId, 'PROFESSOR');
         
         // Remove sensitive information
         const sanitizedInstructors = instructors.map(instructor => ({
@@ -398,12 +416,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     requireSameAcademy,
     async (req: AuthenticatedRequest, res) => {
       try {
+        const academyId = req.user!.academyId;
+        if (!academyId) {
+          return res.status(403).json({ error: 'Academy ID required for this operation' });
+        }
+        
         const { email, role } = req.query;
         
         // Get all users from the academy
-        const students = await storage.getUsersByAcademy(req.user!.academyId, 'ALUNO');
-        const instructors = await storage.getUsersByAcademy(req.user!.academyId, 'PROFESSOR');
-        const admins = await storage.getUsersByAcademy(req.user!.academyId, 'ADMIN_ACADEMIA');
+        const students = await storage.getUsersByAcademy(academyId, 'ALUNO');
+        const instructors = await storage.getUsersByAcademy(academyId, 'PROFESSOR');
+        const admins = await storage.getUsersByAcademy(academyId, 'ADMIN_ACADEMIA');
         
         let allUsers = [...students, ...instructors, ...admins];
         
@@ -634,7 +657,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     requireSameAcademy,
     async (req: AuthenticatedRequest, res) => {
       try {
-        const classTypes = await storage.getClassTypesByAcademy(req.user!.academyId);
+        const academyId = req.user!.academyId;
+        if (!academyId) {
+          return res.status(403).json({ error: 'Academy ID required for this operation' });
+        }
+        
+        const classTypes = await storage.getClassTypesByAcademy(academyId);
         res.json(classTypes);
 
       } catch (error) {
@@ -651,7 +679,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     requireSameAcademy,
     async (req: AuthenticatedRequest, res) => {
       try {
-        const classes = await storage.getClassesByAcademy(req.user!.academyId);
+        const academyId = req.user!.academyId;
+        if (!academyId) {
+          return res.status(403).json({ error: 'Academy ID required for this operation' });
+        }
+        
+        const classes = await storage.getClassesByAcademy(academyId);
         res.json(classes);
 
       } catch (error) {
@@ -980,7 +1013,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     requireSameAcademy,
     async (req: AuthenticatedRequest, res) => {
       try {
-        const classes = await storage.getClassesByAcademy(req.user!.academyId);
+        const academyId = req.user!.academyId;
+        if (!academyId) {
+          return res.status(403).json({ error: 'Academy ID required for this operation' });
+        }
+        
+        const classes = await storage.getClassesByAcademy(academyId);
         
         // For professors, filter to only classes they teach
         const filteredClasses = req.user!.role === 'PROFESSOR' 
@@ -1037,11 +1075,264 @@ export async function registerRoutes(app: Express): Promise<Server> {
     requireSameAcademy,
     async (req: AuthenticatedRequest, res) => {
       try {
-        const plans = await storage.getMembershipPlansByAcademy(req.user!.academyId);
+        const academyId = req.user!.academyId;
+        if (!academyId) {
+          return res.status(403).json({ error: 'Academy ID required for this operation' });
+        }
+        
+        const plans = await storage.getMembershipPlansByAcademy(academyId);
         res.json(plans);
 
       } catch (error) {
         console.error('Get membership plans error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // ============================================================================
+  // SUPER ADMIN ROUTES
+  // ============================================================================
+
+  // Dashboard stats
+  app.get('/api/superadmin/stats', 
+    authenticateToken, 
+    requireSuperAdmin,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const academies = await storage.getAllAcademies();
+        const planos = await storage.getAllPlanos();
+        const assinaturas = await storage.getAllAssinaturas();
+
+        const stats = {
+          totalAcademies: academies.length,
+          totalPlanos: planos.length,
+          totalAssinaturas: assinaturas.length,
+          activePlanos: planos.filter(p => p.ativo).length,
+          activeAssinaturas: assinaturas.filter(a => a.status === 'ativa').length
+        };
+
+        res.json(stats);
+      } catch (error) {
+        console.error('Get super admin stats error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // ============================================================================
+  // ACADEMIES MANAGEMENT
+  // ============================================================================
+
+  // Get all academies
+  app.get('/api/superadmin/academias', 
+    authenticateToken, 
+    requireSuperAdmin,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const academies = await storage.getAllAcademies();
+        res.json(academies);
+      } catch (error) {
+        console.error('Get all academies error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Get academy by ID
+  app.get('/api/superadmin/academias/:id', 
+    authenticateToken, 
+    requireSuperAdmin,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const academy = await storage.getAcademy(req.params.id);
+        if (!academy) {
+          return res.status(404).json({ error: 'Academy not found' });
+        }
+
+        // Get academy subscription info
+        const assinaturas = await storage.getAssinaturasByAcademia(academy.id);
+        const users = await storage.getUsersByAcademy(academy.id);
+
+        res.json({
+          ...academy,
+          assinaturas,
+          totalUsers: users.length,
+          students: users.filter(u => u.role === 'ALUNO').length,
+          professors: users.filter(u => u.role === 'PROFESSOR').length,
+          admins: users.filter(u => u.role === 'ADMIN_ACADEMIA').length
+        });
+      } catch (error) {
+        console.error('Get academy error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Update academy
+  app.patch('/api/superadmin/academias/:id', 
+    authenticateToken, 
+    requireSuperAdmin,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const updateSchema = insertAcademySchema.partial();
+        const validatedData = updateSchema.parse(req.body);
+
+        const academy = await storage.updateAcademy(req.params.id, validatedData);
+        if (!academy) {
+          return res.status(404).json({ error: 'Academy not found' });
+        }
+
+        res.json(academy);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ error: 'Validation failed', details: error.errors });
+        }
+        console.error('Update academy error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // ============================================================================
+  // PLANOS MANAGEMENT
+  // ============================================================================
+
+  // Get all planos
+  app.get('/api/superadmin/planos', 
+    authenticateToken, 
+    requireSuperAdmin,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const planos = await storage.getAllPlanos();
+        res.json(planos);
+      } catch (error) {
+        console.error('Get all planos error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Get plano by ID
+  app.get('/api/superadmin/planos/:id', 
+    authenticateToken, 
+    requireSuperAdmin,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const plano = await storage.getPlano(req.params.id);
+        if (!plano) {
+          return res.status(404).json({ error: 'Plano not found' });
+        }
+        res.json(plano);
+      } catch (error) {
+        console.error('Get plano error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Create new plano
+  app.post('/api/superadmin/planos', 
+    authenticateToken, 
+    requireSuperAdmin,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const validatedData = insertPlanoSchema.parse(req.body);
+        const plano = await storage.createPlano(validatedData);
+        res.status(201).json(plano);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ error: 'Validation failed', details: error.errors });
+        }
+        console.error('Create plano error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Update plano
+  app.patch('/api/superadmin/planos/:id', 
+    authenticateToken, 
+    requireSuperAdmin,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const updateSchema = insertPlanoSchema.partial();
+        const validatedData = updateSchema.parse(req.body);
+
+        const plano = await storage.updatePlano(req.params.id, validatedData);
+        if (!plano) {
+          return res.status(404).json({ error: 'Plano not found' });
+        }
+
+        res.json(plano);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ error: 'Validation failed', details: error.errors });
+        }
+        console.error('Update plano error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // ============================================================================
+  // ASSINATURAS MANAGEMENT
+  // ============================================================================
+
+  // Get all assinaturas
+  app.get('/api/superadmin/assinaturas', 
+    authenticateToken, 
+    requireSuperAdmin,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const assinaturas = await storage.getAllAssinaturas();
+        res.json(assinaturas);
+      } catch (error) {
+        console.error('Get all assinaturas error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Create new assinatura
+  app.post('/api/superadmin/assinaturas', 
+    authenticateToken, 
+    requireSuperAdmin,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const validatedData = insertAssinaturaSchema.parse(req.body);
+        const assinatura = await storage.createAssinatura(validatedData);
+        res.status(201).json(assinatura);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ error: 'Validation failed', details: error.errors });
+        }
+        console.error('Create assinatura error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Update assinatura
+  app.patch('/api/superadmin/assinaturas/:id', 
+    authenticateToken, 
+    requireSuperAdmin,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const updateSchema = insertAssinaturaSchema.partial();
+        const validatedData = updateSchema.parse(req.body);
+
+        const assinatura = await storage.updateAssinatura(req.params.id, validatedData);
+        if (!assinatura) {
+          return res.status(404).json({ error: 'Assinatura not found' });
+        }
+
+        res.json(assinatura);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ error: 'Validation failed', details: error.errors });
+        }
+        console.error('Update assinatura error:', error);
         res.status(500).json({ error: 'Internal server error' });
       }
     }

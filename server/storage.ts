@@ -7,6 +7,8 @@ import {
   enrollments, 
   attendance, 
   payments,
+  planos,
+  assinaturas,
   type User, 
   type Academy,
   type MembershipPlan,
@@ -15,6 +17,8 @@ import {
   type Enrollment,
   type Attendance,
   type Payment,
+  type Plano,
+  type Assinatura,
   type ClassWithRefs,
   type EnrollmentWithRefs,
   type InsertUser, 
@@ -24,7 +28,9 @@ import {
   type InsertClass,
   type InsertEnrollment,
   type InsertAttendance,
-  type InsertPayment
+  type InsertPayment,
+  type InsertPlano,
+  type InsertAssinatura
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -77,6 +83,22 @@ export interface IStorage {
   // Payment operations
   getPaymentsByStudent(studentId: string): Promise<Payment[]>;
   createPayment(payment: InsertPayment): Promise<Payment>;
+  
+  // Super Admin operations
+  // Academy management (global access)
+  getAllAcademies(): Promise<Academy[]>;
+  
+  // Platform plans management
+  getAllPlanos(): Promise<Plano[]>;
+  getPlano(id: string): Promise<Plano | undefined>;
+  createPlano(plano: InsertPlano): Promise<Plano>;
+  updatePlano(id: string, updates: Partial<InsertPlano>): Promise<Plano | undefined>;
+  
+  // Academy subscriptions management
+  getAllAssinaturas(): Promise<Assinatura[]>;
+  getAssinaturasByAcademia(academiaId: string): Promise<Assinatura[]>;
+  createAssinatura(assinatura: InsertAssinatura): Promise<Assinatura>;
+  updateAssinatura(id: string, updates: Partial<InsertAssinatura>): Promise<Assinatura | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -324,6 +346,65 @@ export class DatabaseStorage implements IStorage {
       .values(insertPayment)
       .returning();
     return payment;
+  }
+
+  // Super Admin operations
+  async getAllAcademies(): Promise<Academy[]> {
+    return await db.select().from(academies).orderBy(desc(academies.createdAt));
+  }
+
+  async getAllPlanos(): Promise<Plano[]> {
+    return await db.select().from(planos).orderBy(desc(planos.createdAt));
+  }
+
+  async getPlano(id: string): Promise<Plano | undefined> {
+    const [plano] = await db.select().from(planos).where(eq(planos.id, id));
+    return plano || undefined;
+  }
+
+  async createPlano(insertPlano: InsertPlano): Promise<Plano> {
+    const [plano] = await db
+      .insert(planos)
+      .values(insertPlano)
+      .returning();
+    return plano;
+  }
+
+  async updatePlano(id: string, updates: Partial<InsertPlano>): Promise<Plano | undefined> {
+    const [plano] = await db
+      .update(planos)
+      .set(updates)
+      .where(eq(planos.id, id))
+      .returning();
+    return plano || undefined;
+  }
+
+  async getAllAssinaturas(): Promise<Assinatura[]> {
+    return await db.select().from(assinaturas).orderBy(desc(assinaturas.createdAt));
+  }
+
+  async getAssinaturasByAcademia(academiaId: string): Promise<Assinatura[]> {
+    return await db.select()
+      .from(assinaturas)
+      .where(eq(assinaturas.academiaId, academiaId))
+      .orderBy(desc(assinaturas.createdAt));
+  }
+
+  async createAssinatura(insertAssinatura: InsertAssinatura): Promise<Assinatura> {
+    const [assinatura] = await db
+      .insert(assinaturas)
+      .values(insertAssinatura)
+      .returning();
+    return assinatura;
+  }
+
+  async updateAssinatura(id: string, updates: Partial<InsertAssinatura>): Promise<Assinatura | undefined> {
+    const [assinatura] = await db
+      .update(assinaturas)
+      .set(updates)
+      .where(eq(assinaturas.id, id))
+      .returning();
+    return assinatura || undefined;
   }
 }
 
