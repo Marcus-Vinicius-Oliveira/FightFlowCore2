@@ -15,7 +15,7 @@ export interface AuthenticatedRequest extends Request {
     id: string;
     email: string;
     role: string;
-    academyId: string;
+    academyId: string | null; // Nullable for SUPER_ADMIN
     name: string;
   };
 }
@@ -24,7 +24,7 @@ export interface JWTPayload {
   userId: string;
   email: string;
   role: string;
-  academyId: string;
+  academyId: string | null; // Nullable for SUPER_ADMIN
   name: string;
 }
 
@@ -109,6 +109,11 @@ export function requireSameAcademy(req: AuthenticatedRequest, res: Response, nex
     return res.status(401).json({ error: 'Authentication required' });
   }
 
+  // SUPER_ADMIN can bypass academy isolation
+  if (req.user.role === 'SUPER_ADMIN') {
+    return next();
+  }
+
   // Check if academyId is in path parameters or body
   const pathAcademyId = req.params.academyId;
   const bodyAcademyId = req.body?.academyId;
@@ -127,8 +132,24 @@ export function requireSameAcademy(req: AuthenticatedRequest, res: Response, nex
   }
 
   // Prevent client from setting academyId - always use from authenticated user
-  if (req.body) {
+  if (req.body && req.user.academyId) {
     req.body.academyId = req.user.academyId;
+  }
+
+  next();
+}
+
+// Super Admin guard - allows only SUPER_ADMIN role
+export function requireSuperAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  if (req.user.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ 
+      error: 'Super Admin access required',
+      current: req.user.role
+    });
   }
 
   next();
