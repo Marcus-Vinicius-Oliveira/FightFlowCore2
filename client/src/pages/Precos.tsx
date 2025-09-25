@@ -150,6 +150,10 @@ export default function Precos() {
                         <Check className="h-5 w-5 text-primary" />
                         <span className="text-sm">Controle de Presença</span>
                       </div>
+                      <div className="flex items-center space-x-3">
+                        <Check className="h-5 w-5 text-primary" />
+                        <span className="text-sm">Controle Financeiro</span>
+                      </div>
                     </div>
                     <div className="border-t pt-4">
                       <div className="text-center">
@@ -324,7 +328,7 @@ export default function Precos() {
                     </tr>
                     <tr>
                       <td className="py-4 px-4 text-foreground">Controle Financeiro</td>
-                      <td className="py-4 px-4 text-center">-</td>
+                      <td className="py-4 px-4 text-center"><Check className="h-5 w-5 text-primary mx-auto" /></td>
                       <td className="py-4 px-4 text-center"><Check className="h-5 w-5 text-primary mx-auto" /></td>
                       <td className="py-4 px-4 text-center"><Check className="h-5 w-5 text-primary mx-auto" /></td>
                     </tr>
