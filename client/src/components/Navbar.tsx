@@ -39,13 +39,13 @@ export function Navbar() {
             >
               Preços
             </button>
-            <a 
-              href="#about" 
+            <button
+              onClick={() => setLocation('/sobre')}
               className="text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => console.log('About clicked')}
+              data-testid="link-sobre-desktop"
             >
               Sobre
-            </a>
+            </button>
           </div>
 
           {/* Actions */}
@@ -110,13 +110,16 @@ export function Navbar() {
               >
                 Preços
               </button>
-              <a 
-                href="#about" 
-                className="text-muted-foreground hover:text-foreground transition-colors"
-                onClick={() => console.log('Mobile About clicked')}
+              <button
+                onClick={() => {
+                  setLocation('/sobre');
+                  setIsMenuOpen(false);
+                }}
+                className="text-muted-foreground hover:text-foreground transition-colors text-left"
+                data-testid="link-sobre-mobile"
               >
                 Sobre
-              </a>
+              </button>
               <div className="flex flex-col space-y-2 pt-4 border-t">
                 <Button 
                   variant="ghost"

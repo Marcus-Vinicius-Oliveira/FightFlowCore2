@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/Landing";
 import Recursos from "@/pages/Recursos";
 import Precos from "@/pages/Precos";
+import Sobre from "@/pages/Sobre";
 import AuthPage from "@/pages/AuthPage";
 import Cadastro from "@/pages/Cadastro";
 import Login from "@/pages/Login";
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/recursos" component={Recursos} />
       <Route path="/precos" component={Precos} />
+      <Route path="/sobre" component={Sobre} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/cadastro" component={Cadastro} />
       <Route path="/login" component={Login} />
