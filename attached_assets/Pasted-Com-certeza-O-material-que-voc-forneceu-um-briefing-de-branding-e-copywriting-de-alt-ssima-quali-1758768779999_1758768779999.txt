@@ -1,0 +1,65 @@
+Com certeza. O material que você forneceu é um briefing de branding e copywriting de altíssima qualidade. Meu trabalho é converter essa estratégia e narrativa em um prompt técnico, detalhado e acionável para que o agente do Replit possa construir a página exatamente como imaginada.
+
+Este prompt organiza todas as suas ideias em uma sequência lógica de comandos de construção.
+
+-----
+
+### **Prompt para Replit: Construção da Página "Sobre" com Foco em Storytelling**
+
+```
+Sua tarefa é construir a página "Sobre" da plataforma "Centro de Lutas". O objetivo principal é humanizar a marca, contar a história por trás da sua criação e estabelecer uma conexão genuína com os donos de academias. A página deve transmitir que o software foi criado por alguém que entende profundamente as dores do público-alvo, posicionando-se como um verdadeiro parceiro.
+
+**Instruções Gerais:**
+
+1.  **Criação da Página:** Crie a nova página na rota `/sobre`.
+2.  **Navegação:** Adicione o link funcional para `/sobre` no menu de navegação principal.
+3.  **Consistência Visual:** Mantenha o design 100% consistente com o restante do site.
+4.  **Responsividade:** Garanta que a página seja perfeitamente funcional e visualmente agradável em todos os dispositivos.
+
+**Estrutura e Conteúdo da Página:**
+
+**1. Seção de Título Principal (Header):**
+* Implemente um cabeçalho de alto impacto com os seguintes textos:
+    * **Título (H1):** "Nossa Luta é Simplificar a Sua."
+    * **Subtítulo (H2):** "Feito por quem vive o tatame."
+
+**2. Seção da História de Origem (O Coração da Página):**
+* **Título da Seção:** "Do Caos das Planilhas à Organização com um Clique."
+* **Corpo do Texto (Narrativa):** Insira o seguinte texto, estruturado em parágrafos para uma leitura fluida.
+    * "Como muitos de vocês, nossa jornada começou no tatame. A paixão por ensinar, por ver a evolução de cada aluno, sempre foi nosso maior combustível."
+    * "Mas, fora do tatame, a realidade era outra. Nos víamos perdidos em planilhas intermináveis, gastando horas para controlar presenças, cobrar mensalidades atrasadas e organizar as turmas. A burocracia estava roubando o tempo que deveríamos dedicar aos nossos alunos."
+    * "Foi então que percebemos: e se existisse uma ferramenta pensada exatamente para nós? Uma plataforma que entendesse a diferença entre um dojo e uma academia convencional? Que falasse a nossa língua?"
+    * "Assim nasceu o Centro de Lutas. Não como um negócio, mas como uma missão: devolver aos mestres e professores o seu bem mais precioso, o tempo. Criamos uma plataforma para que você possa focar no que realmente importa: formar atletas, compartilhar conhecimento e transformar vidas."
+
+**3. Seção de Missão, Visão e Valores:**
+* Crie uma seção com três colunas ou cards distintos. Utilize ícones representativos para cada um dos 3 pilares.
+    * **Pilar 1: Nossa Missão**
+        * "Empoderar donos de academias de artes marciais com uma gestão simples e poderosa, permitindo que dediquem mais tempo ao ensino e à formação de seus alunos."
+    * **Pilar 2: Nossa Visão**
+        * "Ser a plataforma de gestão mais confiável e recomendada pela comunidade de artes marciais no Brasil, ajudando a profissionalizar e fortalecer o setor como um todo."
+    * **Pilar 3: Nossos Valores**
+        * Crie uma lista com os seguintes valores: Paixão pelo Tatame, Simplicidade é Poder, Parceria e Suporte, Inovação Constante.
+
+**4. Seção "Conheça o Fundador":**
+* Crie uma seção com layout dividido (imagem de um lado, texto do outro).
+* **Imagem:** Utilize um placeholder para uma foto profissional e acessível (formato quadrado ou circular).
+* **Texto:**
+    * **Nome:** [Inserir Nome do Fundador]
+    * **Título:** Fundador e Apaixonado por Artes Marciais
+    * **Mini-Bio:** "Com mais de [X] anos de experiência em [arte marcial], uniu sua paixão pelo esporte com seu conhecimento em tecnologia para criar a solução que ele mesmo precisava. Hoje, ele se dedica a ajudar outras academias a superarem os mesmos desafios que um dia o inspiraram a criar o Centro de Lutas."
+
+**5. Seção de Prova Social (Opcional):**
+* **Título da Seção:** "O que Dizem Sobre Nós"
+* **Conteúdo:** Adicione um componente de card de depoimento com o seguinte texto de exemplo:
+    * *"O Centro de Lutas mudou o jogo para a minha academia. Finalmente tenho tempo para focar nos treinos!”*
+    * **Autor:** Mestre [Nome], [Nome da Academia]
+
+**6. Seção Final de Chamada para Ação (CTA):**
+* Crie uma seção final de destaque para direcionar o visitante.
+* **Título:** "Junte-se a Centenas de Academias que Estão Transformando sua Gestão."
+* **Botão:** Crie um botão proeminente com o texto "VEJA NOSSOS PLANOS E COMECE SEU TESTE GRÁTIS", que direcione para a página `/precos`.
+
+**Requisitos Técnicos e de Estilo:**
+* **Tom de Voz:** A implementação deve refletir um tom autêntico, empático e inspirador, utilizando a linguagem do universo das artes marciais.
+* **SEO:** Configure o título da página (tag `<title>`) como "Sobre Nós | Centro de Lutas" e adicione uma meta descrição apropriada baseada no conteúdo criado.
+```

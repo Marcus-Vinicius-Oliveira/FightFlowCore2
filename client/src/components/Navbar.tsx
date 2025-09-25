@@ -32,13 +32,13 @@ export function Navbar() {
             >
               Recursos
             </button>
-            <a 
-              href="#pricing" 
+            <button
+              onClick={() => setLocation('/precos')}
               className="text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => console.log('Pricing clicked')}
+              data-testid="link-precos-desktop"
             >
               Preços
-            </a>
+            </button>
             <a 
               href="#about" 
               className="text-muted-foreground hover:text-foreground transition-colors"
@@ -100,13 +100,16 @@ export function Navbar() {
               >
                 Recursos
               </button>
-              <a 
-                href="#pricing" 
-                className="text-muted-foreground hover:text-foreground transition-colors"
-                onClick={() => console.log('Mobile Pricing clicked')}
+              <button
+                onClick={() => {
+                  setLocation('/precos');
+                  setIsMenuOpen(false);
+                }}
+                className="text-muted-foreground hover:text-foreground transition-colors text-left"
+                data-testid="link-precos-mobile"
               >
                 Preços
-              </a>
+              </button>
               <a 
                 href="#about" 
                 className="text-muted-foreground hover:text-foreground transition-colors"
