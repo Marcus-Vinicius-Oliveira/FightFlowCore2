@@ -15,19 +15,19 @@ export function LandingHero() {
           backgroundImage: `url(${heroImage})`
         }}
       >
-        {/* Dark overlay for text contrast */}
-        <div className="absolute inset-0 bg-black/60" />
+        {/* Gradient overlay for text contrast - darker at top, fading to bottom */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-black/40" />
       </div>
       
       {/* Hero Content */}
       <div className="relative z-10 container px-4 py-20 text-center text-white">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
+          <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight" style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>
             Gerencie sua Academia de
             <span className="block text-orange-400">Artes Marciais com Facilidade</span>
           </h1>
           
-          <p className="text-xl md:text-2xl mb-8 text-gray-200 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-xl md:text-2xl mb-8 text-gray-200 max-w-3xl mx-auto leading-relaxed" style={{ textShadow: '1px 1px 3px rgba(0, 0, 0, 0.7)' }}>
             Plataforma SaaS completa para academias de artes marciais. Gerencie alunos, aulas, 
             presença e pagamentos tudo em um sistema seguro e profissional.
           </p>
