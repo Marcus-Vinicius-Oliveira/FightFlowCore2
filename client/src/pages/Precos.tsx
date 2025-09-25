@@ -156,7 +156,7 @@ export default function Precos() {
                       </div>
                     </div>
                     <div className="border-t pt-4">
-                      <div className="text-center">
+                      <div className="bg-muted/20 rounded-lg p-3 text-center">
                         <div className="text-sm font-medium text-muted-foreground">Limite:</div>
                         <div className="text-lg font-bold text-foreground">Até 50 alunos ativos</div>
                       </div>
@@ -208,7 +208,7 @@ export default function Precos() {
                       </div>
                     </div>
                     <div className="border-t pt-4">
-                      <div className="text-center">
+                      <div className="bg-muted/20 rounded-lg p-3 text-center">
                         <div className="text-sm font-medium text-muted-foreground">Limite:</div>
                         <div className="text-lg font-bold text-foreground">Até 200 alunos ativos</div>
                       </div>
@@ -258,7 +258,7 @@ export default function Precos() {
                       </div>
                     </div>
                     <div className="border-t pt-4">
-                      <div className="text-center">
+                      <div className="bg-muted/20 rounded-lg p-3 text-center">
                         <div className="text-sm font-medium text-muted-foreground">Limite:</div>
                         <div className="text-lg font-bold text-foreground">Alunos ilimitados</div>
                       </div>
