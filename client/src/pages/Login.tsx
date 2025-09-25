@@ -5,15 +5,24 @@ import { useAuth } from "@/hooks/useAuth";
 import { Shield } from "lucide-react";
 
 export default function Login() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [, setLocation] = useLocation();
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      setLocation("/dashboard");
+    if (isAuthenticated && user) {
+      // Redirect based on user role
+      if (user.role === 'SUPER_ADMIN') {
+        setLocation("/superadmin/dashboard");
+      } else if (user.role === 'ALUNO') {
+        setLocation("/portal/dashboard");
+      } else if (user.role === 'ADMIN_ACADEMIA' || user.role === 'PROFESSOR') {
+        setLocation("/dashboard");
+      } else {
+        setLocation("/dashboard");
+      }
     }
-  }, [isAuthenticated, setLocation]);
+  }, [isAuthenticated, user, setLocation]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-orange-50 dark:from-blue-950 dark:to-orange-950 p-4">
@@ -36,8 +45,26 @@ export default function Login() {
         
         <LoginForm 
           onSuccess={() => {
-            // Redirect to dashboard after successful login
-            setLocation("/dashboard");
+            // Get user data from localStorage to determine redirect
+            const userData = localStorage.getItem('user');
+            if (userData) {
+              const user = JSON.parse(userData);
+              
+              // Redirect based on user role
+              if (user.role === 'SUPER_ADMIN') {
+                setLocation("/superadmin/dashboard");
+              } else if (user.role === 'ALUNO') {
+                setLocation("/portal/dashboard");
+              } else if (user.role === 'ADMIN_ACADEMIA' || user.role === 'PROFESSOR') {
+                setLocation("/dashboard");
+              } else {
+                // Fallback to default dashboard
+                setLocation("/dashboard");
+              }
+            } else {
+              // Fallback if no user data found
+              setLocation("/dashboard");
+            }
           }} 
         />
         
