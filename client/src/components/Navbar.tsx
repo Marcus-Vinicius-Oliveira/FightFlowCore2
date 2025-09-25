@@ -18,10 +18,14 @@ export function Navbar() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center space-x-2">
+          <button 
+            onClick={() => setLocation('/')}
+            className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+            data-testid="button-logo-home"
+          >
             <Shield className="h-8 w-8 text-primary" />
             <span className="font-bold text-xl">Centro de Lutas</span>
-          </div>
+          </button>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
