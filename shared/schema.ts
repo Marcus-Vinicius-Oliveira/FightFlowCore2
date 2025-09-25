@@ -32,6 +32,7 @@ export const users = pgTable("users", {
   dateOfBirth: timestamp("date_of_birth"),
   belt: text("belt"), // Graduation/belt field for students
   active: boolean("active").default(true),
+  firstAccess: boolean("first_access").default(true), // Flag for mandatory password change
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -1,0 +1,73 @@
+Com certeza. O objetivo é transformar a estratégia que delineamos para a página de "Recursos" em um conjunto de instruções claras e acionáveis para o agente do Replit.
+
+Aqui está um prompt completo e detalhado, pronto para ser copiado e colado, que guiará a IA na construção de uma página de funcionalidades eficaz e profissional.
+
+-----
+
+### **Prompt para Replit: Construção da Página de "Recursos"**
+
+```
+O próximo passo em nossa estratégia de marketing é construir a página de "Recursos". O objetivo é criar uma nova página de marketing detalhada para a plataforma FightFlowCore, que servirá para aprofundar as funcionalidades mencionadas na landing page e convencer potenciais clientes do valor e da abrangência do nosso sistema.
+
+**Instruções Gerais:**
+
+1.  **Criação da Página:** Crie uma nova página estática acessível na rota `/recursos`.
+2.  **Navegação:** Adicione um link para esta nova página no menu de navegação principal, substituindo o texto "Recursos" por um link funcional para `/recursos`.
+3.  **Consistência Visual:** O design da página (fontes, cores, espaçamento, estilo dos botões) deve ser 100% consistente com a landing page (`/`) já existente.
+4.  **Responsividade:** A página deve ser totalmente responsiva e ter uma ótima visualização em desktops, tablets e celulares.
+
+**Estrutura e Conteúdo da Página:**
+
+**1. Seção de Cabeçalho (Header):**
+* **Título Principal (H1):** "Uma Plataforma Completa para Transformar a Gestão da Sua Academia"
+* **Subtítulo:** "Descubra todas as ferramentas que o FightFlowCore oferece para otimizar sua operação, engajar seus alunos e impulsionar seu crescimento."
+
+**2. Seção do Módulo: Gestão de Alunos**
+* **Título da Seção (H2):** "Centralize a Gestão de Alunos em um Único Lugar"
+* **Texto Descritivo:** "Diga adeus às planilhas complicadas. Tenha o perfil completo de cada aluno, com histórico e informações de contato, a um clique de distância."
+* **Lista de Funcionalidades (use ícones para cada item):**
+    * Perfis completos e personalizáveis.
+    * Acompanhamento de progresso com histórico de faixas e graduações.
+    * Busca e filtros avançados para encontrar alunos instantaneamente.
+    * Controle de matrículas ativas e inativas.
+
+**3. Seção do Módulo: Agenda e Aulas Inteligentes**
+* **Título da Seção (H2):** "Organize Suas Aulas e Horários com Facilidade"
+* **Texto Descritivo:** "Crie e gerencie sua grade de horários com uma interface visual e intuitiva. Seus professores e alunos sempre saberão onde e quando precisam estar."
+* **Lista de Funcionalidades:**
+    * Calendário visual com grade semanal de aulas.
+    * Controle de presença digital, realizado pelo professor via sistema.
+    * Gestão de turmas, modalidades e associação de professores.
+    * Visão clara da agenda para evitar conflitos de horário.
+
+**4. Seção do Módulo: Portal do Aluno**
+* **Título da Seção (H2):** "Engaje, Comunique e Retenha Seus Alunos"
+* **Texto Descritivo:** "Ofereça uma experiência profissional aos seus membros com um portal exclusivo, fortalecendo a comunidade e aumentando a taxa de retenção."
+* **Lista de Funcionalidades:**
+    * Acesso pessoal e seguro para cada aluno.
+    * Visualização de horários das turmas em que está matriculado.
+    * Consulta ao histórico pessoal de frequência e progresso.
+
+**5. Seção do Módulo: Controle Financeiro**
+* **Título da Seção (H2):** "Tenha a Saúde Financeira na Palma da Mão"
+* **Texto Descritivo:** "Simplifique a gestão de mensalidades e tenha uma visão clara sobre a situação financeira da sua academia."
+* **Lista de Funcionalidades:**
+    * Criação de planos de matrícula flexíveis (mensal, trimestral, etc.).
+    * Registro e acompanhamento de status de pagamentos.
+    * Relatórios simples de faturamento e inadimplência.
+    * **Destaque (Em Breve):** Automação completa de cobranças com PIX, Boleto e Cartão de Crédito.
+
+**6. Seção de Segurança e Confiabilidade**
+* **Título da Seção (H2):** "Seus Dados, Sua Academia: Segurança em Primeiro Lugar"
+* **Texto Descritivo:** "Construímos nossa plataforma sobre uma arquitetura de nível empresarial para garantir que suas informações estejam sempre seguras e disponíveis."
+* **Lista de Funcionalidades:**
+    * Isolamento total de dados entre academias (Arquitetura Multi-Tenant).
+    * Backups automáticos e redundantes.
+    * Criptografia de ponta a ponta para todas as comunicações.
+
+**7. Seção Final de Call-to-Action (CTA):**
+* **Título:** "Pronto para Levar sua Academia para o Próximo Nível?"
+* **Botões:** Adicione dois botões, idênticos aos da landing page: "Comece Grátis" e "Ver Demonstração".
+
+Por favor, para cada uma das seções de módulo, utilize imagens, mockups genéricos ou ícones representativos para tornar a página mais visualmente atraente e fácil de entender.
+```

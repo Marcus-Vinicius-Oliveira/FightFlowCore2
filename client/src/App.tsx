@@ -19,6 +19,9 @@ import StudentManagement from "@/pages/StudentManagement";
 import ClassManagement from "@/pages/ClassManagement";
 import WeeklySchedule from "@/pages/WeeklySchedule";
 import AttendanceControl from "@/pages/AttendanceControl";
+import PortalLogin from "@/pages/PortalLogin";
+import PortalDashboard from "@/pages/PortalDashboard";
+import PortalSchedule from "@/pages/PortalSchedule";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
@@ -29,6 +32,21 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <Route path="/cadastro" component={Cadastro} />
       <Route path="/login" component={Login} />
+      
+      {/* Portal do Aluno Routes */}
+      <Route path="/portal/login" component={PortalLogin} />
+      <Route path="/portal/dashboard">
+        <ProtectedRoute requireRole={['ALUNO']}>
+          <PortalDashboard />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/portal/horarios">
+        <ProtectedRoute requireRole={['ALUNO']}>
+          <PortalSchedule />
+        </ProtectedRoute>
+      </Route>
+      
+      {/* Admin Dashboard Routes */}
       <Route path="/dashboard">
         <ProtectedRoute>
           <Dashboard />
@@ -54,11 +72,14 @@ function Router() {
           <AttendanceControl />
         </ProtectedRoute>
       </Route>
+      
+      {/* Legacy student portal route */}
       <Route path="/student-portal">
         <ProtectedRoute requireRole={['ALUNO']}>
           <StudentDashboard />
         </ProtectedRoute>
       </Route>
+      
       <Route component={NotFound} />
     </Switch>
   );

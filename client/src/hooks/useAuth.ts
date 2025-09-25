@@ -98,6 +98,14 @@ export function useAuth() {
     });
   };
 
+  const updateUser = (updates: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...updates };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    }
+  };
+
   return {
     user,
     isLoading,
@@ -105,6 +113,7 @@ export function useAuth() {
     login: loginMutation.mutate,
     signup: signupMutation.mutate,
     logout,
+    updateUser,
     isLoggingIn: loginMutation.isPending,
     isSigningUp: signupMutation.isPending,
   };

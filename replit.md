@@ -2,7 +2,12 @@
 
 ## Overview
 
-Centro de Lutas Management is a comprehensive SaaS platform for martial arts academies to manage students, classes, attendance, and basic financials. The platform features both an admin dashboard for academy operations and a student portal for member access, with a focus on multi-tenant security and role-based access control.
+Centro de Lutas Management is a comprehensive SaaS platform for martial arts academies to manage students, classes, attendance, and basic financials. The platform features both an admin dashboard for academy operations and a dedicated student portal (Portal do Aluno) for member access, with a focus on multi-tenant security and role-based access control.
+
+**Recent Major Features:**
+- ✅ **Portal do Aluno Completo**: Dedicated student portal with secure login, dashboard, and schedule viewing
+- ✅ **Mandatory First Access Flow**: Students must change their password on first login with non-dismissible modal
+- ✅ **Multi-tenant Security**: Strict academy-based data isolation preventing cross-tenant access
 
 ## User Preferences
 

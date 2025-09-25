@@ -15,6 +15,12 @@ interface SignupRequest {
   academyName?: string;
 }
 
+interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 interface AuthResponse {
   token: string;
   user: {
@@ -22,6 +28,7 @@ interface AuthResponse {
     name: string;
     email: string;
     role: string;
+    firstAccess?: boolean;
     academy: {
       id: string;
       name: string;
@@ -37,6 +44,7 @@ export interface User {
   role: string;
   phone?: string;
   active?: boolean;
+  firstAccess?: boolean;
   createdAt?: string;
   academy?: {
     id: string;
@@ -133,6 +141,13 @@ class ApiClient {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
     queryClient.clear();
+  }
+
+  async changePassword(passwordData: ChangePasswordRequest): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(passwordData),
+    });
   }
 
   // Students

@@ -72,6 +72,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: user.name,
           email: user.email,
           role: user.role,
+          firstAccess: user.firstAccess,
           academy: academy ? {
             id: academy.id,
             name: academy.name,
@@ -108,31 +109,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If admin is creating a new academy, create academy first
       let academyId: string;
 
-      if (validatedData.role === 'ADMIN_ACADEMIA' && validatedData.academyName) {
-        // Create new academy
+      if (validatedData.academyName) {
+        // Create new academy (for ADMIN_ACADEMIA) or use for ALUNO/PROFESSOR
         const academySlug = validatedData.academyName.toLowerCase()
           .replace(/[^a-z0-9]/g, '-')
           .replace(/-+/g, '-')
           .replace(/^-|-$/g, '');
 
-        // Check if slug already exists
-        const existingAcademy = await storage.getAcademyBySlug(academySlug);
+        // Check if academy already exists
+        let existingAcademy = await storage.getAcademyBySlug(academySlug);
+        
         if (existingAcademy) {
-          return res.status(409).json({ error: 'Academy name already taken' });
+          // Only admins can create academies or add to existing ones
+          if (validatedData.role === 'ADMIN_ACADEMIA') {
+            return res.status(409).json({ error: 'Academy name already taken' });
+          } else {
+            // Non-admin users cannot select academies arbitrarily
+            return res.status(400).json({ 
+              error: 'Academy registration not allowed. Contact academy administrator for invitation.' 
+            });
+          }
+        } else {
+          // Create new academy (admins create, non-admins join new academy for testing)
+          const newAcademy = await storage.createAcademy({
+            name: validatedData.academyName,
+            slug: academySlug,
+            email: validatedData.email
+          });
+          academyId = newAcademy.id;
         }
-
-        const newAcademy = await storage.createAcademy({
-          name: validatedData.academyName,
-          slug: academySlug,
-          email: validatedData.email
-        });
-
-        academyId = newAcademy.id;
       } else {
-        // For non-admin users, they need to provide academy info separately
-        // For demo purposes, we'll create a default academy
+        // No academy name provided
         return res.status(400).json({ 
-          error: 'Academy information required for this role' 
+          error: 'Academy name is required' 
         });
       }
 
@@ -167,6 +176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: newUser.name,
           email: newUser.email,
           role: newUser.role,
+          firstAccess: newUser.firstAccess,
           academy: academy ? {
             id: academy.id,
             name: academy.name,
@@ -183,6 +193,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       console.error('Signup error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Password change endpoint for first access
+  app.post('/api/auth/change-password', authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const passwordSchema = z.object({
+        currentPassword: z.string().min(1, 'Current password is required'),
+        newPassword: z.string().min(6, 'New password must be at least 6 characters'),
+        confirmPassword: z.string().min(1, 'Password confirmation is required')
+      });
+
+      const validatedData = passwordSchema.parse(req.body);
+
+      // Check if new password matches confirmation
+      if (validatedData.newPassword !== validatedData.confirmPassword) {
+        return res.status(400).json({ error: 'Passwords do not match' });
+      }
+
+      // Get current user
+      const user = await storage.getUser(req.user!.id);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Verify current password
+      const isValidPassword = await comparePassword(validatedData.currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(400).json({ error: 'Current password is incorrect' });
+      }
+
+      // Hash new password
+      const hashedNewPassword = await hashPassword(validatedData.newPassword);
+
+      // Update password and set firstAccess to false
+      await storage.updateUser(user.id, {
+        password: hashedNewPassword,
+        firstAccess: false
+      });
+
+      res.json({ message: 'Password changed successfully' });
+
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: 'Validation error', 
+          details: error.errors 
+        });
+      }
+      console.error('Password change error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
