@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Users, Calendar, Shield } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Building2, Users, Calendar, Shield, AlertTriangle, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 interface DashboardInfoData {
@@ -28,7 +29,7 @@ interface DashboardInfoData {
 export function DashboardInfo() {
   const { isAuthenticated } = useAuth();
   
-  const { data, isLoading, error } = useQuery<DashboardInfoData>({
+  const { data, isLoading, error, refetch } = useQuery<DashboardInfoData>({
     queryKey: ['/api/dashboard/info'],
     enabled: isAuthenticated, // Only run query when authenticated
     retry: 1, // Reduce retries to avoid persistent error states
@@ -53,8 +54,21 @@ export function DashboardInfo() {
     return (
       <Card>
         <CardContent className="p-6">
-          <div className="text-sm text-destructive">
-            Erro ao carregar informações da academia
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 text-sm text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <span>Erro ao carregar informações da academia</span>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => refetch()}
+              className="text-xs"
+              data-testid="button-retry-academy-info"
+            >
+              <RefreshCw className="h-3 w-3 mr-1" />
+              Tentar Novamente
+            </Button>
           </div>
         </CardContent>
       </Card>

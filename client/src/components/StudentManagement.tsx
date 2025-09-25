@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Search, UserPlus, Edit, Trash2, Eye } from "lucide-react";
+import { MoreHorizontal, Search, UserPlus, Edit, Trash2, Eye, AlertTriangle } from "lucide-react";
 import { apiClient, type Student } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -92,10 +92,22 @@ export function StudentManagement() {
   };
 
   if (error) {
+    // Check if it's a permissions error
+    const isPermissionError = error.message?.includes('Insufficient permissions') || 
+                             error.message?.includes('permissions') ||
+                             error.message?.includes('Academy ID required');
+    
+    const userFriendlyMessage = isPermissionError 
+      ? "Você não tem permissão para visualizar estas informações. Fale com o administrador da sua conta para solicitar acesso."
+      : `Erro ao carregar alunos: ${error.message}`;
+
     return (
       <Card>
         <CardContent className="p-8 text-center">
-          <p className="text-destructive">Erro ao carregar alunos: {error.message}</p>
+          <div className="flex items-center justify-center space-x-2 text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+            <p>{userFriendlyMessage}</p>
+          </div>
         </CardContent>
       </Card>
     );
