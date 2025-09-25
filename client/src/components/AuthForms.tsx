@@ -242,7 +242,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
           )}
           
           <div className="space-y-2">
-            <Label htmlFor="signup-password">Senha</Label>
+            <Label htmlFor="signup-password" className="password-label-spacing">Senha</Label>
             <div className="relative">
               <Input
                 id="signup-password"
@@ -251,13 +251,14 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
                 value={formData.password}
                 onChange={(e) => handleInputChange("password", e.target.value)}
                 required
+                className="password-input-padding"
                 data-testid="input-signup-password"
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
+                className="password-icon-position h-8 w-8"
                 onClick={() => setShowPassword(!showPassword)}
                 data-testid="button-toggle-signup-password"
               >
