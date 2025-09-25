@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,8 @@ interface AcademyPlan {
 }
 
 export default function PlanManagement() {
+  const [, setLocation] = useLocation();
+  
   // Sample data for the table
   const [plans] = useState<AcademyPlan[]>([
     {
@@ -67,6 +70,7 @@ export default function PlanManagement() {
         </div>
         <Button 
           className="flex items-center gap-2"
+          onClick={() => setLocation("/dashboard/planos/novo")}
           data-testid="button-create-plan"
         >
           <Plus className="h-4 w-4" />
