@@ -18,7 +18,11 @@ export default function Cadastro() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-orange-50 dark:from-blue-950 dark:to-orange-950 p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+        <button 
+          onClick={() => setLocation('/')}
+          className="text-center mb-8 w-full hover:opacity-80 transition-opacity"
+          data-testid="button-logo-home"
+        >
           <div className="flex justify-center mb-4">
             <Shield className="h-16 w-16 text-primary" />
           </div>
@@ -28,7 +32,7 @@ export default function Cadastro() {
           <p className="text-gray-600 dark:text-gray-400 mt-2">
             Cadastre sua academia e comece a gerenciar
           </p>
-        </div>
+        </button>
         
         <SignupForm 
           onSuccess={() => {
