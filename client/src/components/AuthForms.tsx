@@ -176,13 +176,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader className="text-center">
-        <div className="flex justify-center mb-4">
-          <Shield className="h-12 w-12 text-primary" />
-        </div>
         <CardTitle className="text-2xl">Criar Conta</CardTitle>
-        <CardDescription>
-          Comece a gerenciar sua academia de artes marciais
-        </CardDescription>
       </CardHeader>
       
       <form onSubmit={handleSubmit}>
