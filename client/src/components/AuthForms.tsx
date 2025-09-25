@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Eye, EyeOff, Shield } from "lucide-react";
+import { SiGoogle } from "react-icons/si";
 import { useAuth } from "@/hooks/useAuth";
 
 interface LoginFormProps {
@@ -250,7 +251,42 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
           </div>
         </CardContent>
         
-        <CardFooter>
+        <CardFooter className="flex flex-col space-y-4">
+          {/* Google Sign-up Button */}
+          <Button 
+            type="button" 
+            variant="outline" 
+            className="w-full bg-white hover:bg-gray-50 border-gray-300 text-gray-700 dark:bg-white dark:hover:bg-gray-50 dark:text-gray-700"
+            data-testid="button-signup-google"
+            onClick={() => console.log('Google signup clicked')}
+          >
+            <SiGoogle className="mr-2 h-4 w-4" />
+            Cadastrar com o Google
+          </Button>
+          
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">ou</span>
+            </div>
+          </div>
+          
+          {/* Terms of Service Text */}
+          <p className="text-xs text-center text-muted-foreground">
+            Ao criar sua conta, você concorda com nossos{" "}
+            <a href="/termos" className="text-primary hover:underline">
+              Termos de Serviço
+            </a>
+            {" "}e{" "}
+            <a href="/privacidade" className="text-primary hover:underline">
+              Política de Privacidade
+            </a>
+          </p>
+          
+          {/* Main Submit Button */}
           <Button 
             type="submit" 
             className="w-full" 
