@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Swords, GraduationCap } from "lucide-react";
+import { Loader2, GraduationCap } from "lucide-react";
+import logoIcon from "@assets/image_1758778298254.png";
 import { useLocation } from "wouter";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 
@@ -142,7 +143,7 @@ export default function PortalLogin() {
                   </>
                 ) : (
                   <>
-                    <Swords className="mr-2 h-4 w-4" />
+                    <img src={logoIcon} alt="Fight Club App" className="mr-2 h-4 w-4" />
                     Entrar no Portal
                   </>
                 )}

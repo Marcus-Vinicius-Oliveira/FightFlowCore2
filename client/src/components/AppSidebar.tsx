@@ -5,7 +5,6 @@ import {
   DollarSign, 
   Settings, 
   BookOpen,
-  Swords,
   BarChart3,
   UserCheck,
   GraduationCap,
@@ -24,6 +23,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import logoIcon from "@assets/image_1758778298254.png";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link, useLocation } from "wouter";
 
@@ -165,7 +165,7 @@ export function AppSidebar({
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center space-x-2 p-2">
-          <Swords className="h-8 w-8 text-sidebar-primary" />
+          <img src={logoIcon} alt="Fight Club App" className="h-8 w-8" />
           <div className="flex flex-col">
             <span className="font-bold text-sidebar-foreground">Fight Club App</span>
             <span className="text-xs text-sidebar-foreground/60">{userInfo.academy}</span>

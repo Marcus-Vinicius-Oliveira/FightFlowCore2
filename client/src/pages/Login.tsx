@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { LoginForm } from "@/components/AuthForms";
 import { useAuth } from "@/hooks/useAuth";
-import { Swords } from "lucide-react";
+import logoIcon from "@assets/image_1758778298254.png";
 
 export default function Login() {
   const { isAuthenticated, user } = useAuth();
@@ -33,7 +33,7 @@ export default function Login() {
           data-testid="button-logo-home"
         >
           <div className="flex justify-center mb-4">
-            <Swords className="h-16 w-16 text-primary" />
+            <img src={logoIcon} alt="Fight Club App" className="h-16 w-16" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             Fight Club App

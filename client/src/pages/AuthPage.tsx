@@ -1,5 +1,5 @@
 import { AuthTabs } from "@/components/AuthForms";
-import { Swords } from "lucide-react";
+import logoIcon from "@assets/image_1758778298254.png";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function AuthPage() {
@@ -13,7 +13,7 @@ export default function AuthPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <Swords className="h-12 w-12 text-primary" />
+            <img src={logoIcon} alt="Fight Club App" className="h-12 w-12" />
           </div>
           <h1 className="text-2xl font-bold">Fight Club App Management</h1>
           <p className="text-muted-foreground mt-2">
