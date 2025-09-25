@@ -208,6 +208,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
               required
               data-testid="input-signup-name"
             />
+            <p className="error-message" data-testid="error-name"></p>
           </div>
           
           <div className="space-y-2">
@@ -221,6 +222,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
               required
               data-testid="input-signup-email"
             />
+            <p className="error-message" data-testid="error-email"></p>
           </div>
           
           <div className="space-y-2">
@@ -235,6 +237,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
                 <SelectItem value="ALUNO">Aluno</SelectItem>
               </SelectContent>
             </Select>
+            <p className="error-message" data-testid="error-role"></p>
           </div>
           
           {formData.role === "ADMIN_ACADEMIA" && (
@@ -249,6 +252,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
                 required
                 data-testid="input-academy-name"
               />
+              <p className="error-message" data-testid="error-academy-name"></p>
             </div>
           )}
           
@@ -275,6 +279,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
             </div>
+            <p className="error-message" data-testid="error-password"></p>
             
             {/* Password Strength Meter */}
             {formData.password && (
@@ -339,6 +344,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
               required
               data-testid="input-confirm-password"
             />
+            <p className="error-message" data-testid="error-confirm-password"></p>
           </div>
         </CardContent>
         

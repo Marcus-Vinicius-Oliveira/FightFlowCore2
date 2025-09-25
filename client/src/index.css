@@ -326,3 +326,28 @@
     inset: -1px;
   }
 }
+
+/* Error Message Styles for Form Validation */
+.error-message {
+  color: hsl(var(--destructive));
+  font-size: 0.75rem;
+  line-height: 1rem;
+  margin-top: 0.25rem;
+  min-height: 1rem;
+  display: block;
+}
+
+.error-message:empty {
+  margin-top: 0;
+  min-height: 0;
+}
+
+.input-error {
+  border-color: hsl(var(--destructive)) !important;
+  box-shadow: 0 0 0 1px hsl(var(--destructive)) !important;
+}
+
+.input-error:focus {
+  border-color: hsl(var(--destructive)) !important;
+  box-shadow: 0 0 0 2px hsl(var(--destructive) / 0.2) !important;
+}
