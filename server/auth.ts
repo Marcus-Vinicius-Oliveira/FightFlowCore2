@@ -4,7 +4,7 @@ import { Request, Response, NextFunction } from 'express';
 import { storage } from './storage';
 
 // For demo purposes, use a secure default. In production, this MUST be from environment
-const JWT_SECRET = process.env.JWT_SECRET || 'centro-lutas-demo-secret-' + Math.random().toString(36).substring(7);
+const JWT_SECRET = process.env.JWT_SECRET || 'centro-lutas-demo-secret-fixed-for-development-replit-2024';
 if (!process.env.JWT_SECRET) {
   console.warn('⚠️  Using generated JWT secret for demo. Set JWT_SECRET environment variable for production.');
 }
