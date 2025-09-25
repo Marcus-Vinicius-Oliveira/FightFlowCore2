@@ -22,6 +22,7 @@ import StudentManagement from "@/pages/StudentManagement";
 import ClassManagement from "@/pages/ClassManagement";
 import WeeklySchedule from "@/pages/WeeklySchedule";
 import AttendanceControl from "@/pages/AttendanceControl";
+import PlanManagement from "@/pages/PlanManagement";
 import PortalLogin from "@/pages/PortalLogin";
 import PortalDashboard from "@/pages/PortalDashboard";
 import PortalSchedule from "@/pages/PortalSchedule";
@@ -69,6 +70,11 @@ function Router() {
       <Route path="/dashboard/aulas">
         <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
           <ClassManagement />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/dashboard/planos">
+        <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
+          <PlanManagement />
         </ProtectedRoute>
       </Route>
       <Route path="/dashboard/grade">

@@ -92,6 +92,12 @@ export function AppSidebar({
         roles: ["ADMIN_ACADEMIA"]
       },
       {
+        title: "Planos e Matrículas",
+        url: "/dashboard/planos",
+        icon: CreditCard,
+        roles: ["ADMIN_ACADEMIA"]
+      },
+      {
         title: "Grade de Aulas",
         url: "/dashboard/grade",
         icon: Calendar,
