@@ -176,9 +176,15 @@ export default function Sobre() {
                     ))}
                   </div>
                 </div>
-                <p className="text-muted-foreground mt-4 font-medium">
-                  <strong>Mestre [Nome]</strong>, [Nome da Academia]
-                </p>
+                <div className="flex items-center justify-center gap-3 mt-4">
+                  <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center flex-shrink-0">
+                    <User className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-muted-foreground font-medium text-center">
+                    <strong>Mestre [Nome]</strong><br />
+                    [Nome da Academia]
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </div>
