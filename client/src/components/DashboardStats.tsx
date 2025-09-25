@@ -10,11 +10,12 @@ interface StatCardProps {
     value: string;
     isPositive: boolean;
   };
+  href?: string;
 }
 
-function StatCard({ title, value, description, icon, trend }: StatCardProps) {
-  return (
-    <Card className="hover-elevate">
+function StatCard({ title, value, description, icon, trend, href }: StatCardProps) {
+  const cardContent = (
+    <>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
@@ -41,6 +42,30 @@ function StatCard({ title, value, description, icon, trend }: StatCardProps) {
           </div>
         )}
       </CardContent>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Card className="hover-elevate">
+        <a 
+          href={href}
+          style={{
+            display: 'block',
+            textDecoration: 'none',
+            color: 'inherit'
+          }}
+          data-testid={`card-link-${title.toLowerCase().replace(/\s+/g, '-')}`}
+        >
+          {cardContent}
+        </a>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="hover-elevate">
+      {cardContent}
     </Card>
   );
 }
@@ -53,42 +78,48 @@ export function DashboardStats() {
       value: 147,
       description: "Alunos ativos matriculados",
       icon: <Users className="h-4 w-4" />,
-      trend: { value: "+12% desde o mês passado", isPositive: true }
+      trend: { value: "+12% desde o mês passado", isPositive: true },
+      href: "/alunos"
     },
     {
       title: "Aulas desta Semana",
       value: 28,
       description: "Aulas agendadas",
       icon: <Calendar className="h-4 w-4" />,
-      trend: { value: "+2 a mais que na semana passada", isPositive: true }
+      trend: { value: "+2 a mais que na semana passada", isPositive: true },
+      href: "/aulas"
     },
     {
       title: "Receita Mensal",
       value: "R$ 8.940",
       description: "Ganhos do mês atual",
       icon: <DollarSign className="h-4 w-4" />,
-      trend: { value: "+8% desde o mês passado", isPositive: true }
+      trend: { value: "+8% desde o mês passado", isPositive: true },
+      href: "/financeiro"
     },
     {
       title: "Taxa de Presença",
       value: "89%",
       description: "Média deste mês",
       icon: <UserCheck className="h-4 w-4" />,
-      trend: { value: "+3% desde o mês passado", isPositive: true }
+      trend: { value: "+3% desde o mês passado", isPositive: true },
+      href: "/presenca"
     },
     {
       title: "Pagamentos Pendentes",
       value: 12,
       description: "Pagamentos em atraso",
       icon: <Clock className="h-4 w-4" />,
-      trend: { value: "-5 desde a semana passada", isPositive: true }
+      trend: { value: "-5 desde a semana passada", isPositive: true },
+      href: "/pagamentos"
     },
     {
       title: "Novas Matrículas",
       value: 8,
       description: "Neste mês",
       icon: <TrendingUp className="h-4 w-4" />,
-      trend: { value: "+60% desde o mês passado", isPositive: true }
+      trend: { value: "+60% desde o mês passado", isPositive: true },
+      href: "/matriculas"
     }
   ];
 
@@ -102,6 +133,7 @@ export function DashboardStats() {
           description={stat.description}
           icon={stat.icon}
           trend={stat.trend}
+          href={stat.href}
         />
       ))}
     </div>
