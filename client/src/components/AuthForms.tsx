@@ -50,7 +50,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="password">Senha</Label>
+            <Label htmlFor="password" className="password-label-spacing">Senha</Label>
             <div className="relative">
               <Input
                 id="password"
@@ -59,13 +59,14 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="password-input-padding"
                 data-testid="input-login-password"
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
+                className="password-icon-position h-8 w-8"
                 onClick={() => setShowPassword(!showPassword)}
                 data-testid="button-toggle-password"
               >

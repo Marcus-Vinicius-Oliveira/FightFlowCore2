@@ -351,3 +351,21 @@
   border-color: hsl(var(--destructive)) !important;
   box-shadow: 0 0 0 2px hsl(var(--destructive) / 0.2) !important;
 }
+
+/* Password Field Alignment Fixes */
+.password-label-spacing {
+  margin-bottom: 6px !important;
+}
+
+.password-input-padding {
+  padding-right: 40px !important;
+}
+
+.password-icon-position {
+  position: absolute !important;
+  right: 8px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  height: 32px !important;
+  width: 32px !important;
+}
