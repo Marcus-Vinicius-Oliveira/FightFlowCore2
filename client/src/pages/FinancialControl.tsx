@@ -2,6 +2,24 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { 
   Table,
   TableBody,
@@ -15,8 +33,11 @@ import {
   Clock,
   AlertTriangle,
   TrendingUp,
-  Filter
+  Filter,
+  Save,
+  X
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface PaymentRecord {
   id: string;
@@ -32,6 +53,15 @@ type FilterType = 'todos' | 'pagos' | 'atrasados' | 'proximos';
 
 export default function FinancialControl() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('todos');
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
+  const [paymentForm, setPaymentForm] = useState({
+    valorPago: '',
+    dataPagamento: '',
+    meioPagamento: '',
+    observacoes: ''
+  });
+  const { toast } = useToast();
 
   // Sample financial data
   const payments: PaymentRecord[] = [
@@ -118,8 +148,59 @@ export default function FinancialControl() {
   };
 
   const handleMarcarPago = (id: string) => {
-    // TODO: Implement payment marking logic
-    console.log(`Marcar como pago: ${id}`);
+    const payment = payments.find(p => p.id === id);
+    if (payment) {
+      setSelectedPaymentId(id);
+      setPaymentForm({
+        valorPago: (payment.valor / 100).toFixed(2),
+        dataPagamento: new Date().toISOString().split('T')[0],
+        meioPagamento: '',
+        observacoes: ''
+      });
+      setIsPaymentModalOpen(true);
+    }
+  };
+
+  const handleSavePayment = () => {
+    if (!paymentForm.valorPago || !paymentForm.dataPagamento || !paymentForm.meioPagamento) {
+      toast({
+        title: "Erro de validação",
+        description: "Por favor, preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // TODO: Implement actual payment saving logic
+    console.log('Saving payment:', {
+      id: selectedPaymentId,
+      ...paymentForm
+    });
+
+    toast({
+      title: "Pagamento registrado!",
+      description: "O pagamento foi registrado com sucesso.",
+    });
+
+    setIsPaymentModalOpen(false);
+    setSelectedPaymentId(null);
+    setPaymentForm({
+      valorPago: '',
+      dataPagamento: '',
+      meioPagamento: '',
+      observacoes: ''
+    });
+  };
+
+  const handleCancelPayment = () => {
+    setIsPaymentModalOpen(false);
+    setSelectedPaymentId(null);
+    setPaymentForm({
+      valorPago: '',
+      dataPagamento: '',
+      meioPagamento: '',
+      observacoes: ''
+    });
   };
 
   return (
@@ -306,6 +387,98 @@ export default function FinancialControl() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Payment Registration Modal */}
+      <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
+        <DialogContent className="modal-content max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              <h2>Registrar Pagamento</h2>
+            </DialogTitle>
+            <DialogDescription>
+              Registre o pagamento do aluno selecionado
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Valor Pago */}
+            <div className="grid gap-2">
+              <Label htmlFor="valorPago">Valor Pago (R$) *</Label>
+              <Input
+                id="valorPago"
+                type="number"
+                step="0.01"
+                value={paymentForm.valorPago}
+                onChange={(e) => setPaymentForm(prev => ({ ...prev, valorPago: e.target.value }))}
+                placeholder="0.00"
+                data-testid="input-payment-amount"
+              />
+            </div>
+
+            {/* Data do Pagamento */}
+            <div className="grid gap-2">
+              <Label htmlFor="dataPagamento">Data do Pagamento *</Label>
+              <Input
+                id="dataPagamento"
+                type="date"
+                value={paymentForm.dataPagamento}
+                onChange={(e) => setPaymentForm(prev => ({ ...prev, dataPagamento: e.target.value }))}
+                data-testid="input-payment-date"
+              />
+            </div>
+
+            {/* Meio de Pagamento */}
+            <div className="grid gap-2">
+              <Label htmlFor="meioPagamento">Meio de Pagamento *</Label>
+              <Select
+                value={paymentForm.meioPagamento}
+                onValueChange={(value) => setPaymentForm(prev => ({ ...prev, meioPagamento: value }))}
+              >
+                <SelectTrigger data-testid="select-payment-method">
+                  <SelectValue placeholder="Selecione o meio de pagamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PIX">PIX</SelectItem>
+                  <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="Cartão de Débito">Cartão de Débito</SelectItem>
+                  <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Observações */}
+            <div className="grid gap-2">
+              <Label htmlFor="observacoes">Observações</Label>
+              <Textarea
+                id="observacoes"
+                value={paymentForm.observacoes}
+                onChange={(e) => setPaymentForm(prev => ({ ...prev, observacoes: e.target.value }))}
+                placeholder="Observações adicionais sobre o pagamento..."
+                className="min-h-[80px]"
+                data-testid="textarea-payment-notes"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleCancelPayment}
+              data-testid="button-cancel-payment"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSavePayment}
+              data-testid="button-save-payment"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Salvar Pagamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
