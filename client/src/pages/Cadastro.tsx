@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { SignupForm } from "@/components/AuthForms";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield } from "lucide-react";
+import { Swords } from "lucide-react";
 
 export default function Cadastro() {
   const { isAuthenticated } = useAuth();
@@ -24,10 +24,10 @@ export default function Cadastro() {
           data-testid="button-logo-home"
         >
           <div className="flex justify-center mb-4">
-            <Shield className="h-16 w-16 text-primary" />
+            <Swords className="h-16 w-16 text-primary" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Centro de Lutas
+            Fight Club App
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
             Cadastre sua academia e comece a gerenciar

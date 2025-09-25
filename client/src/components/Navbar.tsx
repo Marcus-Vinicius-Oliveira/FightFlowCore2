@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./ThemeToggle";
-import { Menu, X, Shield } from "lucide-react";
+import { Menu, X, Swords } from "lucide-react";
 import { useLocation } from "wouter";
 
 export function Navbar() {
@@ -23,8 +23,8 @@ export function Navbar() {
             className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
             data-testid="button-logo-home"
           >
-            <Shield className="h-8 w-8 text-primary" />
-            <span className="font-bold text-xl">Centro de Lutas</span>
+            <Swords className="h-8 w-8 text-primary" />
+            <span className="font-bold text-xl">Fight Club App</span>
           </button>
 
           {/* Desktop Navigation */}

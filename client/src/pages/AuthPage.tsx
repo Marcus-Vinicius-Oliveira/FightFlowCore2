@@ -1,5 +1,5 @@
 import { AuthTabs } from "@/components/AuthForms";
-import { Shield } from "lucide-react";
+import { Swords } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function AuthPage() {
@@ -13,9 +13,9 @@ export default function AuthPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <Shield className="h-12 w-12 text-primary" />
+            <Swords className="h-12 w-12 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold">Centro de Lutas Management</h1>
+          <h1 className="text-2xl font-bold">Fight Club App Management</h1>
           <p className="text-muted-foreground mt-2">
             Professional martial arts academy platform
           </p>

@@ -1,8 +1,8 @@
-# Centro de Lutas Management Platform
+# Fight Club App Management Platform
 
 ## Overview
 
-Centro de Lutas Management is a comprehensive SaaS platform for martial arts academies to manage students, classes, attendance, and basic financials. The platform features both an admin dashboard for academy operations and a dedicated student portal (Portal do Aluno) for member access, with a focus on multi-tenant security and role-based access control.
+Fight Club App is a comprehensive SaaS platform for martial arts academies to manage students, classes, attendance, and basic financials. The platform features both an admin dashboard for academy operations and a dedicated student portal (Portal do Aluno) for member access, with a focus on multi-tenant security and role-based access control.
 
 **Recent Major Features:**
 - ✅ **Portal do Aluno Completo**: Dedicated student portal with secure login, dashboard, and schedule viewing

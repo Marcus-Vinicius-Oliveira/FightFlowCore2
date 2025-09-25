@@ -5,7 +5,7 @@ import {
   DollarSign, 
   Settings, 
   BookOpen,
-  Shield,
+  Swords,
   BarChart3,
   UserCheck,
   GraduationCap,
@@ -42,7 +42,7 @@ export function AppSidebar({
   userInfo = {
     name: userRole === "SUPER_ADMIN" ? "Super Admin" : "João Silva", 
     email: userRole === "SUPER_ADMIN" ? "admin@centrodelivtas.com" : "joao@academia.com", 
-    academy: userRole === "SUPER_ADMIN" ? "Centro de Lutas Platform" : "Dragon Academy"
+    academy: userRole === "SUPER_ADMIN" ? "Fight Club App Platform" : "Dragon Academy"
   }
 }: AppSidebarProps) {
   
@@ -165,9 +165,9 @@ export function AppSidebar({
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center space-x-2 p-2">
-          <Shield className="h-8 w-8 text-sidebar-primary" />
+          <Swords className="h-8 w-8 text-sidebar-primary" />
           <div className="flex flex-col">
-            <span className="font-bold text-sidebar-foreground">Centro de Lutas</span>
+            <span className="font-bold text-sidebar-foreground">Fight Club App</span>
             <span className="text-xs text-sidebar-foreground/60">{userInfo.academy}</span>
           </div>
         </div>

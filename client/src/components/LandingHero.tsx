@@ -24,11 +24,11 @@ export function LandingHero() {
         <div className="max-w-4xl mx-auto">
           <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight" style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>
             Gerencie sua Academia de
-            <span className="block text-orange-400">Artes Marciais com Facilidade</span>
+            <span className="block text-orange-400">Luta com Facilidade</span>
           </h1>
           
           <p className="text-xl md:text-2xl mb-8 text-gray-200 max-w-3xl mx-auto leading-relaxed" style={{ textShadow: '1px 1px 3px rgba(0, 0, 0, 0.7)' }}>
-            Plataforma SaaS completa para academias de artes marciais. Gerencie alunos, aulas, 
+            Plataforma SaaS completa para academias de luta. Gerencie alunos, aulas, 
             presença e pagamentos tudo em um sistema seguro e profissional.
           </p>
           

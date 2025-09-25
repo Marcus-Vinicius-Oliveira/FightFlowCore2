@@ -1,4 +1,4 @@
-# Centro de Lutas Management Platform - Design Guidelines
+# Fight Club App Management Platform - Design Guidelines
 
 ## Design Approach
 **Selected Approach:** Reference-Based (Productivity Focus)  

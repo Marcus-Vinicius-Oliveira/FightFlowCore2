@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Shield, GraduationCap } from "lucide-react";
+import { Loader2, Swords, GraduationCap } from "lucide-react";
 import { useLocation } from "wouter";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 
@@ -142,7 +142,7 @@ export default function PortalLogin() {
                   </>
                 ) : (
                   <>
-                    <Shield className="mr-2 h-4 w-4" />
+                    <Swords className="mr-2 h-4 w-4" />
                     Entrar no Portal
                   </>
                 )}

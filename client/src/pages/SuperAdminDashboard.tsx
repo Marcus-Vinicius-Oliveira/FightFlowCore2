@@ -33,7 +33,7 @@ export default function SuperAdminDashboard() {
         <div>
           <h1 className="text-3xl font-bold">Painel Super Admin</h1>
           <p className="text-muted-foreground mt-2">
-            Gerenciamento global da plataforma Centro de Lutas
+            Gerenciamento global da plataforma Fight Club App
           </p>
         </div>
         
@@ -93,7 +93,7 @@ export default function SuperAdminDashboard() {
         <div>
           <h1 className="text-3xl font-bold">Painel Super Admin</h1>
           <p className="text-muted-foreground mt-2">
-            Gerenciamento global da plataforma Centro de Lutas
+            Gerenciamento global da plataforma Fight Club App
           </p>
         </div>
         <div className="flex gap-2">
