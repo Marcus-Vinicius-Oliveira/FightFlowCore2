@@ -28,7 +28,7 @@ export default function SuperAdminDashboard() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-8">
         <div>
           <h1 className="text-3xl font-bold">Painel Super Admin</h1>
           <p className="text-muted-foreground mt-2">
@@ -50,7 +50,7 @@ export default function SuperAdminDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Painel Super Admin</h1>
