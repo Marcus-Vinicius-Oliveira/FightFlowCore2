@@ -50,7 +50,7 @@ export function LandingHero() {
             <Button 
               size="lg" 
               variant="outline"
-              className="text-lg px-8 py-3 border-white/30 text-white hover:bg-white/10 backdrop-blur-sm"
+              className="text-lg px-8 py-3 bg-transparent border-white text-white hover:bg-white/20 transition-colors duration-300"
               data-testid="button-watch-demo"
               onClick={() => console.log('Watch demo clicked')}
             >
