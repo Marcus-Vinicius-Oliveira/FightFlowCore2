@@ -1,5 +1,22 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Calendar, DollarSign, TrendingUp, UserCheck, Clock } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+
+interface DashboardInfo {
+  academy: {
+    id: string;
+    name: string;
+    slug: string;
+    email: string;
+    createdAt: string;
+  };
+  statistics: {
+    totalStudents: number;
+    totalInstructors: number;
+    totalClassTypes: number;
+  };
+  message: string;
+}
 
 interface StatCardProps {
   title: string;
@@ -72,55 +89,64 @@ function StatCard({ title, value, description, icon, trend, href }: StatCardProp
 }
 
 export function DashboardStats() {
-  // TODO: Remove mock data - replace with real data from API
+  // Fetch real data from API
+  const { data: dashboardInfo, isLoading } = useQuery<DashboardInfo>({
+    queryKey: ['/api/dashboard/info'],
+  });
+
+  // Extract real statistics from API response
+  const totalStudents = dashboardInfo?.statistics?.totalStudents || 0;
+  const totalInstructors = dashboardInfo?.statistics?.totalInstructors || 0;
+  const totalClassTypes = dashboardInfo?.statistics?.totalClassTypes || 0;
+
   const stats = [
     {
       title: "Total de Alunos",
-      value: 147,
+      value: isLoading ? "..." : totalStudents,
       description: "Alunos ativos matriculados",
       icon: <Users className="h-4 w-4" />,
-      trend: { value: "+12% desde o mês passado", isPositive: true },
-      href: "/alunos"
+      trend: totalStudents > 0 ? { value: `${totalStudents} alunos cadastrados`, isPositive: true } : undefined,
+      href: "/dashboard/alunos"
+    },
+    {
+      title: "Total de Instrutores", 
+      value: isLoading ? "..." : totalInstructors,
+      description: "Instrutores cadastrados",
+      icon: <UserCheck className="h-4 w-4" />,
+      trend: totalInstructors > 0 ? { value: `${totalInstructors} instrutores ativos`, isPositive: true } : undefined,
+      href: "/dashboard/instrutores"
+    },
+    {
+      title: "Modalidades",
+      value: isLoading ? "..." : totalClassTypes,
+      description: "Tipos de aula disponíveis",
+      icon: <TrendingUp className="h-4 w-4" />,
+      trend: totalClassTypes > 0 ? { value: `${totalClassTypes} modalidades cadastradas`, isPositive: true } : undefined,
+      href: "/dashboard/aulas"
     },
     {
       title: "Aulas desta Semana",
-      value: 28,
+      value: "Em breve",
       description: "Aulas agendadas",
       icon: <Calendar className="h-4 w-4" />,
-      trend: { value: "+2 a mais que na semana passada", isPositive: true },
-      href: "/aulas"
+      trend: { value: "Funcionalidade em desenvolvimento", isPositive: true },
+      href: "/dashboard/aulas"
     },
     {
       title: "Receita Mensal",
-      value: "R$ 8.940",
+      value: "Em breve",
       description: "Ganhos do mês atual",
       icon: <DollarSign className="h-4 w-4 text-green-600" />,
-      trend: { value: "+8% desde o mês passado", isPositive: true },
-      href: "/financeiro"
+      trend: { value: "Funcionalidade em desenvolvimento", isPositive: true },
+      href: "/dashboard/financeiro"
     },
     {
       title: "Taxa de Presença",
-      value: "89%",
+      value: "Em breve",
       description: "Média deste mês",
-      icon: <UserCheck className="h-4 w-4" />,
-      trend: { value: "+3% desde o mês passado", isPositive: true },
-      href: "/presenca"
-    },
-    {
-      title: "Pagamentos Pendentes",
-      value: 12,
-      description: "Pagamentos em atraso",
-      icon: <Clock className="h-4 w-4 text-orange-500" />,
-      trend: { value: "-5 desde a semana passada", isPositive: true },
-      href: "/pagamentos"
-    },
-    {
-      title: "Novas Matrículas",
-      value: 8,
-      description: "Neste mês",
-      icon: <TrendingUp className="h-4 w-4 text-green-600" />,
-      trend: { value: "+60% desde o mês passado", isPositive: true },
-      href: "/matriculas"
+      icon: <Clock className="h-4 w-4" />,
+      trend: { value: "Funcionalidade em desenvolvimento", isPositive: true },
+      href: "/dashboard/presenca"
     }
   ];
 

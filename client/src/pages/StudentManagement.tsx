@@ -57,6 +57,7 @@ function StudentForm({ student, onClose }: StudentFormProps) {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
       queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
       toast({
         title: "Aluno cadastrado com sucesso!",
         description: `${formData.name} foi adicionado à academia.`,
@@ -78,6 +79,7 @@ function StudentForm({ student, onClose }: StudentFormProps) {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
       queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
       toast({
         title: "Aluno atualizado com sucesso!",
         description: `Dados de ${formData.name} foram atualizados.`,
@@ -254,6 +256,7 @@ export default function StudentManagement() {
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
       toast({
         title: "Aluno desativado com sucesso!",
         description: `${data.studentName} foi desativado da academia.`,
@@ -279,6 +282,7 @@ export default function StudentManagement() {
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
       toast({
         title: "Aluno ativado com sucesso!",
         description: `${data.studentName} foi reativado na academia.`,
@@ -304,6 +308,7 @@ export default function StudentManagement() {
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
       toast({
         title: "Aluno excluído permanentemente!",
         description: `${data.studentName} foi removido definitivamente do sistema.`,
