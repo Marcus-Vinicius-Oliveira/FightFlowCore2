@@ -542,6 +542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           phone: z.string().optional(),
           dateOfBirth: z.string().optional(),
           belt: z.string().optional(),
+          active: z.boolean().optional(),
         });
 
         const updateData = updateStudentSchema.parse(req.body);
@@ -614,6 +615,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       } catch (error) {
         console.error('Delete student error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Permanent delete student (Admin only - with referential integrity checks)
+  app.delete('/api/students/:id/permanent', 
+    authenticateToken, 
+    requireRole(['ADMIN_ACADEMIA']),
+    requireSameAcademy,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const studentId = req.params.id;
+        
+        // Verify student exists and belongs to the same academy (multi-tenant security)
+        const existingStudent = await storage.getUser(studentId);
+        if (!existingStudent || existingStudent.academyId !== req.user!.academyId || existingStudent.role !== 'ALUNO') {
+          return res.status(404).json({ error: 'Student not found or access denied' });
+        }
+
+        // Check for referential integrity - enrollments, attendance, payments
+        const [enrollments, attendance, payments] = await Promise.all([
+          storage.getEnrollmentsByStudent(studentId),
+          storage.getAttendanceByStudent(studentId), 
+          storage.getPaymentsByStudent(studentId)
+        ]);
+
+        if (enrollments.length > 0 || attendance.length > 0 || payments.length > 0) {
+          return res.status(409).json({ 
+            error: 'Cannot permanently delete student with associated records. Remove enrollments, attendance, and payments first.' 
+          });
+        }
+
+        // Permanently delete student from database
+        await storage.deleteUser(studentId);
+
+        res.json({ message: 'Student permanently deleted successfully' });
+
+      } catch (error) {
+        console.error('Permanent delete student error:', error);
         res.status(500).json({ error: 'Internal server error' });
       }
     }

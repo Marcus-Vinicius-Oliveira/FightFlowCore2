@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Edit, Mail, Phone, Calendar, MoreHorizontal, Trash2, Eye, UserX } from "lucide-react";
+import { Plus, Search, Edit, Mail, Phone, Calendar, MoreHorizontal, Trash2, Eye, UserX, UserCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
@@ -215,6 +215,8 @@ export default function StudentManagement() {
   const [showForm, setShowForm] = useState(false);
   const [deleteStudent, setDeleteStudent] = useState<Student | undefined>();
   const [viewStudent, setViewStudent] = useState<Student | undefined>();
+  const [activateStudent, setActivateStudent] = useState<Student | undefined>();
+  const [permanentDeleteStudent, setPermanentDeleteStudent] = useState<Student | undefined>();
 
   const { data: students = [], isLoading } = useQuery<Student[]>({
     queryKey: ['/api/students'],
@@ -244,22 +246,86 @@ export default function StudentManagement() {
   const { toast } = useToast();
 
   const deleteMutation = useMutation({
-    mutationFn: (studentId: string) => apiRequest('DELETE', `/api/students/${studentId}`),
-    onSuccess: () => {
+    mutationFn: (studentId: string) => {
+      // Capture student name before mutation for toast
+      const studentName = deleteStudent?.name || "Aluno";
+      return apiRequest('DELETE', `/api/students/${studentId}`)
+        .then(result => ({ ...result, studentName }));
+    },
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
       toast({
-        title: "Aluno removido com sucesso!",
-        description: `${deleteStudent?.name} foi removido da academia.`,
+        title: "Aluno desativado com sucesso!",
+        description: `${data.studentName} foi desativado da academia.`,
       });
       setDeleteStudent(undefined);
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao remover aluno",
+        title: "Erro ao desativar aluno",
         description: error.message,
         variant: "destructive",
       });
       setDeleteStudent(undefined);
+    },
+  });
+
+  const activateMutation = useMutation({
+    mutationFn: (studentId: string) => {
+      // Capture student name before mutation for toast
+      const studentName = activateStudent?.name || "Aluno";
+      return apiRequest('PATCH', `/api/students/${studentId}`, { active: true })
+        .then(result => ({ ...result, studentName }));
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+      toast({
+        title: "Aluno ativado com sucesso!",
+        description: `${data.studentName} foi reativado na academia.`,
+      });
+      setActivateStudent(undefined);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao ativar aluno",
+        description: error.message,
+        variant: "destructive",
+      });
+      setActivateStudent(undefined);
+    },
+  });
+
+  const permanentDeleteMutation = useMutation({
+    mutationFn: (studentId: string) => {
+      // Capture student name before mutation for toast
+      const studentName = permanentDeleteStudent?.name || "Aluno";
+      return apiRequest('DELETE', `/api/students/${studentId}/permanent`)
+        .then(result => ({ ...result, studentName }));
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+      toast({
+        title: "Aluno excluído permanentemente!",
+        description: `${data.studentName} foi removido definitivamente do sistema.`,
+      });
+      setPermanentDeleteStudent(undefined);
+    },
+    onError: (error: any) => {
+      let errorMessage = error.message;
+      let errorTitle = "Erro ao excluir aluno";
+      
+      // Handle specific error for student with associated records
+      if (error.message?.includes("Cannot permanently delete student with associated records")) {
+        errorTitle = "Aluno não pode ser excluído";
+        errorMessage = "Este aluno possui registros vinculados (matrículas, frequência ou pagamentos). Remova estes registros antes de excluir o aluno permanentemente.";
+      }
+      
+      toast({
+        title: errorTitle,
+        description: errorMessage,
+        variant: "destructive",
+      });
+      setPermanentDeleteStudent(undefined);
     },
   });
 
@@ -339,6 +405,58 @@ export default function StudentManagement() {
                 data-testid="button-confirm-delete"
               >
                 {deleteMutation.isPending ? "Desativando..." : "Desativar"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={!!activateStudent} onOpenChange={(open) => !open && setActivateStudent(undefined)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Ativação</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja reativar o aluno <strong>{activateStudent?.name}</strong>?
+                O aluno voltará a ter acesso ao sistema.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-activate">
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => activateStudent && activateMutation.mutate(activateStudent.id)}
+                disabled={activateMutation.isPending}
+                data-testid="button-confirm-activate"
+              >
+                {activateMutation.isPending ? "Ativando..." : "Ativar"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={!!permanentDeleteStudent} onOpenChange={(open) => !open && setPermanentDeleteStudent(undefined)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Exclusão Permanente</AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2">
+                Tem certeza que deseja <strong>excluir permanentemente</strong> o aluno <strong>{permanentDeleteStudent?.name}</strong>?
+                <br />
+                <span className="text-destructive font-medium">⚠️ Esta ação não pode ser desfeita!</span>
+                <br />
+                <span className="text-sm text-muted-foreground">Todos os dados do aluno serão removidos definitivamente do sistema.</span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-permanent-delete">
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => permanentDeleteStudent && permanentDeleteMutation.mutate(permanentDeleteStudent.id)}
+                disabled={permanentDeleteMutation.isPending}
+                className="bg-destructive hover:bg-destructive/90"
+                data-testid="button-confirm-permanent-delete"
+              >
+                {permanentDeleteMutation.isPending ? "Excluindo..." : "Excluir Permanentemente"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -543,19 +661,46 @@ export default function StudentManagement() {
                             <Edit className="h-4 w-4 mr-2" />
                             Editar
                           </DropdownMenuItem>
+                          
+                          {student.active ? (
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setDeleteStudent(student);
+                              }}
+                              className="text-destructive focus:text-destructive"
+                              data-testid={`button-deactivate-student-${student.id}`}
+                            >
+                              <UserX className="h-4 w-4 mr-2" />
+                              Desativar
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setActivateStudent(student);
+                              }}
+                              className="text-green-600 focus:text-green-600"
+                              data-testid={`button-activate-student-${student.id}`}
+                            >
+                              <UserCheck className="h-4 w-4 mr-2" />
+                              Reativar
+                            </DropdownMenuItem>
+                          )}
+                          
                           <DropdownMenuItem 
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              console.log("Deactivate student:", student);
-                              console.log("Setting deleteStudent for confirmation");
-                              setDeleteStudent(student);
+                              setPermanentDeleteStudent(student);
                             }}
                             className="text-destructive focus:text-destructive"
-                            data-testid={`button-delete-student-${student.id}`}
+                            data-testid={`button-permanent-delete-student-${student.id}`}
                           >
-                            <UserX className="h-4 w-4 mr-2" />
-                            Desativar
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
