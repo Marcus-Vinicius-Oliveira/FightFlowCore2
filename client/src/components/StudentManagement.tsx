@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -403,101 +404,105 @@ export function StudentManagement() {
                   <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {filteredStudents.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
-                      {students.length === 0 ? "Nenhum aluno encontrado" : "Nenhum aluno corresponde à sua busca"}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredStudents.map((student) => (
-                    <TableRow key={student.id} data-testid={`row-student-${student.id}`}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center space-x-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="text-xs">
-                              {getInitials(student.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span data-testid={`text-student-name-${student.id}`}>{student.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div data-testid={`text-student-email-${student.id}`}>{student.email}</div>
-                          <div className="text-muted-foreground">{student.phone || 'Sem telefone'}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(student.active)}
-                      </TableCell>
-                      <TableCell data-testid={`text-join-date-${student.id}`}>
-                        {student.createdAt ? new Date(student.createdAt).toLocaleDateString() : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              className="h-8 w-8 p-0"
-                              data-testid={`button-student-actions-${student.id}`}
-                            >
-                              <span className="sr-only">Abrir menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem 
-                              onClick={() => handleViewDetails(student)}
-                              data-testid={`button-view-student-${student.id}`}
-                            >
-                              <Eye className="mr-2 h-4 w-4" />
-                              Ver Detalhes
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleEdit(student)}
-                              data-testid={`button-edit-student-${student.id}`}
-                            >
-                              <Edit className="mr-2 h-4 w-4" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {student.active ? (
-                              <DropdownMenuItem 
-                                onClick={() => setDeleteStudent(student)}
-                                className="text-destructive focus:text-destructive"
-                                data-testid={`button-deactivate-student-${student.id}`}
-                              >
-                                <UserX className="mr-2 h-4 w-4" />
-                                Desativar
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem 
-                                onClick={() => setActivateStudent(student)}
-                                className="text-green-600 focus:text-green-600"
-                                data-testid={`button-activate-student-${student.id}`}
-                              >
-                                <UserCheck className="mr-2 h-4 w-4" />
-                                Reativar
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem 
-                              onClick={() => setPermanentDeleteStudent(student)}
-                              className="text-destructive focus:text-destructive"
-                              data-testid={`button-permanent-delete-student-${student.id}`}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+            </Table>
+            <ScrollArea className="h-[400px]" data-testid="scroll-area-students">
+              <Table>
+                <TableBody>
+                  {filteredStudents.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8">
+                        {students.length === 0 ? "Nenhum aluno encontrado" : "Nenhum aluno corresponde à sua busca"}
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    filteredStudents.map((student) => (
+                      <TableRow key={student.id} data-testid={`row-student-${student.id}`}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback className="text-xs">
+                                {getInitials(student.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span data-testid={`text-student-name-${student.id}`}>{student.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <div data-testid={`text-student-email-${student.id}`}>{student.email}</div>
+                            <div className="text-muted-foreground">{student.phone || 'Sem telefone'}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(student.active)}
+                        </TableCell>
+                        <TableCell data-testid={`text-join-date-${student.id}`}>
+                          {student.createdAt ? new Date(student.createdAt).toLocaleDateString() : 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                className="h-8 w-8 p-0"
+                                data-testid={`button-student-actions-${student.id}`}
+                              >
+                                <span className="sr-only">Abrir menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem 
+                                onClick={() => handleViewDetails(student)}
+                                data-testid={`button-view-student-${student.id}`}
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                Ver Detalhes
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleEdit(student)}
+                                data-testid={`button-edit-student-${student.id}`}
+                              >
+                                <Edit className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {student.active ? (
+                                <DropdownMenuItem 
+                                  onClick={() => setDeleteStudent(student)}
+                                  className="text-destructive focus:text-destructive"
+                                  data-testid={`button-deactivate-student-${student.id}`}
+                                >
+                                  <UserX className="mr-2 h-4 w-4" />
+                                  Desativar
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem 
+                                  onClick={() => setActivateStudent(student)}
+                                  className="text-green-600 focus:text-green-600"
+                                  data-testid={`button-activate-student-${student.id}`}
+                                >
+                                  <UserCheck className="mr-2 h-4 w-4" />
+                                  Reativar
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem 
+                                onClick={() => setPermanentDeleteStudent(student)}
+                                className="text-destructive focus:text-destructive"
+                                data-testid={`button-permanent-delete-student-${student.id}`}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </ScrollArea>
           </div>
         )}
       </CardContent>
