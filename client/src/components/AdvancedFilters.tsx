@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -85,23 +84,23 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-96" align="start">
-            <Card className="border-0 shadow-none">
-              <CardContent className="p-0 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-medium">Filtros Avançados</h4>
-                  {hasActiveFilters && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearAllFilters}
-                      className="text-muted-foreground hover:text-foreground gap-1"
-                      data-testid="button-clear-filters"
-                    >
-                      <X className="h-3 w-3" />
-                      Limpar
-                    </Button>
-                  )}
-                </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-medium">Filtros Avançados</h4>
+                {hasActiveFilters && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearAllFilters}
+                    className="text-muted-foreground hover:text-foreground gap-1"
+                    data-testid="button-clear-filters"
+                  >
+                    <X className="h-3 w-3" />
+                    Limpar
+                  </Button>
+                )}
+              </div>
 
                 {/* Status Filter */}
                 <div className="space-y-2">
@@ -177,18 +176,22 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
                   </div>
                 </div>
 
-                <div className="flex justify-end">
-                  <Button 
-                    variant="default" 
-                    size="sm" 
-                    onClick={() => setIsOpen(false)}
-                    data-testid="button-apply-filters"
-                  >
-                    Aplicar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+              <div className="flex justify-end">
+                <Button 
+                  type="button"
+                  variant="default" 
+                  size="sm" 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsOpen(false);
+                  }}
+                  data-testid="button-apply-filters"
+                >
+                  Aplicar
+                </Button>
+              </div>
+            </div>
           </PopoverContent>
         </Popover>
 

@@ -13,6 +13,7 @@ import { Plus, Search, Edit, Mail, Phone, Calendar, MoreHorizontal, Trash2, Eye,
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
+import { AdvancedFilters, FilterOptions, applyFilters } from "@/components/AdvancedFilters";
 
 interface Instructor {
   id: string;
@@ -191,15 +192,20 @@ export default function InstructorManagement() {
   const [permanentDeleteInstructor, setPermanentDeleteInstructor] = useState<Instructor | undefined>();
   const [activateInstructor, setActivateInstructor] = useState<Instructor | undefined>();
   const [viewInstructor, setViewInstructor] = useState<Instructor | undefined>();
+  
+  const [filters, setFilters] = useState<FilterOptions>({
+    status: "all",
+    dateFrom: "",
+    dateTo: "",
+    sortBy: "name",
+    sortOrder: "asc",
+  });
 
   const { data: instructors = [], isLoading } = useQuery<Instructor[]>({
     queryKey: ['/api/instructors'],
   });
 
-  const filteredInstructors = instructors.filter(instructor =>
-    instructor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    instructor.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredInstructors = applyFilters(instructors, filters, searchTerm);
 
   const handleEdit = (instructor: Instructor) => {
     console.log("handleEdit called for:", instructor.id);
@@ -483,10 +489,17 @@ export default function InstructorManagement() {
         </Dialog>
       </div>
 
+      {/* Advanced Filters */}
+      <AdvancedFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        className="mb-4"
+      />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>Lista de Instrutores ({instructors.length})</span>
+            <span>Lista de Instrutores ({filteredInstructors.length} de {instructors.length})</span>
             <div className="relative w-72">
               <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input

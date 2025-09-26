@@ -13,6 +13,7 @@ import { Plus, Search, Edit, Mail, Phone, Calendar, MoreHorizontal, Trash2, Eye,
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
+import { AdvancedFilters, FilterOptions, applyFilters } from "@/components/AdvancedFilters";
 
 interface Student {
   id: string;
@@ -219,15 +220,20 @@ export default function StudentManagement() {
   const [viewStudent, setViewStudent] = useState<Student | undefined>();
   const [activateStudent, setActivateStudent] = useState<Student | undefined>();
   const [permanentDeleteStudent, setPermanentDeleteStudent] = useState<Student | undefined>();
+  
+  const [filters, setFilters] = useState<FilterOptions>({
+    status: "all",
+    dateFrom: "",
+    dateTo: "",
+    sortBy: "name",
+    sortOrder: "asc",
+  });
 
   const { data: students = [], isLoading } = useQuery<Student[]>({
     queryKey: ['/api/students'],
   });
 
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStudents = applyFilters(students, filters, searchTerm);
 
   const handleEdit = (student: Student) => {
     console.log("handleEdit called for:", student.id);
@@ -543,10 +549,17 @@ export default function StudentManagement() {
         </Dialog>
       </div>
 
+      {/* Advanced Filters */}
+      <AdvancedFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        className="mb-4"
+      />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>Lista de Alunos ({students.length})</span>
+            <span>Lista de Alunos ({filteredStudents.length} de {students.length})</span>
             <div className="relative w-72">
               <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
