@@ -712,6 +712,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Permanently delete instructor (Admin only)
+  app.delete('/api/instructors/:id/permanent', 
+    authenticateToken, 
+    requireRole(['ADMIN_ACADEMIA']),
+    requireSameAcademy,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const instructorId = req.params.id;
+        
+        // Verify instructor exists and belongs to the same academy (multi-tenant security)
+        const existingInstructor = await storage.getUser(instructorId);
+        if (!existingInstructor || existingInstructor.academyId !== req.user!.academyId || existingInstructor.role !== 'PROFESSOR') {
+          return res.status(404).json({ error: 'Instructor not found or access denied' });
+        }
+
+        // Check if instructor has associated classes before deletion
+        const instructorClasses = await storage.getClassesByInstructor(instructorId);
+        if (instructorClasses.length > 0) {
+          return res.status(409).json({ 
+            error: 'Cannot permanently delete instructor with associated classes',
+            details: `The instructor has ${instructorClasses.length} associated class(es). Please reassign or remove these classes before deletion.`
+          });
+        }
+
+        // Permanently delete the instructor
+        const deleted = await storage.deleteUser(instructorId);
+
+        if (!deleted) {
+          return res.status(404).json({ error: 'Instructor not found' });
+        }
+
+        res.json({ message: 'Instructor permanently deleted successfully' });
+
+      } catch (error) {
+        console.error('Permanently delete instructor error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
   // ============================================================================
   // STUDENT PORTAL (Student access to own data)
   // ============================================================================

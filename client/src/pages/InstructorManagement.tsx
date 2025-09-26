@@ -188,6 +188,7 @@ export default function InstructorManagement() {
   const [selectedInstructor, setSelectedInstructor] = useState<Instructor | undefined>();
   const [showForm, setShowForm] = useState(false);
   const [deleteInstructor, setDeleteInstructor] = useState<Instructor | undefined>();
+  const [permanentDeleteInstructor, setPermanentDeleteInstructor] = useState<Instructor | undefined>();
   const [activateInstructor, setActivateInstructor] = useState<Instructor | undefined>();
   const [viewInstructor, setViewInstructor] = useState<Instructor | undefined>();
 
@@ -255,6 +256,40 @@ export default function InstructorManagement() {
         variant: "destructive",
       });
       setActivateInstructor(undefined);
+    },
+  });
+
+  const permanentDeleteMutation = useMutation({
+    mutationFn: (instructorId: string) => {
+      // Capture instructor name before mutation for toast
+      const instructorName = permanentDeleteInstructor?.name || "Instrutor";
+      return apiRequest('DELETE', `/api/instructors/${instructorId}/permanent`)
+        .then(result => ({ ...result, instructorName }));
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
+      toast({
+        title: "Instrutor excluído permanentemente!",
+        description: `${data.instructorName} foi removido definitivamente do sistema.`,
+      });
+      setPermanentDeleteInstructor(undefined);
+    },
+    onError: (error: any) => {
+      let errorMessage = error.message;
+      let errorTitle = "Erro ao excluir instrutor";
+      
+      // Handle specific error for instructor with associated classes
+      if (error.message?.includes("Cannot permanently delete instructor with associated classes")) {
+        errorTitle = "Instrutor não pode ser excluído";
+        errorMessage = "Este instrutor possui aulas vinculadas. Remova ou reassigne as aulas antes de excluir o instrutor permanentemente.";
+      }
+      
+      toast({
+        title: errorTitle,
+        description: errorMessage,
+        variant: "destructive",
+      });
+      setPermanentDeleteInstructor(undefined);
     },
   });
 
@@ -359,6 +394,32 @@ export default function InstructorManagement() {
                 data-testid="button-confirm-activate"
               >
                 {activateMutation.isPending ? "Ativando..." : "Ativar"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={!!permanentDeleteInstructor} onOpenChange={(open) => !open && setPermanentDeleteInstructor(undefined)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Exclusão Permanente</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja <strong>excluir permanentemente</strong> o instrutor <strong>{permanentDeleteInstructor?.name}</strong>?
+                <br /><br />
+                <span className="text-destructive font-medium">⚠️ ATENÇÃO: Esta ação não pode ser desfeita!</span> Todos os dados do instrutor serão removidos definitivamente do sistema.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-permanent-delete">
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => permanentDeleteInstructor && permanentDeleteMutation.mutate(permanentDeleteInstructor.id)}
+                disabled={permanentDeleteMutation.isPending}
+                className="bg-destructive hover:bg-destructive/90"
+                data-testid="button-confirm-permanent-delete"
+              >
+                {permanentDeleteMutation.isPending ? "Excluindo..." : "Excluir Permanentemente"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -573,6 +634,20 @@ export default function InstructorManagement() {
                               Ativar
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              console.log("Permanently delete instructor:", instructor);
+                              console.log("Setting permanentDeleteInstructor for confirmation");
+                              setPermanentDeleteInstructor(instructor);
+                            }}
+                            className="text-destructive focus:text-destructive"
+                            data-testid={`button-permanent-delete-instructor-${instructor.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
