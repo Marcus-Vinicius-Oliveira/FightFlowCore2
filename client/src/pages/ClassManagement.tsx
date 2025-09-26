@@ -83,15 +83,13 @@ function ClassForm({ classData, onClose }: ClassFormProps) {
   const { toast } = useToast();
 
   // Get class types
-  const { data: classTypes = [] } = useQuery({
-    queryKey: ['/api/class-types'],
-    queryFn: () => apiRequest('GET', '/api/class-types')
+  const { data: classTypes = [] } = useQuery<ClassType[]>({
+    queryKey: ['/api/class-types']
   });
 
   // Get instructors (professors)  
-  const { data: instructors = [] } = useQuery({
-    queryKey: ['/api/instructors'],
-    queryFn: () => apiRequest('GET', '/api/instructors')
+  const { data: instructors = [] } = useQuery<Instructor[]>({
+    queryKey: ['/api/instructors']
   });
 
   const createMutation = useMutation({
@@ -352,9 +350,8 @@ export default function ClassManagement() {
   const [classToDelete, setClassToDelete] = useState<ClassData | null>(null);
   const { toast } = useToast();
 
-  const { data: classes = [], isLoading, error } = useQuery({
-    queryKey: ['/api/classes'],
-    queryFn: () => apiRequest('GET', '/api/classes')
+  const { data: classes = [], isLoading, error } = useQuery<ClassData[]>({
+    queryKey: ['/api/classes']
   });
 
   const deleteMutation = useMutation({
