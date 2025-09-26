@@ -8,6 +8,7 @@ Fight Club App is a comprehensive SaaS platform for martial arts academies to ma
 - ✅ **Portal do Aluno Completo**: Dedicated student portal with secure login, dashboard, and schedule viewing
 - ✅ **Mandatory First Access Flow**: Students must change their password on first login with non-dismissible modal
 - ✅ **Multi-tenant Security**: Strict academy-based data isolation preventing cross-tenant access
+- ✅ **Complete Instructor Management**: Full CRUD operations with conditional activation/deactivation and role-based menu controls
 
 ## User Preferences
 
