@@ -393,20 +393,18 @@ export function StudentManagement() {
 
         {/* Students Table */}
         {!isLoading && (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Aluno</TableHead>
-                  <TableHead>Contato</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Entrada</TableHead>
-                  <TableHead className="w-[100px]">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-            </Table>
+          <div className="rounded-md border" data-testid="students-table-container">
             <ScrollArea className="h-[400px]" data-testid="scroll-area-students">
               <Table>
+                <TableHeader className="sticky top-0 z-10 bg-background">
+                  <TableRow>
+                    <TableHead className="bg-background">Aluno</TableHead>
+                    <TableHead className="bg-background">Contato</TableHead>
+                    <TableHead className="bg-background">Status</TableHead>
+                    <TableHead className="bg-background">Entrada</TableHead>
+                    <TableHead className="w-[100px] bg-background">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
                   {filteredStudents.length === 0 ? (
                     <TableRow>
