@@ -69,7 +69,7 @@ function InstructorForm({ instructor, onClose }: InstructorFormProps) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: InstructorFormData) => apiRequest('PATCH', `/api/students/${instructor!.id}`, data),
+    mutationFn: (data: InstructorFormData) => apiRequest('PATCH', `/api/instructors/${instructor!.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
       queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
@@ -218,7 +218,7 @@ export default function InstructorManagement() {
   const { toast } = useToast();
 
   const deleteMutation = useMutation({
-    mutationFn: (instructorId: string) => apiRequest('DELETE', `/api/students/${instructorId}`),
+    mutationFn: (instructorId: string) => apiRequest('DELETE', `/api/instructors/${instructorId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
       toast({

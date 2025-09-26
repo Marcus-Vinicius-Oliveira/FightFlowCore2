@@ -620,6 +620,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   // ============================================================================
+  // INSTRUCTOR MANAGEMENT (Admin access)
+  // ============================================================================
+
+  // Update instructor (Admin only)
+  app.patch('/api/instructors/:id', 
+    authenticateToken, 
+    requireRole(['ADMIN_ACADEMIA']),
+    requireSameAcademy,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const instructorId = req.params.id;
+        
+        // Schema for instructor update (all fields optional)
+        const updateInstructorSchema = z.object({
+          name: z.string().min(1).optional(),
+          email: z.string().email().optional(),
+          phone: z.string().optional(),
+        });
+
+        const updateData = updateInstructorSchema.parse(req.body);
+
+        // Verify instructor exists and belongs to the same academy (multi-tenant security)
+        const existingInstructor = await storage.getUser(instructorId);
+        if (!existingInstructor || existingInstructor.academyId !== req.user!.academyId || existingInstructor.role !== 'PROFESSOR') {
+          return res.status(404).json({ error: 'Instructor not found or access denied' });
+        }
+
+        // If email is being updated, check if it already exists
+        if (updateData.email && updateData.email !== existingInstructor.email) {
+          const existingUser = await storage.getUserByEmail(updateData.email);
+          if (existingUser) {
+            return res.status(409).json({ error: 'User with this email already exists' });
+          }
+        }
+
+        // Update instructor
+        const updatedInstructor = await storage.updateUser(instructorId, updateData);
+
+        if (!updatedInstructor) {
+          return res.status(404).json({ error: 'Instructor not found' });
+        }
+
+        // Remove password from response
+        const { password, ...instructorResponse } = updatedInstructor;
+        
+        res.json(instructorResponse);
+
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ 
+            error: 'Validation error', 
+            details: error.errors 
+          });
+        }
+        console.error('Update instructor error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // Delete instructor (Admin only)
+  app.delete('/api/instructors/:id', 
+    authenticateToken, 
+    requireRole(['ADMIN_ACADEMIA']),
+    requireSameAcademy,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const instructorId = req.params.id;
+        
+        // Verify instructor exists and belongs to the same academy (multi-tenant security)
+        const existingInstructor = await storage.getUser(instructorId);
+        if (!existingInstructor || existingInstructor.academyId !== req.user!.academyId || existingInstructor.role !== 'PROFESSOR') {
+          return res.status(404).json({ error: 'Instructor not found or access denied' });
+        }
+
+        // Soft delete by setting active to false
+        const deletedInstructor = await storage.updateUser(instructorId, { active: false });
+
+        if (!deletedInstructor) {
+          return res.status(404).json({ error: 'Instructor not found' });
+        }
+
+        res.json({ message: 'Instructor deleted successfully' });
+
+      } catch (error) {
+        console.error('Delete instructor error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  // ============================================================================
   // STUDENT PORTAL (Student access to own data)
   // ============================================================================
 
