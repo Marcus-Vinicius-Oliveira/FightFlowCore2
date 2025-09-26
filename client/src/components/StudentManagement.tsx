@@ -391,116 +391,133 @@ export function StudentManagement() {
           </div>
         )}
 
-        {/* Students Table */}
+        {/* Students Table - Custom Implementation with Sticky Header */}
         {!isLoading && (
           <div className="rounded-md border" data-testid="students-table-container">
-            <ScrollArea className="h-[400px]" data-testid="scroll-area-students">
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-background">
-                  <TableRow>
-                    <TableHead className="bg-background">Aluno</TableHead>
-                    <TableHead className="bg-background">Contato</TableHead>
-                    <TableHead className="bg-background">Status</TableHead>
-                    <TableHead className="bg-background">Entrada</TableHead>
-                    <TableHead className="w-[100px] bg-background">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredStudents.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8">
-                        {students.length === 0 ? "Nenhum aluno encontrado" : "Nenhum aluno corresponde à sua busca"}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredStudents.map((student) => (
-                      <TableRow key={student.id} data-testid={`row-student-${student.id}`}>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center space-x-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback className="text-xs">
-                                {getInitials(student.name)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span data-testid={`text-student-name-${student.id}`}>{student.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <div data-testid={`text-student-email-${student.id}`}>{student.email}</div>
-                            <div className="text-muted-foreground">{student.phone || 'Sem telefone'}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(student.active)}
-                        </TableCell>
-                        <TableCell data-testid={`text-join-date-${student.id}`}>
-                          {student.createdAt ? new Date(student.createdAt).toLocaleDateString() : 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                className="h-8 w-8 p-0"
-                                data-testid={`button-student-actions-${student.id}`}
-                              >
-                                <span className="sr-only">Abrir menu</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+            <div 
+              className="h-[400px] overflow-y-auto"
+              data-testid="scroll-area-students"
+            >
+              {/* Fixed Header */}
+              <div 
+                className="sticky top-0 z-20 bg-background border-b grid grid-cols-5 gap-4 p-4 font-semibold text-sm text-muted-foreground"
+                style={{
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 20,
+                  backgroundColor: 'hsl(var(--background))',
+                  borderBottom: '1px solid hsl(var(--border))',
+                  gridTemplateColumns: '2fr 2fr 1fr 1fr 100px'
+                }}
+              >
+                <div>Aluno</div>
+                <div>Contato</div>
+                <div>Status</div>
+                <div>Entrada</div>
+                <div>Ações</div>
+              </div>
+
+              {/* Table Content */}
+              <div className="divide-y">
+                {filteredStudents.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {students.length === 0 ? "Nenhum aluno encontrado" : "Nenhum aluno corresponde à sua busca"}
+                  </div>
+                ) : (
+                  filteredStudents.map((student) => (
+                    <div 
+                      key={student.id} 
+                      className="grid grid-cols-5 gap-4 p-4 hover-elevate"
+                      style={{ gridTemplateColumns: '2fr 2fr 1fr 1fr 100px' }}
+                      data-testid={`row-student-${student.id}`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="text-xs">
+                            {getInitials(student.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium" data-testid={`text-student-name-${student.id}`}>
+                          {student.name}
+                        </span>
+                      </div>
+                      
+                      <div className="text-sm">
+                        <div data-testid={`text-student-email-${student.id}`}>{student.email}</div>
+                        <div className="text-muted-foreground">{student.phone || 'Sem telefone'}</div>
+                      </div>
+                      
+                      <div>
+                        {getStatusBadge(student.active)}
+                      </div>
+                      
+                      <div className="text-sm" data-testid={`text-join-date-${student.id}`}>
+                        {student.createdAt ? new Date(student.createdAt).toLocaleDateString() : 'N/A'}
+                      </div>
+                      
+                      <div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              className="h-8 w-8 p-0"
+                              data-testid={`button-student-actions-${student.id}`}
+                            >
+                              <span className="sr-only">Abrir menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem 
+                              onClick={() => handleViewDetails(student)}
+                              data-testid={`button-view-student-${student.id}`}
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              Ver Detalhes
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleEdit(student)}
+                              data-testid={`button-edit-student-${student.id}`}
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {student.active ? (
                               <DropdownMenuItem 
-                                onClick={() => handleViewDetails(student)}
-                                data-testid={`button-view-student-${student.id}`}
-                              >
-                                <Eye className="mr-2 h-4 w-4" />
-                                Ver Detalhes
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => handleEdit(student)}
-                                data-testid={`button-edit-student-${student.id}`}
-                              >
-                                <Edit className="mr-2 h-4 w-4" />
-                                Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              {student.active ? (
-                                <DropdownMenuItem 
-                                  onClick={() => setDeleteStudent(student)}
-                                  className="text-destructive focus:text-destructive"
-                                  data-testid={`button-deactivate-student-${student.id}`}
-                                >
-                                  <UserX className="mr-2 h-4 w-4" />
-                                  Desativar
-                                </DropdownMenuItem>
-                              ) : (
-                                <DropdownMenuItem 
-                                  onClick={() => setActivateStudent(student)}
-                                  className="text-green-600 focus:text-green-600"
-                                  data-testid={`button-activate-student-${student.id}`}
-                                >
-                                  <UserCheck className="mr-2 h-4 w-4" />
-                                  Reativar
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem 
-                                onClick={() => setPermanentDeleteStudent(student)}
+                                onClick={() => setDeleteStudent(student)}
                                 className="text-destructive focus:text-destructive"
-                                data-testid={`button-permanent-delete-student-${student.id}`}
+                                data-testid={`button-deactivate-student-${student.id}`}
                               >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Excluir
+                                <UserX className="mr-2 h-4 w-4" />
+                                Desativar
                               </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </ScrollArea>
+                            ) : (
+                              <DropdownMenuItem 
+                                onClick={() => setActivateStudent(student)}
+                                className="text-green-600 focus:text-green-600"
+                                data-testid={`button-activate-student-${student.id}`}
+                              >
+                                <UserCheck className="mr-2 h-4 w-4" />
+                                Reativar
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem 
+                              onClick={() => setPermanentDeleteStudent(student)}
+                              className="text-destructive focus:text-destructive"
+                              data-testid={`button-permanent-delete-student-${student.id}`}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         )}
       </CardContent>
