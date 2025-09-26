@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
 import { AdvancedFilters, FilterOptions, applyFilters } from "@/components/AdvancedFilters";
+import { AddStudentDialog } from "@/components/AddStudentDialog";
 
 interface Student {
   id: string;
@@ -216,6 +217,7 @@ export default function StudentManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | undefined>();
   const [showForm, setShowForm] = useState(false);
+  const [showAddStudentDialog, setShowAddStudentDialog] = useState(false);
   const [deleteStudent, setDeleteStudent] = useState<Student | undefined>();
   const [viewStudent, setViewStudent] = useState<Student | undefined>();
   const [activateStudent, setActivateStudent] = useState<Student | undefined>();
@@ -374,22 +376,23 @@ export default function StudentManagement() {
             Gerencie todos os alunos da sua academia
           </p>
         </div>
-        <Button onClick={() => setShowForm(true)} data-testid="button-add-student">
+        <Button onClick={() => setShowAddStudentDialog(true)} data-testid="button-add-student">
           <Plus className="mr-2 h-4 w-4" />
           Adicionar Novo Aluno
         </Button>
         
+        <AddStudentDialog 
+          open={showAddStudentDialog} 
+          onOpenChange={setShowAddStudentDialog} 
+        />
+        
+        {/* Dialog apenas para edição de alunos existentes */}
         <Dialog open={showForm} onOpenChange={setShowForm}>
-          <DialogContent className="sm:max-w-[600px]" key={selectedStudent?.id || 'new'}>
+          <DialogContent className="sm:max-w-[600px]" key={selectedStudent?.id}>
             <DialogHeader>
-              <DialogTitle>
-                {selectedStudent ? "Editar Aluno" : "Adicionar Novo Aluno"}
-              </DialogTitle>
+              <DialogTitle>Editar Aluno</DialogTitle>
               <DialogDescription>
-                {selectedStudent 
-                  ? "Atualize as informações do aluno abaixo."
-                  : "Preencha as informações do novo aluno abaixo."
-                }
+                Atualize as informações do aluno abaixo.
               </DialogDescription>
             </DialogHeader>
             <StudentForm student={selectedStudent} onClose={handleCloseForm} />

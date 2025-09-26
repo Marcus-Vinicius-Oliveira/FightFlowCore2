@@ -333,3 +333,29 @@ export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type InsertPlano = z.infer<typeof insertPlanoSchema>;
 export type InsertAssinatura = z.infer<typeof insertAssinaturaSchema>;
+
+// Student creation schema - specific schema for creating students from admin panels
+export const studentCreateSchema = insertUserSchema
+  .omit({
+    role: true,
+    academyId: true, 
+    active: true,
+    firstAccess: true,
+  })
+  .extend({
+    password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+    role: z.literal('ALUNO').default('ALUNO'),
+    firstAccess: z.literal(true).default(true),
+    active: z.literal(true).default(true),
+    dateOfBirth: z.string().optional().transform(s => s ? new Date(s) : undefined),
+  });
+
+// Form schema for frontend - accepts string date that will be transformed
+export const studentCreateFormSchema = studentCreateSchema
+  .omit({ dateOfBirth: true })
+  .extend({
+    dateOfBirth: z.string().optional(),
+  });
+
+export type StudentCreateData = z.infer<typeof studentCreateSchema>;
+export type StudentCreateFormData = z.infer<typeof studentCreateFormSchema>;

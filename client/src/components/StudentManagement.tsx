@@ -1,41 +1,20 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Search, UserPlus, Edit, Trash2, Eye, AlertTriangle } from "lucide-react";
 import { apiClient, type Student } from "@/lib/api";
-import { useToast } from "@/hooks/use-toast";
+import { AddStudentDialog } from "@/components/AddStudentDialog";
 
-interface StudentFormData {
-  name: string;
-  email: string;
-  password: string;
-  phone?: string;
-  dateOfBirth?: string;
-  belt?: string;
-}
 
 export function StudentManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [formData, setFormData] = useState<StudentFormData>({
-    name: "",
-    email: "",
-    password: "",
-    phone: "",
-    dateOfBirth: "",
-    belt: ""
-  });
-
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   // Fetch students
   const { data: students = [], isLoading, error } = useQuery({
@@ -43,39 +22,6 @@ export function StudentManagement() {
     queryFn: () => apiClient.getStudents(),
   });
 
-  // Create student mutation
-  const createStudentMutation = useMutation({
-    mutationFn: (studentData: Omit<StudentFormData, 'id'>) =>
-      apiClient.createStudent(studentData),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/students'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
-      setIsAddDialogOpen(false);
-      setFormData({ name: "", email: "", password: "", phone: "", dateOfBirth: "", belt: "" });
-      toast({
-        title: "Aluno Adicionado",
-        description: "Novo aluno foi adicionado com sucesso à sua academia.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Erro ao Adicionar Aluno",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleInputChange = (field: keyof StudentFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    createStudentMutation.mutate(formData);
-  };
 
   const filteredStudents = students.filter(student =>
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -131,114 +77,18 @@ export function StudentManagement() {
             </CardDescription>
           </div>
 
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-add-student">
-                <UserPlus className="mr-2 h-4 w-4" />
-                Adicionar Aluno
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Adicionar Novo Aluno</DialogTitle>
-                <DialogDescription>
-                  Crie uma nova conta de aluno para sua academia de artes marciais.
-                </DialogDescription>
-              </DialogHeader>
-              
-              <form onSubmit={handleSubmit}>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="student-name">Nome Completo</Label>
-                    <Input
-                      id="student-name"
-                      value={formData.name}
-                      onChange={(e) => handleInputChange("name", e.target.value)}
-                      placeholder="Nome completo do aluno"
-                      required
-                      data-testid="input-student-name"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="student-email">Email</Label>
-                    <Input
-                      id="student-email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleInputChange("email", e.target.value)}
-                      placeholder="aluno@email.com"
-                      required
-                      data-testid="input-student-email"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="student-phone">Telefone (Opcional)</Label>
-                    <Input
-                      id="student-phone"
-                      value={formData.phone}
-                      onChange={(e) => handleInputChange("phone", e.target.value)}
-                      placeholder="(11) 99999-9999"
-                      data-testid="input-student-phone"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="student-birthdate">Data de Nascimento (Opcional)</Label>
-                    <Input
-                      id="student-birthdate"
-                      type="date"
-                      value={formData.dateOfBirth}
-                      onChange={(e) => handleInputChange("dateOfBirth", e.target.value)}
-                      data-testid="input-student-birthdate"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="student-belt">Graduação/Faixa (Opcional)</Label>
-                    <Input
-                      id="student-belt"
-                      value={formData.belt}
-                      onChange={(e) => handleInputChange("belt", e.target.value)}
-                      placeholder="Faixa Branca, 1º Kyu, etc."
-                      data-testid="input-student-belt"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="student-password">Senha Temporária</Label>
-                    <Input
-                      id="student-password"
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => handleInputChange("password", e.target.value)}
-                      placeholder="Aluno alterará no primeiro login"
-                      required
-                      data-testid="input-student-password"
-                    />
-                  </div>
-                </div>
-
-                <DialogFooter className="mt-6">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsAddDialogOpen(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={createStudentMutation.isPending}
-                    data-testid="button-submit-student"
-                  >
-                    {createStudentMutation.isPending ? "Adicionando..." : "Adicionar Aluno"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <Button 
+            onClick={() => setIsAddDialogOpen(true)}
+            data-testid="button-add-student"
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            Adicionar Aluno
+          </Button>
+          
+          <AddStudentDialog 
+            open={isAddDialogOpen} 
+            onOpenChange={setIsAddDialogOpen} 
+          />
         </div>
       </CardHeader>
       
