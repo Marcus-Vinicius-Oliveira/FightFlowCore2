@@ -2,17 +2,15 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Search, UserPlus, Edit, Trash2, Eye, AlertTriangle, Mail, UserX, UserCheck } from "lucide-react";
-import { apiClient, type Student } from "@/lib/api";
+import { type Student } from "@/lib/api";
 import { AddStudentDialog } from "@/components/AddStudentDialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -28,6 +26,9 @@ const studentEditFormSchema = z.object({
 });
 
 type StudentEditFormData = z.infer<typeof studentEditFormSchema>;
+
+// Shared grid layout for students table
+const STUDENTS_GRID_COLUMNS = '2fr 2fr 1fr 1fr 100px';
 
 interface StudentEditFormProps {
   student?: Student;
@@ -400,14 +401,9 @@ export function StudentManagement() {
             >
               {/* Fixed Header */}
               <div 
-                className="sticky top-0 z-20 bg-background border-b grid grid-cols-5 gap-4 p-4 font-semibold text-sm text-muted-foreground"
+                className="sticky top-0 z-20 bg-background border-b grid gap-4 p-4 font-semibold text-sm text-muted-foreground"
                 style={{
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 20,
-                  backgroundColor: 'hsl(var(--background))',
-                  borderBottom: '1px solid hsl(var(--border))',
-                  gridTemplateColumns: '2fr 2fr 1fr 1fr 100px'
+                  gridTemplateColumns: STUDENTS_GRID_COLUMNS
                 }}
               >
                 <div>Aluno</div>
@@ -427,8 +423,8 @@ export function StudentManagement() {
                   filteredStudents.map((student) => (
                     <div 
                       key={student.id} 
-                      className="grid grid-cols-5 gap-4 p-4 hover-elevate"
-                      style={{ gridTemplateColumns: '2fr 2fr 1fr 1fr 100px' }}
+                      className="grid gap-4 p-4"
+                      style={{ gridTemplateColumns: STUDENTS_GRID_COLUMNS }}
                       data-testid={`row-student-${student.id}`}
                     >
                       <div className="flex items-center space-x-3">
@@ -459,8 +455,8 @@ export function StudentManagement() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button 
-                              variant="ghost" 
-                              className="h-8 w-8 p-0"
+                              size="icon" 
+                              variant="ghost"
                               data-testid={`button-student-actions-${student.id}`}
                             >
                               <span className="sr-only">Abrir menu</span>
@@ -607,7 +603,7 @@ export function StudentManagement() {
             <AlertDialogAction
               onClick={() => deleteStudent && deleteMutation.mutate(deleteStudent.id)}
               disabled={deleteMutation.isPending}
-              className="bg-destructive hover:bg-destructive/90"
+              variant="destructive"
               data-testid="button-confirm-delete"
             >
               {deleteMutation.isPending ? "Desativando..." : "Desativar"}
@@ -661,7 +657,7 @@ export function StudentManagement() {
             <AlertDialogAction
               onClick={() => permanentDeleteStudent && permanentDeleteMutation.mutate(permanentDeleteStudent.id)}
               disabled={permanentDeleteMutation.isPending}
-              className="bg-destructive hover:bg-destructive/90"
+              variant="destructive"
               data-testid="button-confirm-permanent-delete"
             >
               {permanentDeleteMutation.isPending ? "Excluindo..." : "Excluir Permanentemente"}
