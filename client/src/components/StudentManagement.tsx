@@ -45,6 +45,9 @@ export function StudentManagement() {
       apiClient.createStudent(studentData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
       setIsAddDialogOpen(false);
       setFormData({ name: "", email: "", password: "", phone: "" });
       toast({
