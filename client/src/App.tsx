@@ -19,6 +19,7 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import StudentDashboard from "@/pages/StudentDashboard";
 import StudentManagement from "@/pages/StudentManagement";
+import InstructorManagement from "@/pages/InstructorManagement";
 import ClassManagement from "@/pages/ClassManagement";
 import WeeklySchedule from "@/pages/WeeklySchedule";
 import AttendanceControl from "@/pages/AttendanceControl";
@@ -67,6 +68,11 @@ function Router() {
       <Route path="/dashboard/alunos">
         <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
           <StudentManagement />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/dashboard/instrutores">
+        <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
+          <InstructorManagement />
         </ProtectedRoute>
       </Route>
       <Route path="/dashboard/aulas">

@@ -1,6 +1,7 @@
 import { 
   Home, 
   Users, 
+  UserCheck2,
   Calendar, 
   DollarSign, 
   Settings, 
@@ -89,6 +90,12 @@ export function AppSidebar({
         title: "Alunos",
         url: "/dashboard/alunos",
         icon: Users,
+        roles: ["ADMIN_ACADEMIA"]
+      },
+      {
+        title: "Instrutores",
+        url: "/dashboard/instrutores",
+        icon: UserCheck2,
         roles: ["ADMIN_ACADEMIA"]
       },
       {
