@@ -18,6 +18,8 @@ interface StudentFormData {
   email: string;
   password: string;
   phone?: string;
+  dateOfBirth?: string;
+  belt?: string;
 }
 
 export function StudentManagement() {
@@ -27,7 +29,9 @@ export function StudentManagement() {
     name: "",
     email: "",
     password: "",
-    phone: ""
+    phone: "",
+    dateOfBirth: "",
+    belt: ""
   });
 
   const queryClient = useQueryClient();
@@ -49,7 +53,7 @@ export function StudentManagement() {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
       setIsAddDialogOpen(false);
-      setFormData({ name: "", email: "", password: "", phone: "" });
+      setFormData({ name: "", email: "", password: "", phone: "", dateOfBirth: "", belt: "" });
       toast({
         title: "Aluno Adicionado",
         description: "Novo aluno foi adicionado com sucesso à sua academia.",
@@ -177,6 +181,28 @@ export function StudentManagement() {
                       onChange={(e) => handleInputChange("phone", e.target.value)}
                       placeholder="(11) 99999-9999"
                       data-testid="input-student-phone"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="student-birthdate">Data de Nascimento (Opcional)</Label>
+                    <Input
+                      id="student-birthdate"
+                      type="date"
+                      value={formData.dateOfBirth}
+                      onChange={(e) => handleInputChange("dateOfBirth", e.target.value)}
+                      data-testid="input-student-birthdate"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="student-belt">Graduação/Faixa (Opcional)</Label>
+                    <Input
+                      id="student-belt"
+                      value={formData.belt}
+                      onChange={(e) => handleInputChange("belt", e.target.value)}
+                      placeholder="Faixa Branca, 1º Kyu, etc."
+                      data-testid="input-student-belt"
                     />
                   </div>
 
