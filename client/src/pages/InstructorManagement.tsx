@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Edit, Mail, Phone, Calendar, MoreHorizontal, Trash2, Eye, UserX, GraduationCap } from "lucide-react";
+import { Plus, Search, Edit, Mail, Phone, Calendar, MoreHorizontal, Trash2, Eye, UserX, UserCheck, GraduationCap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
@@ -188,6 +188,7 @@ export default function InstructorManagement() {
   const [selectedInstructor, setSelectedInstructor] = useState<Instructor | undefined>();
   const [showForm, setShowForm] = useState(false);
   const [deleteInstructor, setDeleteInstructor] = useState<Instructor | undefined>();
+  const [activateInstructor, setActivateInstructor] = useState<Instructor | undefined>();
   const [viewInstructor, setViewInstructor] = useState<Instructor | undefined>();
 
   const { data: instructors = [], isLoading } = useQuery<Instructor[]>({
@@ -234,6 +235,26 @@ export default function InstructorManagement() {
         variant: "destructive",
       });
       setDeleteInstructor(undefined);
+    },
+  });
+
+  const activateMutation = useMutation({
+    mutationFn: (instructorId: string) => apiRequest('PATCH', `/api/instructors/${instructorId}`, { active: true }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
+      toast({
+        title: "Instrutor ativado com sucesso!",
+        description: `${activateInstructor?.name} foi reativado na academia.`,
+      });
+      setActivateInstructor(undefined);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao ativar instrutor",
+        description: error.message,
+        variant: "destructive",
+      });
+      setActivateInstructor(undefined);
     },
   });
 
@@ -313,6 +334,31 @@ export default function InstructorManagement() {
                 data-testid="button-confirm-delete"
               >
                 {deleteMutation.isPending ? "Desativando..." : "Desativar"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={!!activateInstructor} onOpenChange={(open) => !open && setActivateInstructor(undefined)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Ativação</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja ativar o instrutor <strong>{activateInstructor?.name}</strong>?
+                O instrutor voltará a ter acesso às funcionalidades da academia.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-activate">
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => activateInstructor && activateMutation.mutate(activateInstructor.id)}
+                disabled={activateMutation.isPending}
+                className="bg-emerald-600 hover:bg-emerald-700"
+                data-testid="button-confirm-activate"
+              >
+                {activateMutation.isPending ? "Ativando..." : "Ativar"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -496,20 +542,37 @@ export default function InstructorManagement() {
                             <Edit className="h-4 w-4 mr-2" />
                             Editar
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              console.log("Deactivate instructor:", instructor);
-                              console.log("Setting deleteInstructor for confirmation");
-                              setDeleteInstructor(instructor);
-                            }}
-                            className="text-destructive focus:text-destructive"
-                            data-testid={`button-delete-instructor-${instructor.id}`}
-                          >
-                            <UserX className="h-4 w-4 mr-2" />
-                            Desativar
-                          </DropdownMenuItem>
+                          {instructor.active ? (
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log("Deactivate instructor:", instructor);
+                                console.log("Setting deleteInstructor for confirmation");
+                                setDeleteInstructor(instructor);
+                              }}
+                              className="text-destructive focus:text-destructive"
+                              data-testid={`button-delete-instructor-${instructor.id}`}
+                            >
+                              <UserX className="h-4 w-4 mr-2" />
+                              Desativar
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log("Activate instructor:", instructor);
+                                console.log("Setting activateInstructor for confirmation");
+                                setActivateInstructor(instructor);
+                              }}
+                              className="text-emerald-600 focus:text-emerald-600"
+                              data-testid={`button-activate-instructor-${instructor.id}`}
+                            >
+                              <UserCheck className="h-4 w-4 mr-2" />
+                              Ativar
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

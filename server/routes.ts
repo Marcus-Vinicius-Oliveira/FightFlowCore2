@@ -637,6 +637,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: z.string().min(1).optional(),
           email: z.string().email().optional(),
           phone: z.string().optional(),
+          active: z.boolean().optional(),
         });
 
         const updateData = updateInstructorSchema.parse(req.body);
