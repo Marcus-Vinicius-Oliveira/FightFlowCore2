@@ -15,12 +15,154 @@ import { apiClient, type Student } from "@/lib/api";
 import { AddStudentDialog } from "@/components/AddStudentDialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { z } from "zod";
 
+// Student Edit Form Schema
+const studentEditFormSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  email: z.string().email("Email inválido"),
+  phone: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  belt: z.string().optional(),
+});
+
+type StudentEditFormData = z.infer<typeof studentEditFormSchema>;
+
+interface StudentEditFormProps {
+  student?: Student;
+  onClose: () => void;
+  updateMutation: any;
+}
+
+function StudentEditForm({ student, onClose, updateMutation }: StudentEditFormProps) {
+  const [formData, setFormData] = useState<StudentEditFormData>({
+    name: student?.name || "",
+    email: student?.email || "",
+    phone: student?.phone || "",
+    dateOfBirth: student?.dateOfBirth ? student.dateOfBirth.split('T')[0] : "",
+    belt: student?.belt || "",
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const { toast } = useToast();
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+
+    try {
+      const validatedData = studentEditFormSchema.parse(formData);
+      updateMutation.mutate(validatedData);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMap: Record<string, string> = {};
+        error.errors.forEach(err => {
+          if (err.path) {
+            errorMap[err.path[0] as string] = err.message;
+          }
+        });
+        setErrors(errorMap);
+      }
+    }
+  };
+
+  const handleChange = (field: keyof StudentEditFormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: "" }));
+    }
+  };
+
+  const isLoading = updateMutation.isPending;
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="edit-name">Nome Completo *</Label>
+          <Input
+            id="edit-name"
+            value={formData.name}
+            onChange={(e) => handleChange("name", e.target.value)}
+            placeholder="João Silva"
+            data-testid="input-edit-student-name"
+          />
+          {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="edit-email">Email *</Label>
+          <Input
+            id="edit-email"
+            type="email"
+            value={formData.email}
+            onChange={(e) => handleChange("email", e.target.value)}
+            placeholder="joao@email.com"
+            data-testid="input-edit-student-email"
+          />
+          {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="edit-phone">Telefone</Label>
+          <Input
+            id="edit-phone"
+            value={formData.phone}
+            onChange={(e) => handleChange("phone", e.target.value)}
+            placeholder="(11) 99999-9999"
+            data-testid="input-edit-student-phone"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="edit-dateOfBirth">Data de Nascimento</Label>
+          <Input
+            id="edit-dateOfBirth"
+            type="date"
+            value={formData.dateOfBirth}
+            onChange={(e) => handleChange("dateOfBirth", e.target.value)}
+            data-testid="input-edit-student-birthdate"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="edit-belt">Graduação/Faixa</Label>
+        <Input
+          id="edit-belt"
+          value={formData.belt}
+          onChange={(e) => handleChange("belt", e.target.value)}
+          placeholder="Faixa Branca, 1º Kyu, etc."
+          data-testid="input-edit-student-belt"
+        />
+      </div>
+
+      <div className="flex justify-end space-x-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          disabled={isLoading}
+          data-testid="button-cancel-edit"
+        >
+          Cancelar
+        </Button>
+        <Button 
+          type="submit"
+          disabled={isLoading}
+          data-testid="button-save-edit"
+        >
+          {isLoading ? "Salvando..." : "Atualizar"}
+        </Button>
+      </div>
+    </form>
+  );
+}
 
 export function StudentManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | undefined>();
+  const [showEditForm, setShowEditForm] = useState(false);
   const [viewStudent, setViewStudent] = useState<Student | undefined>();
   const [deleteStudent, setDeleteStudent] = useState<Student | undefined>();
   const [activateStudent, setActivateStudent] = useState<Student | undefined>();
@@ -32,7 +174,6 @@ export function StudentManagement() {
   // Fetch students
   const { data: students = [], isLoading, error } = useQuery({
     queryKey: ['/api/students'],
-    queryFn: () => apiClient.getStudents(),
   });
 
   // Handler functions
@@ -42,12 +183,12 @@ export function StudentManagement() {
 
   const handleEdit = (student: Student) => {
     setSelectedStudent(student);
-    // Note: This would need an EditStudentDialog component
-    // For now, we'll show a simple alert
-    toast({
-      title: "Funcionalidade em desenvolvimento",
-      description: `Edição do aluno ${student.name} será implementada em breve.`,
-    });
+    setShowEditForm(true);
+  };
+
+  const handleCloseEditForm = () => {
+    setShowEditForm(false);
+    setSelectedStudent(undefined);
   };
 
   // Mutations for student operations
@@ -131,6 +272,30 @@ export function StudentManagement() {
         variant: "destructive",
       });
       setPermanentDeleteStudent(undefined);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => {
+      const studentName = selectedStudent?.name || "Aluno";
+      return apiRequest('PATCH', `/api/students/${selectedStudent!.id}`, data)
+        .then(result => ({ ...result, studentName }));
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
+      toast({
+        title: "Aluno atualizado com sucesso!",
+        description: `Dados de ${data.studentName} foram atualizados.`,
+      });
+      handleCloseEditForm();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao atualizar aluno",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -336,6 +501,23 @@ export function StudentManagement() {
           </div>
         )}
       </CardContent>
+
+      {/* Modal de Edição */}
+      <Dialog open={showEditForm} onOpenChange={setShowEditForm}>
+        <DialogContent className="sm:max-w-[600px]" key={selectedStudent?.id}>
+          <DialogHeader>
+            <DialogTitle>Editar Aluno</DialogTitle>
+            <DialogDescription>
+              Atualize as informações do aluno {selectedStudent?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <StudentEditForm 
+            student={selectedStudent} 
+            onClose={handleCloseEditForm}
+            updateMutation={updateMutation}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Ver Detalhes */}
       <Dialog open={!!viewStudent} onOpenChange={(open) => !open && setViewStudent(undefined)}>
