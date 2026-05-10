@@ -138,9 +138,21 @@ class ApiClient {
   }
 
   logout(): void {
+    const token = this.getAuthToken();
+    // Clear client state first to prevent re-entrant loops on 401
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
     queryClient.clear();
+    // Best-effort server-side token revocation (fire-and-forget)
+    if (token) {
+      fetch(`${API_BASE}/api/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      }).catch(() => { /* ignore network errors — client state already cleared */ });
+    }
   }
 
   async changePassword(passwordData: ChangePasswordRequest): Promise<{ message: string }> {
