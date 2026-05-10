@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -20,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { 
+import {
   Table,
   TableBody,
   TableCell,
@@ -28,8 +29,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
-  DollarSign, 
+import {
+  DollarSign,
   Clock,
   AlertTriangle,
   TrendingUp,
@@ -38,6 +39,7 @@ import {
   X
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiClient, type Payment, type MembershipPlan, type Student } from "@/lib/api";
 
 interface PaymentRecord {
   id: string;
@@ -51,6 +53,14 @@ interface PaymentRecord {
 
 type FilterType = 'todos' | 'pagos' | 'atrasados' | 'proximos';
 
+function computeStatus(p: Payment): PaymentRecord['status'] {
+  if (p.status === 'paid') return 'pago';
+  if (p.status === 'overdue') return 'atrasado';
+  const fiveDaysFromNow = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
+  if (new Date(p.dueDate) <= fiveDaysFromNow) return 'proximo';
+  return 'pendente';
+}
+
 export default function FinancialControl() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('todos');
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -62,46 +72,51 @@ export default function FinancialControl() {
     observacoes: ''
   });
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  // Sample financial data
-  const payments: PaymentRecord[] = [
-    {
-      id: "1",
-      aluno: "João Silva",
-      plano: "Faixa Preta",
-      vencimento: "20/09/2025",
-      status: "atrasado",
-      dataPagamento: "-",
-      valor: 14900 // R$ 149,00 in cents
+  const { data: paymentsData } = useQuery<Payment[]>({
+    queryKey: ['payments'],
+    queryFn: () => apiClient.getPayments(),
+  });
+
+  const { data: studentsData } = useQuery<Student[]>({
+    queryKey: ['students'],
+    queryFn: () => apiClient.getStudents(),
+  });
+
+  const { data: plansData } = useQuery<MembershipPlan[]>({
+    queryKey: ['membership-plans'],
+    queryFn: () => apiClient.getMembershipPlans(),
+  });
+
+  const updatePaymentMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof apiClient.updatePayment>[1] }) =>
+      apiClient.updatePayment(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      toast({ title: 'Pagamento registrado!', description: 'O pagamento foi registrado com sucesso.' });
+      setIsPaymentModalOpen(false);
+      setSelectedPaymentId(null);
+      setPaymentForm({ valorPago: '', dataPagamento: '', meioPagamento: '', observacoes: '' });
     },
-    {
-      id: "2", 
-      aluno: "Maria Oliveira",
-      plano: "Faixa Branca",
-      vencimento: "30/09/2025",
-      status: "proximo",
-      dataPagamento: "-",
-      valor: 7900 // R$ 79,00 in cents
+    onError: (error: Error) => {
+      toast({ title: 'Erro ao registrar pagamento', description: error.message, variant: 'destructive' });
     },
-    {
-      id: "3",
-      aluno: "Carlos Souza", 
-      plano: "Faixa Azul",
-      vencimento: "10/10/2025",
-      status: "pendente",
-      dataPagamento: "-",
-      valor: 25000 // R$ 250,00 in cents
-    },
-    {
-      id: "4",
-      aluno: "Ana Pereira",
-      plano: "Faixa Preta", 
-      vencimento: "05/09/2025",
-      status: "pago",
-      dataPagamento: "04/09/2025",
-      valor: 14900 // R$ 149,00 in cents
-    }
-  ];
+  });
+
+  const payments: PaymentRecord[] = (paymentsData ?? []).map(p => {
+    const student = studentsData?.find(s => s.id === p.studentId);
+    const plan = plansData?.find(pl => pl.id === p.membershipPlanId);
+    return {
+      id: p.id,
+      aluno: student?.name ?? 'Aluno',
+      plano: plan?.name ?? 'Plano',
+      vencimento: new Date(p.dueDate).toLocaleDateString('pt-BR'),
+      status: computeStatus(p),
+      dataPagamento: p.paidDate ? new Date(p.paidDate).toLocaleDateString('pt-BR') : '-',
+      valor: p.amount,
+    };
+  });
 
   const formatPrice = (priceInCents: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -110,7 +125,6 @@ export default function FinancialControl() {
     }).format(priceInCents / 100);
   };
 
-  // Calculate KPIs
   const receitaMes = payments
     .filter(p => p.status === 'pago')
     .reduce((sum, p) => sum + p.valor, 0);
@@ -121,7 +135,6 @@ export default function FinancialControl() {
 
   const inadimplentes = payments.filter(p => p.status === 'atrasado').length;
 
-  // Filter payments based on active filter
   const filteredPayments = payments.filter(payment => {
     switch (activeFilter) {
       case 'pagos': return payment.status === 'pago';
@@ -148,11 +161,11 @@ export default function FinancialControl() {
   };
 
   const handleMarcarPago = (id: string) => {
-    const payment = payments.find(p => p.id === id);
-    if (payment) {
+    const rawPayment = paymentsData?.find(p => p.id === id);
+    if (rawPayment) {
       setSelectedPaymentId(id);
       setPaymentForm({
-        valorPago: (payment.valor / 100).toFixed(2),
+        valorPago: (rawPayment.amount / 100).toFixed(2),
         dataPagamento: new Date().toISOString().split('T')[0],
         meioPagamento: '',
         observacoes: ''
@@ -170,25 +183,13 @@ export default function FinancialControl() {
       });
       return;
     }
-
-    // TODO: Implement actual payment saving logic
-    console.log('Saving payment:', {
-      id: selectedPaymentId,
-      ...paymentForm
-    });
-
-    toast({
-      title: "Pagamento registrado!",
-      description: "O pagamento foi registrado com sucesso.",
-    });
-
-    setIsPaymentModalOpen(false);
-    setSelectedPaymentId(null);
-    setPaymentForm({
-      valorPago: '',
-      dataPagamento: '',
-      meioPagamento: '',
-      observacoes: ''
+    updatePaymentMutation.mutate({
+      id: selectedPaymentId!,
+      data: {
+        status: 'paid',
+        paidDate: paymentForm.dataPagamento,
+        notes: paymentForm.observacoes || undefined,
+      },
     });
   };
 
@@ -267,7 +268,7 @@ export default function FinancialControl() {
           <Filter className="h-4 w-4" />
           <span className="text-sm font-medium">Filtros:</span>
         </div>
-        
+
         <Button
           variant={activeFilter === 'todos' ? 'default' : 'outline'}
           size="sm"
@@ -399,7 +400,7 @@ export default function FinancialControl() {
               Registre o pagamento do aluno selecionado
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             {/* Valor Pago */}
             <div className="grid gap-2">
@@ -471,10 +472,11 @@ export default function FinancialControl() {
             </Button>
             <Button
               onClick={handleSavePayment}
+              disabled={updatePaymentMutation.isPending}
               data-testid="button-save-payment"
             >
               <Save className="h-4 w-4 mr-2" />
-              Salvar Pagamento
+              {updatePaymentMutation.isPending ? 'Salvando...' : 'Salvar Pagamento'}
             </Button>
           </DialogFooter>
         </DialogContent>

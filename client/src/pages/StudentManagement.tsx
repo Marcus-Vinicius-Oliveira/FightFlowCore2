@@ -238,13 +238,11 @@ export default function StudentManagement() {
   const filteredStudents = applyFilters(students, filters, searchTerm);
 
   const handleEdit = (student: Student) => {
-    console.log("handleEdit called for:", student.id);
     setSelectedStudent(student);
     setShowForm(true);
   };
 
   const handleViewDetails = (student: Student) => {
-    console.log("handleViewDetails called for:", student.id);
     setViewStudent(student);
   };
 
@@ -654,16 +652,9 @@ export default function StudentManagement() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem 
                             onClick={(e) => {
-                              try {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                console.log("View student details:", student);
-                                console.log("About to call handleViewDetails...");
-                                handleViewDetails(student);
-                                console.log("handleViewDetails completed");
-                              } catch (error) {
-                                console.error("Error in View Details onClick:", error);
-                              }
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleViewDetails(student);
                             }}
                             data-testid={`button-view-student-${student.id}`}
                           >
@@ -674,7 +665,6 @@ export default function StudentManagement() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              console.log("Edit student:", student);
                               handleEdit(student);
                             }}
                             data-testid={`button-edit-student-${student.id}`}

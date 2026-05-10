@@ -1,13 +1,11 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, uuid, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, boolean, uuid, pgEnum, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Enums for user roles
 export const userRoleEnum = pgEnum('user_role', ['SUPER_ADMIN', 'ADMIN_ACADEMIA', 'PROFESSOR', 'ALUNO']);
 
-// Academies table (tenants)
 export const academies = pgTable("academies", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -18,63 +16,74 @@ export const academies = pgTable("academies", {
   description: text("description"),
   logo: text("logo"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
 });
 
-// Users table with role-based access
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),
   role: userRoleEnum("role").notNull(),
-  academyId: uuid("academy_id").references(() => academies.id), // Nullable for SUPER_ADMIN
+  academyId: uuid("academy_id").references(() => academies.id),
   phone: text("phone"),
   dateOfBirth: timestamp("date_of_birth"),
-  belt: text("belt"), // Graduation/belt field for students
+  belt: text("belt"),
   active: boolean("active").default(true),
-  firstAccess: boolean("first_access").default(true), // Flag for mandatory password change
+  firstAccess: boolean("first_access").default(true),
   createdAt: timestamp("created_at").defaultNow(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
+}, (t) => ({
+  academyIdIdx: index("users_academy_id_idx").on(t.academyId),
+  emailIdx: index("users_email_idx").on(t.email),
+  roleIdx: index("users_role_idx").on(t.role),
+}));
 
-// Membership plans
 export const membershipPlans = pgTable("membership_plans", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   academyId: uuid("academy_id").references(() => academies.id).notNull(),
-  name: text("name").notNull(), // e.g., "Monthly 3x/week"
+  name: text("name").notNull(),
   description: text("description"),
   price: integer("price").notNull(), // in cents
   duration: integer("duration").notNull(), // days
   classesPerWeek: integer("classes_per_week"),
   active: boolean("active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
+}, (t) => ({
+  academyIdIdx: index("membership_plans_academy_id_idx").on(t.academyId),
+}));
 
-// Class types (e.g., Jiu-Jitsu, Karate, etc.)
 export const classTypes = pgTable("class_types", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   academyId: uuid("academy_id").references(() => academies.id).notNull(),
-  name: text("name").notNull(), // e.g., "Jiu-Jitsu Adulto"
+  name: text("name").notNull(),
   description: text("description"),
   duration: integer("duration").notNull(), // minutes
   maxCapacity: integer("max_capacity"),
   active: boolean("active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
+}, (t) => ({
+  academyIdIdx: index("class_types_academy_id_idx").on(t.academyId),
+}));
 
-// Scheduled classes
 export const classes = pgTable("classes", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   academyId: uuid("academy_id").references(() => academies.id).notNull(),
   classTypeId: uuid("class_type_id").references(() => classTypes.id).notNull(),
   instructorId: uuid("instructor_id").references(() => users.id).notNull(),
-  dayOfWeek: integer("day_of_week").notNull(), // 0 = Sunday, 1 = Monday, etc.
-  startTime: text("start_time").notNull(), // e.g., "18:00"
-  endTime: text("end_time").notNull(), // e.g., "19:30"
+  dayOfWeek: integer("day_of_week").notNull(), // 0 = Sunday
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
   active: boolean("active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
+}, (t) => ({
+  academyIdIdx: index("classes_academy_id_idx").on(t.academyId),
+  instructorIdIdx: index("classes_instructor_id_idx").on(t.instructorId),
+}));
 
-// Student enrollments in classes
 export const enrollments = pgTable("enrollments", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   studentId: uuid("student_id").references(() => users.id).notNull(),
@@ -83,45 +92,59 @@ export const enrollments = pgTable("enrollments", {
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"),
   active: boolean("active").default(true),
+  updatedBy: uuid("updated_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
+}, (t) => ({
+  studentIdIdx: index("enrollments_student_id_idx").on(t.studentId),
+  classIdIdx: index("enrollments_class_id_idx").on(t.classId),
+}));
 
-// Attendance tracking (Presencas)
 export const attendance = pgTable("attendance", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   studentId: uuid("student_id").references(() => users.id).notNull(),
   classId: uuid("class_id").references(() => classes.id).notNull(),
   academyId: uuid("academy_id").references(() => academies.id).notNull(),
   date: timestamp("date").notNull(),
-  present: boolean("present"), // legacy field, keeping for compatibility
+  present: boolean("present"),
   status: text("status").notNull().default('presente'), // 'presente', 'falta', 'justificado'
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
+}, (t) => ({
+  classIdDateIdx: index("attendance_class_id_date_idx").on(t.classId, t.date),
+  studentIdIdx: index("attendance_student_id_idx").on(t.studentId),
+  academyIdIdx: index("attendance_academy_id_idx").on(t.academyId),
+}));
 
-// Payment tracking
 export const payments = pgTable("payments", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   studentId: uuid("student_id").references(() => users.id).notNull(),
+  academyId: uuid("academy_id").references(() => academies.id).notNull(),
   membershipPlanId: uuid("membership_plan_id").references(() => membershipPlans.id).notNull(),
   amount: integer("amount").notNull(), // in cents
   dueDate: timestamp("due_date").notNull(),
   paidDate: timestamp("paid_date"),
   status: text("status").notNull().default('pending'), // pending, paid, overdue
   notes: text("notes"),
+  updatedBy: uuid("updated_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
+}, (t) => ({
+  studentIdIdx: index("payments_student_id_idx").on(t.studentId),
+  academyIdIdx: index("payments_academy_id_idx").on(t.academyId),
+  statusIdx: index("payments_status_idx").on(t.status),
+}));
 
-// Super Admin tables for SaaS management
-
-// Platform subscription plans (managed by super admin)
+// Platform subscription plans (managed by SUPER_ADMIN)
 export const planos = pgTable("planos", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  nome: text("nome").notNull(), // e.g., "Faixa Branca", "Beta Gratuito"
+  nome: text("nome").notNull(),
   limiteAlunos: integer("limite_alunos").notNull(),
   precoMensal: integer("preco_mensal").notNull(), // in cents
   ativo: boolean("ativo").default(true),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
 });
 
 // Academy subscriptions to platform plans
@@ -130,12 +153,16 @@ export const assinaturas = pgTable("assinaturas", {
   academiaId: uuid("academia_id").references(() => academies.id).notNull(),
   planoId: uuid("plano_id").references(() => planos.id).notNull(),
   dataInicio: timestamp("data_inicio").notNull(),
-  dataFim: timestamp("data_fim"), // can be null for active subscriptions
+  dataFim: timestamp("data_fim"),
   status: text("status").notNull().default('ativa'), // ativa, cancelada, teste
   createdAt: timestamp("created_at").defaultNow(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
+}, (t) => ({
+  academiaIdIdx: index("assinaturas_academia_id_idx").on(t.academiaId),
+}));
 
-// Relations
+// ─── Relations ────────────────────────────────────────────────────────────────
+
 export const academiesRelations = relations(academies, ({ many }) => ({
   users: many(users),
   membershipPlans: many(membershipPlans),
@@ -145,10 +172,7 @@ export const academiesRelations = relations(academies, ({ many }) => ({
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({
-  academy: one(academies, {
-    fields: [users.academyId],
-    references: [academies.id],
-  }),
+  academy: one(academies, { fields: [users.academyId], references: [academies.id] }),
   instructorClasses: many(classes, { relationName: "instructor" }),
   enrollments: many(enrollments),
   attendance: many(attendance),
@@ -156,150 +180,66 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 }));
 
 export const membershipPlansRelations = relations(membershipPlans, ({ one, many }) => ({
-  academy: one(academies, {
-    fields: [membershipPlans.academyId],
-    references: [academies.id],
-  }),
+  academy: one(academies, { fields: [membershipPlans.academyId], references: [academies.id] }),
   enrollments: many(enrollments),
   payments: many(payments),
 }));
 
 export const classTypesRelations = relations(classTypes, ({ one, many }) => ({
-  academy: one(academies, {
-    fields: [classTypes.academyId],
-    references: [academies.id],
-  }),
+  academy: one(academies, { fields: [classTypes.academyId], references: [academies.id] }),
   classes: many(classes),
 }));
 
 export const classesRelations = relations(classes, ({ one, many }) => ({
-  academy: one(academies, {
-    fields: [classes.academyId],
-    references: [academies.id],
-  }),
-  classType: one(classTypes, {
-    fields: [classes.classTypeId],
-    references: [classTypes.id],
-  }),
-  instructor: one(users, {
-    fields: [classes.instructorId],
-    references: [users.id],
-    relationName: "instructor",
-  }),
+  academy: one(academies, { fields: [classes.academyId], references: [academies.id] }),
+  classType: one(classTypes, { fields: [classes.classTypeId], references: [classTypes.id] }),
+  instructor: one(users, { fields: [classes.instructorId], references: [users.id], relationName: "instructor" }),
   enrollments: many(enrollments),
   attendance: many(attendance),
 }));
 
 export const enrollmentsRelations = relations(enrollments, ({ one }) => ({
-  student: one(users, {
-    fields: [enrollments.studentId],
-    references: [users.id],
-  }),
-  class: one(classes, {
-    fields: [enrollments.classId],
-    references: [classes.id],
-  }),
-  membershipPlan: one(membershipPlans, {
-    fields: [enrollments.membershipPlanId],
-    references: [membershipPlans.id],
-  }),
+  student: one(users, { fields: [enrollments.studentId], references: [users.id] }),
+  class: one(classes, { fields: [enrollments.classId], references: [classes.id] }),
+  membershipPlan: one(membershipPlans, { fields: [enrollments.membershipPlanId], references: [membershipPlans.id] }),
 }));
 
 export const attendanceRelations = relations(attendance, ({ one }) => ({
-  student: one(users, {
-    fields: [attendance.studentId],
-    references: [users.id],
-  }),
-  class: one(classes, {
-    fields: [attendance.classId],
-    references: [classes.id],
-  }),
-  academy: one(academies, {
-    fields: [attendance.academyId],
-    references: [academies.id],
-  }),
+  student: one(users, { fields: [attendance.studentId], references: [users.id] }),
+  class: one(classes, { fields: [attendance.classId], references: [classes.id] }),
+  academy: one(academies, { fields: [attendance.academyId], references: [academies.id] }),
 }));
 
 export const paymentsRelations = relations(payments, ({ one }) => ({
-  student: one(users, {
-    fields: [payments.studentId],
-    references: [users.id],
-  }),
-  membershipPlan: one(membershipPlans, {
-    fields: [payments.membershipPlanId],
-    references: [membershipPlans.id],
-  }),
+  student: one(users, { fields: [payments.studentId], references: [users.id] }),
+  academy: one(academies, { fields: [payments.academyId], references: [academies.id] }),
+  membershipPlan: one(membershipPlans, { fields: [payments.membershipPlanId], references: [membershipPlans.id] }),
 }));
 
-// Super Admin table relations
 export const planosRelations = relations(planos, ({ many }) => ({
   assinaturas: many(assinaturas),
 }));
 
 export const assinaturasRelations = relations(assinaturas, ({ one }) => ({
-  academia: one(academies, {
-    fields: [assinaturas.academiaId],
-    references: [academies.id],
-  }),
-  plano: one(planos, {
-    fields: [assinaturas.planoId],
-    references: [planos.id],
-  }),
+  academia: one(academies, { fields: [assinaturas.academiaId], references: [academies.id] }),
+  plano: one(planos, { fields: [assinaturas.planoId], references: [planos.id] }),
 }));
 
-// Insert schemas
-export const insertAcademySchema = createInsertSchema(academies).omit({
-  id: true,
-  createdAt: true,
-});
+// ─── Insert schemas ────────────────────────────────────────────────────────────
 
-export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
-  createdAt: true,
-});
+export const insertAcademySchema = createInsertSchema(academies).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMembershipPlanSchema = createInsertSchema(membershipPlans).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertClassTypeSchema = createInsertSchema(classTypes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertClassSchema = createInsertSchema(classes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEnrollmentSchema = createInsertSchema(enrollments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAttendanceSchema = createInsertSchema(attendance).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPlanoSchema = createInsertSchema(planos).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAssinaturaSchema = createInsertSchema(assinaturas).omit({ id: true, createdAt: true, updatedAt: true });
 
-export const insertMembershipPlanSchema = createInsertSchema(membershipPlans).omit({
-  id: true,
-  createdAt: true,
-});
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-export const insertClassTypeSchema = createInsertSchema(classTypes).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertClassSchema = createInsertSchema(classes).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertEnrollmentSchema = createInsertSchema(enrollments).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertAttendanceSchema = createInsertSchema(attendance).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertPaymentSchema = createInsertSchema(payments).omit({
-  id: true,
-  createdAt: true,
-});
-
-// Super Admin insert schemas
-export const insertPlanoSchema = createInsertSchema(planos).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertAssinaturaSchema = createInsertSchema(assinaturas).omit({
-  id: true,
-  createdAt: true,
-});
-
-// Types
 export type Academy = typeof academies.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type MembershipPlan = typeof membershipPlans.$inferSelect;
@@ -311,7 +251,6 @@ export type Payment = typeof payments.$inferSelect;
 export type Plano = typeof planos.$inferSelect;
 export type Assinatura = typeof assinaturas.$inferSelect;
 
-// DTOs with relations (for API responses)
 export type ClassWithRefs = Class & {
   classType?: ClassType;
   instructor?: User;
@@ -334,14 +273,9 @@ export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type InsertPlano = z.infer<typeof insertPlanoSchema>;
 export type InsertAssinatura = z.infer<typeof insertAssinaturaSchema>;
 
-// Student creation schema - specific schema for creating students from admin panels
+// Student creation schema used by admin panels
 export const studentCreateSchema = insertUserSchema
-  .omit({
-    role: true,
-    academyId: true, 
-    active: true,
-    firstAccess: true,
-  })
+  .omit({ role: true, academyId: true, active: true, firstAccess: true })
   .extend({
     password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
     role: z.literal('ALUNO').default('ALUNO'),
@@ -350,12 +284,9 @@ export const studentCreateSchema = insertUserSchema
     dateOfBirth: z.string().optional().transform(s => s ? new Date(s) : undefined),
   });
 
-// Form schema for frontend - accepts string date that will be transformed
 export const studentCreateFormSchema = studentCreateSchema
   .omit({ dateOfBirth: true })
-  .extend({
-    dateOfBirth: z.string().optional(),
-  });
+  .extend({ dateOfBirth: z.string().optional() });
 
 export type StudentCreateData = z.infer<typeof studentCreateSchema>;
 export type StudentCreateFormData = z.infer<typeof studentCreateFormSchema>;

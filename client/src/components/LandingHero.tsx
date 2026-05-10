@@ -38,10 +38,7 @@ export function LandingHero() {
               variant="default"
               className="text-lg px-8 py-3 bg-orange-500 hover:bg-orange-600 border-orange-600"
               data-testid="button-get-started"
-              onClick={() => {
-                console.log('Get started clicked');
-                setLocation('/cadastro');
-              }}
+              onClick={() => setLocation('/cadastro')}
             >
               Comece Grátis
               <ArrowRight className="ml-2 h-5 w-5" />
@@ -52,7 +49,7 @@ export function LandingHero() {
               variant="outline"
               className="text-lg px-8 py-3 bg-transparent border-white text-white hover:bg-white/20 transition-colors duration-300"
               data-testid="button-watch-demo"
-              onClick={() => console.log('Watch demo clicked')}
+              onClick={() => {}}
             >
               Ver Demonstração
             </Button>

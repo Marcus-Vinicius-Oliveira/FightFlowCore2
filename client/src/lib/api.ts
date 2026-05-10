@@ -57,6 +57,60 @@ export interface Student extends User {
   role: 'ALUNO';
 }
 
+export interface ClassType {
+  id: string;
+  academyId: string;
+  name: string;
+  description: string | null;
+  duration: number;
+  maxCapacity: number | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Class {
+  id: string;
+  academyId: string;
+  classTypeId: string;
+  instructorId: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+  classType?: ClassType;
+  instructor?: { id: string; name: string; email: string };
+}
+
+export interface MembershipPlan {
+  id: string;
+  academyId: string;
+  name: string;
+  description: string | null;
+  price: number;
+  duration: number;
+  classesPerWeek: number | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Payment {
+  id: string;
+  studentId: string;
+  academyId: string;
+  membershipPlanId: string;
+  amount: number;
+  dueDate: string;
+  paidDate: string | null;
+  status: 'pending' | 'paid' | 'overdue';
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 class ApiClient {
   private getAuthToken(): string | null {
     return localStorage.getItem('auth_token');
@@ -138,9 +192,21 @@ class ApiClient {
   }
 
   logout(): void {
+    const token = this.getAuthToken();
+    // Clear client state first to prevent re-entrant loops on 401
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
     queryClient.clear();
+    // Best-effort server-side token revocation (fire-and-forget)
+    if (token) {
+      fetch(`${API_BASE}/api/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      }).catch(() => { /* ignore network errors — client state already cleared */ });
+    }
   }
 
   async changePassword(passwordData: ChangePasswordRequest): Promise<{ message: string }> {
@@ -172,12 +238,12 @@ class ApiClient {
   }
 
   // Classes
-  async getClasses(): Promise<any[]> {
-    return this.request('/classes');
+  async getClasses(): Promise<Class[]> {
+    return this.request<Class[]>('/classes');
   }
 
-  async getClassTypes(): Promise<any[]> {
-    return this.request('/class-types');
+  async getClassTypes(): Promise<ClassType[]> {
+    return this.request<ClassType[]>('/class-types');
   }
 
   async createClass(classData: {
@@ -206,8 +272,58 @@ class ApiClient {
   }
 
   // Membership Plans
-  async getMembershipPlans(): Promise<any[]> {
-    return this.request('/membership-plans');
+  async getMembershipPlans(): Promise<MembershipPlan[]> {
+    return this.request<MembershipPlan[]>('/membership-plans');
+  }
+
+  async createMembershipPlan(data: {
+    name: string;
+    description?: string;
+    price: number;
+    duration: number;
+    classesPerWeek?: number;
+  }): Promise<MembershipPlan> {
+    return this.request<MembershipPlan>('/membership-plans', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Payments
+  async getPayments(params?: { studentId?: string; limit?: number; offset?: number }): Promise<Payment[]> {
+    const query = new URLSearchParams();
+    if (params?.studentId) query.set('studentId', params.studentId);
+    if (params?.limit !== undefined) query.set('limit', String(params.limit));
+    if (params?.offset !== undefined) query.set('offset', String(params.offset));
+    const qs = query.toString();
+    return this.request<Payment[]>(`/payments${qs ? `?${qs}` : ''}`);
+  }
+
+  async createPayment(data: {
+    studentId: string;
+    membershipPlanId: string;
+    amount: number;
+    dueDate: string;
+    paidDate?: string;
+    status?: 'pending' | 'paid' | 'overdue';
+    notes?: string;
+  }): Promise<Payment> {
+    return this.request<Payment>('/payments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updatePayment(id: string, data: {
+    status?: 'pending' | 'paid' | 'overdue';
+    paidDate?: string;
+    notes?: string;
+    amount?: number;
+  }): Promise<Payment> {
+    return this.request<Payment>(`/payments/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
   }
 
   // Utility methods

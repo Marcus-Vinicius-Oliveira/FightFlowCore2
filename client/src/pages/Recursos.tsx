@@ -502,7 +502,7 @@ export default function Recursos() {
                   size="lg" 
                   variant="outline"
                   className="text-lg px-8 py-3 border-primary text-primary hover:bg-primary/5"
-                  onClick={() => console.log('Ver demonstração clicked')}
+                  onClick={() => {}}
                   data-testid="button-cta-ver-demonstracao"
                 >
                   Ver Demonstração

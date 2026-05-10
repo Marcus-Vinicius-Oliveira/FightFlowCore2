@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/form";
 import { ArrowLeft, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiClient } from "@/lib/api";
 
 const createPlanSchema = z.object({
   nome: z.string().min(1, "Nome do plano é obrigatório"),
@@ -52,30 +53,32 @@ export default function CreatePlan() {
     },
   });
 
+  const periodicidadeToDays: Record<string, number> = {
+    Mensal: 30,
+    Bimestral: 60,
+    Trimestral: 90,
+    Semestral: 180,
+    Anual: 365,
+  };
+
   const onSubmit = async (data: CreatePlanForm) => {
     setIsSubmitting(true);
-    
     try {
-      // Convert value to cents for storage
-      const planData = {
-        ...data,
-        valor: Math.round(data.valor * 100), // Convert to cents
-      };
-
-      // TODO: API call to create the plan
-      console.log("Creating plan:", planData);
-      
+      await apiClient.createMembershipPlan({
+        name: data.nome,
+        description: data.descricao || undefined,
+        price: Math.round(data.valor * 100),
+        duration: periodicidadeToDays[data.periodicidade],
+      });
       toast({
         title: "Plano criado com sucesso!",
         description: `O plano "${data.nome}" foi criado e está disponível para matrícula.`,
       });
-
-      // Navigate back to plans list
       setLocation("/dashboard/planos");
     } catch (error) {
       toast({
         title: "Erro ao criar plano",
-        description: "Ocorreu um erro ao salvar o plano. Tente novamente.",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao salvar o plano. Tente novamente.",
         variant: "destructive",
       });
     } finally {
