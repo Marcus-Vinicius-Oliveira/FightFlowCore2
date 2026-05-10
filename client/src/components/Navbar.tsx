@@ -11,7 +11,6 @@ export function Navbar() {
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
-    console.log('Mobile menu toggled:', !isMenuOpen);
   };
 
   return (
@@ -61,19 +60,13 @@ export function Navbar() {
             <Button 
               variant="ghost"
               data-testid="button-login"
-              onClick={() => {
-                console.log('Login clicked');
-                setLocation('/login');
-              }}
+              onClick={() => setLocation('/login')}
             >
               Entrar
             </Button>
             <Button 
               data-testid="button-signup"
-              onClick={() => {
-                console.log('Sign up clicked');
-                setLocation('/cadastro');
-              }}
+              onClick={() => setLocation('/cadastro')}
             >
               Cadastrar
             </Button>
@@ -132,21 +125,13 @@ export function Navbar() {
                 <Button 
                   variant="ghost"
                   data-testid="button-mobile-login"
-                  onClick={() => {
-                    console.log('Mobile Login clicked');
-                    setLocation('/login');
-                    setIsMenuOpen(false);
-                  }}
+                  onClick={() => { setLocation('/login'); setIsMenuOpen(false); }}
                 >
                   Entrar
                 </Button>
                 <Button 
                   data-testid="button-mobile-signup"
-                  onClick={() => {
-                    console.log('Mobile Sign up clicked');
-                    setLocation('/cadastro');
-                    setIsMenuOpen(false);
-                  }}
+                  onClick={() => { setLocation('/cadastro'); setIsMenuOpen(false); }}
                 >
                   Cadastrar
                 </Button>

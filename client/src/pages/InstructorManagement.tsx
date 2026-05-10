@@ -208,13 +208,11 @@ export default function InstructorManagement() {
   const filteredInstructors = applyFilters(instructors, filters, searchTerm);
 
   const handleEdit = (instructor: Instructor) => {
-    console.log("handleEdit called for:", instructor.id);
     setSelectedInstructor(instructor);
     setShowForm(true);
   };
 
   const handleViewDetails = (instructor: Instructor) => {
-    console.log("handleViewDetails called for:", instructor.id);
     setViewInstructor(instructor);
   };
 
@@ -588,16 +586,9 @@ export default function InstructorManagement() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem 
                             onClick={(e) => {
-                              try {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                console.log("View instructor details:", instructor);
-                                console.log("About to call handleViewDetails...");
-                                handleViewDetails(instructor);
-                                console.log("handleViewDetails completed");
-                              } catch (error) {
-                                console.error("Error in View Details onClick:", error);
-                              }
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleViewDetails(instructor);
                             }}
                             data-testid={`button-view-instructor-${instructor.id}`}
                           >
@@ -608,7 +599,6 @@ export default function InstructorManagement() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              console.log("Edit instructor:", instructor);
                               handleEdit(instructor);
                             }}
                             data-testid={`button-edit-instructor-${instructor.id}`}
@@ -621,8 +611,6 @@ export default function InstructorManagement() {
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                console.log("Deactivate instructor:", instructor);
-                                console.log("Setting deleteInstructor for confirmation");
                                 setDeleteInstructor(instructor);
                               }}
                               className="text-destructive focus:text-destructive"
@@ -636,8 +624,6 @@ export default function InstructorManagement() {
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                console.log("Activate instructor:", instructor);
-                                console.log("Setting activateInstructor for confirmation");
                                 setActivateInstructor(instructor);
                               }}
                               className="text-emerald-600 focus:text-emerald-600"
@@ -651,8 +637,6 @@ export default function InstructorManagement() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              console.log("Permanently delete instructor:", instructor);
-                              console.log("Setting permanentDeleteInstructor for confirmation");
                               setPermanentDeleteInstructor(instructor);
                             }}
                             className="text-destructive focus:text-destructive"

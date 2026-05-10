@@ -341,7 +341,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
             variant="outline" 
             className="w-full bg-white hover:bg-gray-50 border-gray-300 text-gray-700 dark:bg-white dark:hover:bg-gray-50 dark:text-gray-700"
             data-testid="button-signup-google"
-            onClick={() => console.log('Google signup clicked')}
+            onClick={() => {}}
           >
             <SiGoogle className="mr-2 h-4 w-4" />
             Cadastrar com o Google
@@ -393,10 +393,10 @@ export function AuthTabs() {
           <TabsTrigger value="signup" data-testid="tab-signup">Cadastrar</TabsTrigger>
         </TabsList>
         <TabsContent value="login">
-          <LoginForm onSuccess={() => console.log('Login successful')} />
+          <LoginForm onSuccess={() => {}} />
         </TabsContent>
         <TabsContent value="signup">
-          <SignupForm onSuccess={() => console.log('Signup successful')} />
+          <SignupForm onSuccess={() => {}} />
         </TabsContent>
       </Tabs>
     </div>

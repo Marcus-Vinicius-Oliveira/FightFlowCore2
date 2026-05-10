@@ -57,6 +57,33 @@ export interface Student extends User {
   role: 'ALUNO';
 }
 
+export interface ClassType {
+  id: string;
+  academyId: string;
+  name: string;
+  description: string | null;
+  duration: number;
+  maxCapacity: number | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Class {
+  id: string;
+  academyId: string;
+  classTypeId: string;
+  instructorId: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+  classType?: ClassType;
+  instructor?: { id: string; name: string; email: string };
+}
+
 export interface MembershipPlan {
   id: string;
   academyId: string;
@@ -211,12 +238,12 @@ class ApiClient {
   }
 
   // Classes
-  async getClasses(): Promise<any[]> {
-    return this.request('/classes');
+  async getClasses(): Promise<Class[]> {
+    return this.request<Class[]>('/classes');
   }
 
-  async getClassTypes(): Promise<any[]> {
-    return this.request('/class-types');
+  async getClassTypes(): Promise<ClassType[]> {
+    return this.request<ClassType[]>('/class-types');
   }
 
   async createClass(classData: {

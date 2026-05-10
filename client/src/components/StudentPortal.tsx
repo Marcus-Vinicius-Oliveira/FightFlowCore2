@@ -1,291 +1,258 @@
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Calendar, Clock, TrendingUp, Award, Users, CheckCircle2 } from "lucide-react";
-
-interface AttendanceRecord {
-  date: string;
-  className: string;
-  instructor: string;
-  present: boolean;
-  notes?: string;
-}
-
-interface UpcomingClass {
-  id: string;
-  name: string;
-  instructor: string;
-  time: string;
-  date: string;
-  location: string;
-  duration: number;
-}
+import { useAuth } from "@/hooks/useAuth";
+import { apiClient } from "@/lib/api";
 
 export function StudentPortal() {
-  // TODO: Remove mock data - replace with real data from API
-  const studentInfo = {
-    name: "Maria Santos",
-    membershipPlan: "Monthly 3x/week",
-    joinDate: "2024-01-15",
-    nextPayment: "2024-10-01",
-    paymentStatus: "paid",
-    attendanceRate: 85,
-    classesAttended: 34,
-    totalClasses: 40,
-    currentStreak: 5,
-  };
+  const { user } = useAuth();
 
-  const upcomingClasses: UpcomingClass[] = [
-    {
-      id: "1",
-      name: "Jiu-Jitsu Fundamentals",
-      instructor: "Professor Silva",
-      time: "18:00",
-      date: "2024-09-24",
-      location: "Main Dojo",
-      duration: 90,
-    },
-    {
-      id: "2",
-      name: "Open Mat",
-      instructor: "Professor Costa",
-      time: "19:30", 
-      date: "2024-09-25",
-      location: "Main Dojo",
-      duration: 120,
-    },
-    {
-      id: "3",
-      name: "Women's Self Defense",
-      instructor: "Professor Maria",
-      time: "18:00",
-      date: "2024-09-26",
-      location: "Studio A",
-      duration: 60,
-    }
-  ];
+  const { data: studentData } = useQuery({
+    queryKey: ['student/me'],
+    queryFn: () => apiClient.getStudentData(),
+  });
 
-  const recentAttendance: AttendanceRecord[] = [
-    {
-      date: "2024-09-20",
-      className: "Jiu-Jitsu Fundamentals",
-      instructor: "Professor Silva",
-      present: true,
-    },
-    {
-      date: "2024-09-18",
-      className: "Open Mat",
-      instructor: "Professor Costa", 
-      present: true,
-    },
-    {
-      date: "2024-09-16",
-      className: "Women's Self Defense",
-      instructor: "Professor Maria",
-      present: false,
-      notes: "Sick leave"
-    },
-    {
-      date: "2024-09-13",
-      className: "Jiu-Jitsu Fundamentals",
-      instructor: "Professor Silva",
-      present: true,
-    },
-    {
-      date: "2024-09-11",
-      className: "Open Mat",
-      instructor: "Professor Costa",
-      present: true,
-    }
-  ];
+  const attendance: any[] = studentData?.attendance ?? [];
+  const payments: any[] = studentData?.payments ?? [];
+  const enrollments: any[] = studentData?.enrollments ?? [];
 
-  const getPaymentBadge = (status: string) => {
-    return status === "paid" ? (
+  // Stats computed from real data
+  const classesAttended = attendance.filter(a => a.status === 'presente').length;
+  const totalClasses = attendance.length;
+  const attendanceRate = totalClasses > 0 ? Math.round((classesAttended / totalClasses) * 100) : 0;
+
+  const sortedAttendance = [...attendance].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  let currentStreak = 0;
+  for (const record of sortedAttendance) {
+    if (record.status === 'presente') currentStreak++;
+    else break;
+  }
+
+  const pendingPayments = payments
+    .filter(p => p.status === 'pending' || p.status === 'overdue')
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+  const nextPayment = pendingPayments[0];
+
+  const paidPayments = payments.filter(p => p.status === 'paid');
+  const lastPaid = paidPayments.sort(
+    (a, b) => new Date(b.paidDate ?? b.dueDate).getTime() - new Date(a.paidDate ?? a.dueDate).getTime()
+  )[0];
+  const paymentStatus = nextPayment?.status === 'overdue' ? 'overdue' : lastPaid ? 'paid' : 'pending';
+
+  const recentAttendance = sortedAttendance.slice(0, 5);
+
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString('pt-BR', {
+      weekday: 'short', month: 'short', day: 'numeric',
+    });
+
+  const getPaymentBadge = (status: string) =>
+    status === 'paid' ? (
       <Badge variant="default" className="text-green-600" data-testid="badge-payment-paid">
-        Paid
+        Pago
+      </Badge>
+    ) : status === 'overdue' ? (
+      <Badge variant="destructive" data-testid="badge-payment-overdue">
+        Atrasado
       </Badge>
     ) : (
-      <Badge variant="destructive" data-testid="badge-payment-overdue">
-        Overdue
+      <Badge variant="secondary" data-testid="badge-payment-pending">
+        Pendente
       </Badge>
     );
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short', 
-      day: 'numeric'
-    });
-  };
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
+      {/* Welcome */}
       <div>
-        <h1 className="text-3xl font-bold">Welcome back, {studentInfo.name}!</h1>
-        <p className="text-muted-foreground mt-2">Here's your training overview and upcoming classes.</p>
+        <h1 className="text-3xl font-bold">Bem-vindo, {user?.name ?? ''}!</h1>
+        <p className="text-muted-foreground mt-2">Veja seu resumo de treinos e próximas aulas.</p>
       </div>
 
-      {/* Stats Overview */}
+      {/* Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">Taxa de Presença</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="stat-attendance-rate">
-              {studentInfo.attendanceRate}%
+              {attendanceRate}%
             </div>
-            <Progress value={studentInfo.attendanceRate} className="mt-2" />
+            <Progress value={attendanceRate} className="mt-2" />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Classes Attended</CardTitle>
+            <CardTitle className="text-sm font-medium">Aulas Assistidas</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="stat-classes-attended">
-              {studentInfo.classesAttended}
+              {classesAttended}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              of {studentInfo.totalClasses} this month
+              de {totalClasses} registradas
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Current Streak</CardTitle>
+            <CardTitle className="text-sm font-medium">Sequência Atual</CardTitle>
             <Award className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="stat-current-streak">
-              {studentInfo.currentStreak}
+              {currentStreak}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              consecutive classes
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">aulas consecutivas</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Next Payment</CardTitle>
+            <CardTitle className="text-sm font-medium">Próximo Pagamento</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-sm font-bold mb-1" data-testid="text-next-payment">
-              {formatDate(studentInfo.nextPayment)}
-            </div>
-            {getPaymentBadge(studentInfo.paymentStatus)}
+            {nextPayment ? (
+              <>
+                <div className="text-sm font-bold mb-1" data-testid="text-next-payment">
+                  {formatDate(nextPayment.dueDate)}
+                </div>
+                {getPaymentBadge(nextPayment.status === 'overdue' ? 'overdue' : 'pending')}
+              </>
+            ) : (
+              <div className="text-sm font-bold mb-1" data-testid="text-next-payment">
+                {getPaymentBadge(paymentStatus)}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Upcoming Classes */}
+        {/* Matriculas ativas */}
         <Card>
           <CardHeader>
-            <CardTitle>Upcoming Classes</CardTitle>
-            <CardDescription>Your scheduled classes this week</CardDescription>
+            <CardTitle>Matrículas Ativas</CardTitle>
+            <CardDescription>
+              {enrollments.filter(e => e.active).length} turma(s) matriculada(s)
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {upcomingClasses.map((classItem) => (
-              <div key={classItem.id} className="flex items-center space-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors" data-testid={`upcoming-class-${classItem.id}`}>
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                    <Calendar className="h-6 w-6 text-primary" />
+            {enrollments.filter(e => e.active).length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma matrícula ativa no momento.</p>
+            ) : (
+              enrollments.filter(e => e.active).map((enrollment: any) => (
+                <div
+                  key={enrollment.id}
+                  className="flex items-center space-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                  data-testid={`upcoming-class-${enrollment.id}`}
+                >
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                      <Calendar className="h-6 w-6 text-primary" />
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate" data-testid={`class-name-${enrollment.id}`}>
+                      Turma ativa
+                    </p>
+                    <div className="flex items-center space-x-4 text-xs text-muted-foreground mt-1">
+                      <span className="flex items-center">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Desde {formatDate(enrollment.startDate)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate" data-testid={`class-name-${classItem.id}`}>
-                    {classItem.name}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {classItem.instructor} • {classItem.location}
-                  </p>
-                  <div className="flex items-center space-x-4 text-xs text-muted-foreground mt-1">
-                    <span>{formatDate(classItem.date)}</span>
-                    <span className="flex items-center">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {classItem.time} ({classItem.duration} min)
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
 
-        {/* Recent Attendance */}
+        {/* Histórico de presença */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Attendance</CardTitle>
-            <CardDescription>Your attendance history</CardDescription>
+            <CardTitle>Histórico de Presença</CardTitle>
+            <CardDescription>Últimas aulas registradas</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {recentAttendance.map((record, index) => (
-              <div key={index} className="flex items-center space-x-4 p-3 rounded-lg" data-testid={`attendance-record-${index}`}>
-                <div className="flex-shrink-0">
-                  {record.present ? (
-                    <CheckCircle2 className="h-6 w-6 text-green-600" />
-                  ) : (
-                    <div className="h-6 w-6 rounded-full border-2 border-muted-foreground" />
-                  )}
+            {recentAttendance.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum registro de presença ainda.</p>
+            ) : (
+              recentAttendance.map((record: any, index: number) => (
+                <div
+                  key={record.id ?? index}
+                  className="flex items-center space-x-4 p-3 rounded-lg"
+                  data-testid={`attendance-record-${index}`}
+                >
+                  <div className="flex-shrink-0">
+                    {record.status === 'presente' ? (
+                      <CheckCircle2 className="h-6 w-6 text-green-600" />
+                    ) : (
+                      <div className="h-6 w-6 rounded-full border-2 border-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate" data-testid={`attendance-class-${index}`}>
+                      Aula registrada
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatDate(record.date)}
+                    </p>
+                    {record.notes && (
+                      <p className="text-xs text-orange-600 mt-1">{record.notes}</p>
+                    )}
+                  </div>
+                  <div className="flex-shrink-0">
+                    <Badge
+                      variant={record.status === 'presente' ? 'default' : 'secondary'}
+                      className={record.status === 'presente' ? 'text-green-600' : 'text-muted-foreground'}
+                      data-testid={`attendance-status-${index}`}
+                    >
+                      {record.status === 'presente' ? 'Presente' : record.status === 'justificado' ? 'Justificado' : 'Falta'}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate" data-testid={`attendance-class-${index}`}>
-                    {record.className}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {record.instructor} • {formatDate(record.date)}
-                  </p>
-                  {record.notes && (
-                    <p className="text-xs text-orange-600 mt-1">{record.notes}</p>
-                  )}
-                </div>
-                <div className="flex-shrink-0">
-                  <Badge 
-                    variant={record.present ? "default" : "secondary"}
-                    className={record.present ? "text-green-600" : "text-muted-foreground"}
-                    data-testid={`attendance-status-${index}`}
-                  >
-                    {record.present ? "Present" : "Absent"}
-                  </Badge>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Membership Info */}
+      {/* Membership info */}
       <Card>
         <CardHeader>
-          <CardTitle>Membership Information</CardTitle>
-          <CardDescription>Your current membership details</CardDescription>
+          <CardTitle>Informações da Matrícula</CardTitle>
+          <CardDescription>Resumo da sua situação na academia</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
           <div>
-            <p className="text-sm font-medium text-muted-foreground">Plan</p>
+            <p className="text-sm font-medium text-muted-foreground">Matrículas ativas</p>
             <p className="text-lg font-semibold" data-testid="text-membership-plan">
-              {studentInfo.membershipPlan}
+              {enrollments.filter(e => e.active).length} turma(s)
             </p>
           </div>
           <div>
-            <p className="text-sm font-medium text-muted-foreground">Member Since</p>
+            <p className="text-sm font-medium text-muted-foreground">Total de presenças</p>
             <p className="text-lg font-semibold" data-testid="text-join-date">
-              {formatDate(studentInfo.joinDate)}
+              {classesAttended} aulas
             </p>
           </div>
           <div>
-            <p className="text-sm font-medium text-muted-foreground">Payment Status</p>
+            <p className="text-sm font-medium text-muted-foreground">Status do pagamento</p>
             <div className="mt-1">
-              {getPaymentBadge(studentInfo.paymentStatus)}
+              {getPaymentBadge(paymentStatus)}
             </div>
           </div>
         </CardContent>
