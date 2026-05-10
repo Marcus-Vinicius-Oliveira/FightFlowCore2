@@ -24,23 +24,6 @@ function sanitizeUser(user: Record<string, unknown>) {
   return safe;
 }
 
-async function checkPlanLimit(academyId: string): Promise<{ allowed: boolean; message?: string }> {
-  const assinaturas = await storage.getAssinaturasByAcademia(academyId);
-  const active = assinaturas.find(a => a.status === 'ativa');
-  if (!active) return { allowed: true };
-
-  const plano = await storage.getPlano(active.planoId);
-  if (!plano) return { allowed: true };
-
-  const currentCount = await storage.countUsersByAcademy(academyId, 'ALUNO');
-  if (currentCount >= plano.limiteAlunos) {
-    return {
-      allowed: false,
-      message: `Limite de alunos atingido para o plano "${plano.nome}" (${plano.limiteAlunos} alunos). Faça upgrade do seu plano.`,
-    };
-  }
-  return { allowed: true };
-}
 
 // GET /api/students
 router.get('/',
@@ -115,14 +98,6 @@ router.post('/',
       const userData = createSchema.parse(req.body);
       const academyId = req.user!.academyId!;
 
-      // Enforce plan limit for students only
-      if (userData.role === 'ALUNO') {
-        const limitCheck = await checkPlanLimit(academyId);
-        if (!limitCheck.allowed) {
-          return res.status(403).json({ error: limitCheck.message });
-        }
-      }
-
       const existingUser = await storage.getUserByEmail(userData.email);
       if (existingUser) {
         return res.status(409).json({ error: 'Já existe um usuário com este email' });
@@ -131,14 +106,18 @@ router.post('/',
       const defaultPassword = generateRandomPassword();
       const hashedPassword = await hashPassword(defaultPassword);
 
-      const newUser = await storage.createUser({
+      const result = await storage.createStudentWithPlanEnforcement({
         ...userData,
         academyId,
         password: hashedPassword,
         dateOfBirth: userData.dateOfBirth ? new Date(userData.dateOfBirth) : undefined,
       });
 
-      res.status(201).json(sanitizeUser(newUser as any));
+      if ('limitError' in result) {
+        return res.status(403).json({ error: result.limitError });
+      }
+
+      res.status(201).json(sanitizeUser(result.user as any));
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });

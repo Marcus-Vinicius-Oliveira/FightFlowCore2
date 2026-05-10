@@ -29,10 +29,12 @@ router.get('/',
         return res.status(403).json({ error: 'Você só pode acessar presenças das suas turmas' });
       }
 
-      const enrollmentsList = await storage.getEnrollmentsByClass(classId);
-      const attendanceRecords = date
-        ? await storage.getAttendanceByClassAndDate(classId, new Date(date))
-        : await storage.getAttendanceByClass(classId);
+      const [enrollmentsList, attendanceRecords] = await Promise.all([
+        storage.getEnrollmentsByClass(classId),
+        date
+          ? storage.getAttendanceByClassAndDate(classId, new Date(date))
+          : storage.getAttendanceByClass(classId),
+      ]);
 
       const studentsWithAttendance = enrollmentsList.map(enrollment => {
         const record = attendanceRecords.find(

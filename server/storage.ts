@@ -34,7 +34,7 @@ import {
   type InsertAssinatura,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, inArray, gte, lt } from "drizzle-orm";
+import { eq, and, desc, inArray, gte, lt, count } from "drizzle-orm";
 
 export interface PaginationParams {
   limit?: number;
@@ -67,6 +67,7 @@ export interface IStorage {
   getUsersByAcademy(academyId: string, role?: string, pagination?: PaginationParams): Promise<User[]>;
   getUsersByAcademyAndRoles(academyId: string, roles: string[]): Promise<User[]>;
   countUsersByAcademy(academyId: string, role?: string): Promise<number>;
+  createStudentWithPlanEnforcement(insertUser: InsertUser): Promise<{ user: User } | { limitError: string }>;
 
   // Membership plan operations
   getMembershipPlansByAcademy(academyId: string): Promise<MembershipPlan[]>;
@@ -143,7 +144,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClassesByInstructor(instructorId: string): Promise<Class[]> {
-    return db.select().from(classes).where(eq(classes.instructorId, instructorId));
+    return db.select().from(classes).where(
+      and(eq(classes.instructorId, instructorId), eq(classes.active, true))
+    );
   }
 
   async getAcademy(id: string): Promise<Academy | undefined> {
@@ -192,8 +195,54 @@ export class DatabaseStorage implements IStorage {
   }
 
   async countUsersByAcademy(academyId: string, role?: string): Promise<number> {
-    const all = await this.getUsersByAcademy(academyId, role);
-    return all.length;
+    const validRoles = userRoleEnum.enumValues;
+    const conditions = role && validRoles.includes(role as typeof validRoles[number])
+      ? and(eq(users.academyId, academyId), eq(users.role, role as typeof validRoles[number]))
+      : eq(users.academyId, academyId);
+
+    const [result] = await db.select({ total: count() }).from(users).where(conditions);
+    return result.total;
+  }
+
+  async createStudentWithPlanEnforcement(
+    insertUser: InsertUser,
+  ): Promise<{ user: User } | { limitError: string }> {
+    // Non-student roles bypass plan enforcement
+    if (insertUser.role !== 'ALUNO') {
+      const user = await this.createUser(insertUser);
+      return { user };
+    }
+
+    return db.transaction(async (tx) => {
+      const academyId = insertUser.academyId!;
+
+      // Lock the active subscription row so concurrent requests queue here
+      // instead of racing through the count check.
+      const [activeAssinatura] = await tx
+        .select()
+        .from(assinaturas)
+        .where(and(eq(assinaturas.academiaId, academyId), eq(assinaturas.status, 'ativa')))
+        .for('update');
+
+      if (activeAssinatura) {
+        const [plano] = await tx.select().from(planos).where(eq(planos.id, activeAssinatura.planoId));
+        if (plano) {
+          const [{ total: currentCount }] = await tx
+            .select({ total: count() })
+            .from(users)
+            .where(and(eq(users.academyId, academyId), eq(users.role, 'ALUNO')));
+
+          if (currentCount >= plano.limiteAlunos) {
+            return {
+              limitError: `Limite de alunos atingido para o plano "${plano.nome}" (${plano.limiteAlunos} alunos). Faça upgrade do seu plano.`,
+            };
+          }
+        }
+      }
+
+      const [user] = await tx.insert(users).values(insertUser).returning();
+      return { user };
+    });
   }
 
   async getMembershipPlansByAcademy(academyId: string): Promise<MembershipPlan[]> {
