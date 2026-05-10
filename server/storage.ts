@@ -1,15 +1,16 @@
-import { 
-  users, 
-  academies, 
-  membershipPlans, 
-  classTypes, 
-  classes, 
-  enrollments, 
-  attendance, 
+import {
+  users,
+  academies,
+  membershipPlans,
+  classTypes,
+  classes,
+  enrollments,
+  attendance,
   payments,
   planos,
   assinaturas,
-  type User, 
+  userRoleEnum,
+  type User,
   type Academy,
   type MembershipPlan,
   type ClassType,
@@ -21,7 +22,7 @@ import {
   type Assinatura,
   type ClassWithRefs,
   type EnrollmentWithRefs,
-  type InsertUser, 
+  type InsertUser,
   type InsertAcademy,
   type InsertMembershipPlan,
   type InsertClassType,
@@ -30,10 +31,22 @@ import {
   type InsertAttendance,
   type InsertPayment,
   type InsertPlano,
-  type InsertAssinatura
+  type InsertAssinatura,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray, gte, lt } from "drizzle-orm";
+
+export interface PaginationParams {
+  limit?: number;
+  offset?: number;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
 
 export interface IStorage {
   // User operations
@@ -43,37 +56,39 @@ export interface IStorage {
   updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined>;
   deleteUser(id: string): Promise<boolean>;
   getClassesByInstructor(instructorId: string): Promise<Class[]>;
-  
+
   // Academy operations
   getAcademy(id: string): Promise<Academy | undefined>;
   getAcademyBySlug(slug: string): Promise<Academy | undefined>;
   createAcademy(academy: InsertAcademy): Promise<Academy>;
   updateAcademy(id: string, updates: Partial<InsertAcademy>): Promise<Academy | undefined>;
-  
-  // User academy operations (with tenant isolation)
-  getUsersByAcademy(academyId: string, role?: string): Promise<User[]>;
-  
+
+  // User academy operations (with tenant isolation + pagination)
+  getUsersByAcademy(academyId: string, role?: string, pagination?: PaginationParams): Promise<User[]>;
+  getUsersByAcademyAndRoles(academyId: string, roles: string[]): Promise<User[]>;
+  countUsersByAcademy(academyId: string, role?: string): Promise<number>;
+
   // Membership plan operations
   getMembershipPlansByAcademy(academyId: string): Promise<MembershipPlan[]>;
   createMembershipPlan(plan: InsertMembershipPlan): Promise<MembershipPlan>;
-  
+
   // Class type operations
   getClassTypesByAcademy(academyId: string): Promise<ClassType[]>;
   getClassType(id: string): Promise<ClassType | undefined>;
   createClassType(classType: InsertClassType): Promise<ClassType>;
-  
-  // Class operations  
+
+  // Class operations
   getClassesByAcademy(academyId: string): Promise<ClassWithRefs[]>;
   getClass(id: string): Promise<ClassWithRefs | undefined>;
   createClass(classData: InsertClass): Promise<Class>;
   updateClass(id: string, updates: Partial<InsertClass>): Promise<Class | undefined>;
-  
+
   // Enrollment operations
   getEnrollmentsByStudent(studentId: string): Promise<Enrollment[]>;
   getEnrollmentsByClass(classId: string): Promise<EnrollmentWithRefs[]>;
   getEnrollmentByStudentAndClass(studentId: string, classId: string): Promise<Enrollment | undefined>;
   createEnrollment(enrollment: InsertEnrollment): Promise<Enrollment>;
-  
+
   // Attendance operations
   getAttendanceByStudent(studentId: string): Promise<Attendance[]>;
   getAttendanceByClass(classId: string): Promise<Attendance[]>;
@@ -81,22 +96,20 @@ export interface IStorage {
   getAttendanceByStudentClassAndDate(studentId: string, classId: string, date: Date): Promise<Attendance | undefined>;
   createAttendance(attendance: InsertAttendance): Promise<Attendance>;
   updateAttendance(id: string, updates: Partial<InsertAttendance>): Promise<Attendance | undefined>;
-  
+
   // Payment operations
   getPaymentsByStudent(studentId: string): Promise<Payment[]>;
+  getPaymentsByAcademy(academyId: string, pagination?: PaginationParams): Promise<Payment[]>;
+  getPayment(id: string): Promise<Payment | undefined>;
   createPayment(payment: InsertPayment): Promise<Payment>;
-  
+  updatePayment(id: string, updates: Partial<InsertPayment>): Promise<Payment | undefined>;
+
   // Super Admin operations
-  // Academy management (global access)
   getAllAcademies(): Promise<Academy[]>;
-  
-  // Platform plans management
   getAllPlanos(): Promise<Plano[]>;
   getPlano(id: string): Promise<Plano | undefined>;
   createPlano(plano: InsertPlano): Promise<Plano>;
   updatePlano(id: string, updates: Partial<InsertPlano>): Promise<Plano | undefined>;
-  
-  // Academy subscriptions management
   getAllAssinaturas(): Promise<Assinatura[]>;
   getAssinaturasByAcademia(academiaId: string): Promise<Assinatura[]>;
   createAssinatura(assinatura: InsertAssinatura): Promise<Assinatura>;
@@ -104,320 +117,284 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // User operations
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+    return user;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user || undefined;
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(insertUser)
-      .returning();
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
-    const [user] = await db
-      .update(users)
-      .set(updates)
-      .where(eq(users.id, id))
-      .returning();
-    return user || undefined;
+    const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    return user;
   }
 
   async deleteUser(id: string): Promise<boolean> {
-    const result = await db
-      .delete(users)
-      .where(eq(users.id, id));
+    const result = await db.delete(users).where(eq(users.id, id));
     return (result.rowCount || 0) > 0;
   }
 
   async getClassesByInstructor(instructorId: string): Promise<Class[]> {
-    return await db.select().from(classes).where(eq(classes.instructorId, instructorId));
+    return db.select().from(classes).where(eq(classes.instructorId, instructorId));
   }
 
-  // Academy operations
   async getAcademy(id: string): Promise<Academy | undefined> {
     const [academy] = await db.select().from(academies).where(eq(academies.id, id));
-    return academy || undefined;
+    return academy;
   }
 
   async getAcademyBySlug(slug: string): Promise<Academy | undefined> {
     const [academy] = await db.select().from(academies).where(eq(academies.slug, slug));
-    return academy || undefined;
+    return academy;
   }
 
   async createAcademy(insertAcademy: InsertAcademy): Promise<Academy> {
-    const [academy] = await db
-      .insert(academies)
-      .values(insertAcademy)
-      .returning();
+    const [academy] = await db.insert(academies).values(insertAcademy).returning();
     return academy;
   }
 
   async updateAcademy(id: string, updates: Partial<InsertAcademy>): Promise<Academy | undefined> {
-    const [academy] = await db
-      .update(academies)
-      .set(updates)
-      .where(eq(academies.id, id))
-      .returning();
-    return academy || undefined;
+    const [academy] = await db.update(academies).set(updates).where(eq(academies.id, id)).returning();
+    return academy;
   }
 
-  // User academy operations (with tenant isolation)
-  async getUsersByAcademy(academyId: string, role?: string): Promise<User[]> {
-    if (role) {
-      return await db.select().from(users).where(and(eq(users.academyId, academyId), eq(users.role, role as any)));
+  async getUsersByAcademy(academyId: string, role?: string, pagination?: PaginationParams): Promise<User[]> {
+    const validRoles = userRoleEnum.enumValues;
+    const conditions = role && validRoles.includes(role as typeof validRoles[number])
+      ? and(eq(users.academyId, academyId), eq(users.role, role as typeof validRoles[number]))
+      : eq(users.academyId, academyId);
+
+    const query = db.select().from(users).where(conditions);
+
+    if (pagination?.limit !== undefined) {
+      return query.limit(pagination.limit).offset(pagination.offset ?? 0);
     }
-    
-    return await db.select().from(users).where(eq(users.academyId, academyId));
+
+    return query;
   }
 
-  // Membership plan operations
+  // Single query for multiple roles — avoids N separate round trips.
+  async getUsersByAcademyAndRoles(academyId: string, roles: string[]): Promise<User[]> {
+    const validRoles = userRoleEnum.enumValues;
+    const filteredRoles = roles.filter(r => validRoles.includes(r as typeof validRoles[number])) as typeof validRoles[number][];
+    return db
+      .select()
+      .from(users)
+      .where(and(eq(users.academyId, academyId), inArray(users.role, filteredRoles)));
+  }
+
+  async countUsersByAcademy(academyId: string, role?: string): Promise<number> {
+    const all = await this.getUsersByAcademy(academyId, role);
+    return all.length;
+  }
+
   async getMembershipPlansByAcademy(academyId: string): Promise<MembershipPlan[]> {
-    return await db.select()
+    return db
+      .select()
       .from(membershipPlans)
       .where(and(eq(membershipPlans.academyId, academyId), eq(membershipPlans.active, true)));
   }
 
   async createMembershipPlan(insertPlan: InsertMembershipPlan): Promise<MembershipPlan> {
-    const [plan] = await db
-      .insert(membershipPlans)
-      .values(insertPlan)
-      .returning();
+    const [plan] = await db.insert(membershipPlans).values(insertPlan).returning();
     return plan;
   }
 
-  // Class type operations
   async getClassTypesByAcademy(academyId: string): Promise<ClassType[]> {
-    return await db.select()
+    return db
+      .select()
       .from(classTypes)
       .where(and(eq(classTypes.academyId, academyId), eq(classTypes.active, true)));
   }
 
   async getClassType(id: string): Promise<ClassType | undefined> {
-    const [classType] = await db.select().from(classTypes).where(eq(classTypes.id, id));
-    return classType || undefined;
+    const [ct] = await db.select().from(classTypes).where(eq(classTypes.id, id));
+    return ct;
   }
 
   async createClassType(insertClassType: InsertClassType): Promise<ClassType> {
-    const [classType] = await db
-      .insert(classTypes)
-      .values(insertClassType)
-      .returning();
-    return classType;
+    const [ct] = await db.insert(classTypes).values(insertClassType).returning();
+    return ct;
   }
 
-  // Class operations
   async getClassesByAcademy(academyId: string): Promise<ClassWithRefs[]> {
-    return await db.query.classes.findMany({
+    return db.query.classes.findMany({
       where: and(eq(classes.academyId, academyId), eq(classes.active, true)),
-      with: {
-        classType: true,
-        instructor: true
-      }
-    }) as ClassWithRefs[];
+      with: { classType: true, instructor: true },
+    }) as Promise<ClassWithRefs[]>;
   }
 
   async getClass(id: string): Promise<ClassWithRefs | undefined> {
     const classData = await db.query.classes.findFirst({
       where: eq(classes.id, id),
-      with: {
-        classType: true,
-        instructor: true
-      }
+      with: { classType: true, instructor: true },
     });
-    return classData as ClassWithRefs || undefined;
+    return classData as ClassWithRefs | undefined;
   }
 
   async createClass(insertClass: InsertClass): Promise<Class> {
-    const [classData] = await db
-      .insert(classes)
-      .values(insertClass)
-      .returning();
+    const [classData] = await db.insert(classes).values(insertClass).returning();
     return classData;
   }
 
   async updateClass(id: string, updates: Partial<InsertClass>): Promise<Class | undefined> {
-    const [classData] = await db
-      .update(classes)
-      .set(updates)
-      .where(eq(classes.id, id))
-      .returning();
-    return classData || undefined;
+    const [classData] = await db.update(classes).set(updates).where(eq(classes.id, id)).returning();
+    return classData;
   }
 
-  // Enrollment operations
   async getEnrollmentsByStudent(studentId: string): Promise<Enrollment[]> {
-    return await db.select()
+    return db
+      .select()
       .from(enrollments)
       .where(and(eq(enrollments.studentId, studentId), eq(enrollments.active, true)))
       .orderBy(desc(enrollments.startDate));
   }
 
   async getEnrollmentsByClass(classId: string): Promise<EnrollmentWithRefs[]> {
-    return await db.query.enrollments.findMany({
+    return db.query.enrollments.findMany({
       where: and(eq(enrollments.classId, classId), eq(enrollments.active, true)),
-      with: {
-        student: true
-      },
-      orderBy: desc(enrollments.startDate)
-    }) as EnrollmentWithRefs[];
+      with: { student: true },
+      orderBy: desc(enrollments.startDate),
+    }) as Promise<EnrollmentWithRefs[]>;
   }
 
   async getEnrollmentByStudentAndClass(studentId: string, classId: string): Promise<Enrollment | undefined> {
-    const [enrollment] = await db.select()
-      .from(enrollments)
-      .where(and(
-        eq(enrollments.studentId, studentId),
-        eq(enrollments.classId, classId),
-        eq(enrollments.active, true)
-      ));
-    return enrollment || undefined;
-  }
-
-  async createEnrollment(insertEnrollment: InsertEnrollment): Promise<Enrollment> {
     const [enrollment] = await db
-      .insert(enrollments)
-      .values(insertEnrollment)
-      .returning();
+      .select()
+      .from(enrollments)
+      .where(and(eq(enrollments.studentId, studentId), eq(enrollments.classId, classId), eq(enrollments.active, true)));
     return enrollment;
   }
 
-  // Attendance operations
+  async createEnrollment(insertEnrollment: InsertEnrollment): Promise<Enrollment> {
+    const [enrollment] = await db.insert(enrollments).values(insertEnrollment).returning();
+    return enrollment;
+  }
+
   async getAttendanceByStudent(studentId: string): Promise<Attendance[]> {
-    return await db.select()
-      .from(attendance)
-      .where(eq(attendance.studentId, studentId))
-      .orderBy(desc(attendance.date));
+    return db.select().from(attendance).where(eq(attendance.studentId, studentId)).orderBy(desc(attendance.date));
   }
 
   async getAttendanceByClass(classId: string): Promise<Attendance[]> {
-    return await db.select()
-      .from(attendance)
-      .where(eq(attendance.classId, classId))
-      .orderBy(desc(attendance.date));
+    return db.select().from(attendance).where(eq(attendance.classId, classId)).orderBy(desc(attendance.date));
   }
 
   async getAttendanceByClassAndDate(classId: string, date: Date): Promise<Attendance[]> {
-    const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format
-    return await db.select()
+    // Use a date range to match any time within the given day, not exact timestamp equality.
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    return db
+      .select()
       .from(attendance)
-      .where(and(
-        eq(attendance.classId, classId),
-        eq(attendance.date, date)
-      ))
+      .where(and(eq(attendance.classId, classId), gte(attendance.date, startOfDay), lt(attendance.date, endOfDay)))
       .orderBy(desc(attendance.date));
   }
 
   async getAttendanceByStudentClassAndDate(studentId: string, classId: string, date: Date): Promise<Attendance | undefined> {
-    const [attendanceRecord] = await db.select()
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const [record] = await db
+      .select()
       .from(attendance)
       .where(and(
         eq(attendance.studentId, studentId),
         eq(attendance.classId, classId),
-        eq(attendance.date, date)
+        gte(attendance.date, startOfDay),
+        lt(attendance.date, endOfDay),
       ));
-    return attendanceRecord || undefined;
+    return record;
   }
 
   async createAttendance(insertAttendance: InsertAttendance): Promise<Attendance> {
-    const [attendanceRecord] = await db
-      .insert(attendance)
-      .values(insertAttendance)
-      .returning();
-    return attendanceRecord;
+    const [record] = await db.insert(attendance).values(insertAttendance).returning();
+    return record;
   }
 
   async updateAttendance(id: string, updates: Partial<InsertAttendance>): Promise<Attendance | undefined> {
-    const [attendanceRecord] = await db
-      .update(attendance)
-      .set(updates)
-      .where(eq(attendance.id, id))
-      .returning();
-    return attendanceRecord || undefined;
+    const [record] = await db.update(attendance).set(updates).where(eq(attendance.id, id)).returning();
+    return record;
   }
 
-  // Payment operations
   async getPaymentsByStudent(studentId: string): Promise<Payment[]> {
-    return await db.select()
-      .from(payments)
-      .where(eq(payments.studentId, studentId))
-      .orderBy(desc(payments.dueDate));
+    return db.select().from(payments).where(eq(payments.studentId, studentId)).orderBy(desc(payments.dueDate));
   }
 
-  async createPayment(insertPayment: InsertPayment): Promise<Payment> {
-    const [payment] = await db
-      .insert(payments)
-      .values(insertPayment)
-      .returning();
+  async getPaymentsByAcademy(academyId: string, pagination?: PaginationParams): Promise<Payment[]> {
+    const query = db.select().from(payments).where(eq(payments.academyId, academyId)).orderBy(desc(payments.dueDate));
+    if (pagination?.limit !== undefined) {
+      return query.limit(pagination.limit).offset(pagination.offset ?? 0);
+    }
+    return query;
+  }
+
+  async getPayment(id: string): Promise<Payment | undefined> {
+    const [payment] = await db.select().from(payments).where(eq(payments.id, id));
     return payment;
   }
 
-  // Super Admin operations
+  async createPayment(insertPayment: InsertPayment): Promise<Payment> {
+    const [payment] = await db.insert(payments).values(insertPayment).returning();
+    return payment;
+  }
+
+  async updatePayment(id: string, updates: Partial<InsertPayment>): Promise<Payment | undefined> {
+    const [payment] = await db.update(payments).set(updates).where(eq(payments.id, id)).returning();
+    return payment;
+  }
+
   async getAllAcademies(): Promise<Academy[]> {
-    return await db.select().from(academies).orderBy(desc(academies.createdAt));
+    return db.select().from(academies).orderBy(desc(academies.createdAt));
   }
 
   async getAllPlanos(): Promise<Plano[]> {
-    return await db.select().from(planos).orderBy(desc(planos.createdAt));
+    return db.select().from(planos).orderBy(desc(planos.createdAt));
   }
 
   async getPlano(id: string): Promise<Plano | undefined> {
     const [plano] = await db.select().from(planos).where(eq(planos.id, id));
-    return plano || undefined;
+    return plano;
   }
 
   async createPlano(insertPlano: InsertPlano): Promise<Plano> {
-    const [plano] = await db
-      .insert(planos)
-      .values(insertPlano)
-      .returning();
+    const [plano] = await db.insert(planos).values(insertPlano).returning();
     return plano;
   }
 
   async updatePlano(id: string, updates: Partial<InsertPlano>): Promise<Plano | undefined> {
-    const [plano] = await db
-      .update(planos)
-      .set(updates)
-      .where(eq(planos.id, id))
-      .returning();
-    return plano || undefined;
+    const [plano] = await db.update(planos).set(updates).where(eq(planos.id, id)).returning();
+    return plano;
   }
 
   async getAllAssinaturas(): Promise<Assinatura[]> {
-    return await db.select().from(assinaturas).orderBy(desc(assinaturas.createdAt));
+    return db.select().from(assinaturas).orderBy(desc(assinaturas.createdAt));
   }
 
   async getAssinaturasByAcademia(academiaId: string): Promise<Assinatura[]> {
-    return await db.select()
-      .from(assinaturas)
-      .where(eq(assinaturas.academiaId, academiaId))
-      .orderBy(desc(assinaturas.createdAt));
+    return db.select().from(assinaturas).where(eq(assinaturas.academiaId, academiaId)).orderBy(desc(assinaturas.createdAt));
   }
 
   async createAssinatura(insertAssinatura: InsertAssinatura): Promise<Assinatura> {
-    const [assinatura] = await db
-      .insert(assinaturas)
-      .values(insertAssinatura)
-      .returning();
+    const [assinatura] = await db.insert(assinaturas).values(insertAssinatura).returning();
     return assinatura;
   }
 
   async updateAssinatura(id: string, updates: Partial<InsertAssinatura>): Promise<Assinatura | undefined> {
-    const [assinatura] = await db
-      .update(assinaturas)
-      .set(updates)
-      .where(eq(assinaturas.id, id))
-      .returning();
-    return assinatura || undefined;
+    const [assinatura] = await db.update(assinaturas).set(updates).where(eq(assinaturas.id, id)).returning();
+    return assinatura;
   }
 }
 
