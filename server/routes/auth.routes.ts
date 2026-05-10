@@ -119,6 +119,18 @@ router.post('/signup', async (req, res) => {
       academyId,
     });
 
+    // Auto-enroll new academy in free trial platform plan if one exists
+    const allPlanos = await storage.getAllPlanos();
+    const freePlano = allPlanos.find(p => p.ativo && p.precoMensal === 0);
+    if (freePlano) {
+      await storage.createAssinatura({
+        academiaId: academyId,
+        planoId: freePlano.id,
+        dataInicio: new Date(),
+        status: 'teste',
+      });
+    }
+
     const token = generateToken({
       userId: newUser.id,
       email: newUser.email,

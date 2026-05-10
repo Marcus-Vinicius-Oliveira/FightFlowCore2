@@ -146,4 +146,34 @@ router.get('/membership-plans',
   }
 );
 
+// POST /api/membership-plans
+router.post('/membership-plans',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA']),
+  requireSameAcademy,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const createSchema = z.object({
+        name: z.string().min(1, 'Nome é obrigatório'),
+        description: z.string().optional(),
+        price: z.number().int().nonnegative('Valor deve ser zero ou positivo (em centavos)'),
+        duration: z.number().int().positive('Duração deve ser positiva (em dias)'),
+        classesPerWeek: z.number().int().positive().optional(),
+      });
+
+      const data = createSchema.parse(req.body);
+      const academyId = req.user!.academyId!;
+
+      const plan = await storage.createMembershipPlan({ ...data, academyId });
+      res.status(201).json(plan);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Erro de validação', details: error.errors });
+      }
+      console.error('Create membership plan error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
 export default router;
