@@ -19,8 +19,8 @@ function generateRandomPassword(): string {
     .join('');
 }
 
-function sanitizeUser(user: Record<string, unknown>) {
-  const { password: _p, ...safe } = user as any;
+export function sanitizeUser(user: Record<string, unknown>) {
+  const { password: _p, ...safe } = user;
   return safe;
 }
 

@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { Request, Response, NextFunction } from 'express';
+import IORedis from 'ioredis';
 import { storage } from './storage';
 
 if (!process.env.JWT_SECRET) {
@@ -13,29 +14,50 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = '24h';
 const JWT_EXPIRES_MS = 24 * 60 * 60 * 1000;
 
-// In-memory token blacklist (jti -> expiry epoch ms).
-// For multi-instance deployments, replace with Redis SET with TTL.
-const tokenBlacklist = new Map<string, number>();
+// ─── Token blacklist ──────────────────────────────────────────────────────────
+// Uses Redis when REDIS_URL is set (required for multi-instance / restarts).
+// Falls back to an in-memory Map for single-instance / development.
 
-// Evict expired entries periodically to prevent unbounded memory growth.
-setInterval(() => {
-  const now = Date.now();
-  Array.from(tokenBlacklist.entries()).forEach(([jti, exp]) => {
-    if (now > exp) tokenBlacklist.delete(jti);
+let redis: IORedis | null = null;
+if (process.env.REDIS_URL) {
+  redis = new IORedis(process.env.REDIS_URL, { lazyConnect: true, enableReadyCheck: false });
+  redis.connect().catch((err: Error) => {
+    console.error('Redis connection failed — using in-memory token blacklist:', err.message);
+    redis = null;
   });
-}, 60 * 60 * 1000); // every hour
-
-export function blacklistToken(jti: string): void {
-  tokenBlacklist.set(jti, Date.now() + JWT_EXPIRES_MS);
 }
 
-function isTokenBlacklisted(jti: string): boolean {
-  const exp = tokenBlacklist.get(jti);
-  if (exp === undefined) return false;
-  if (Date.now() > exp) {
-    tokenBlacklist.delete(jti);
-    return false;
+const memBlacklist = new Map<string, number>();
+
+setInterval(() => {
+  const now = Date.now();
+  Array.from(memBlacklist.entries()).forEach(([jti, exp]) => {
+    if (now > exp) memBlacklist.delete(jti);
+  });
+}, 60 * 60 * 1000);
+
+export function blacklistToken(jti: string): void {
+  if (redis) {
+    const ttlSeconds = Math.ceil(JWT_EXPIRES_MS / 1000);
+    redis.set(`bl:${jti}`, '1', 'EX', ttlSeconds).catch(() => {
+      memBlacklist.set(jti, Date.now() + JWT_EXPIRES_MS);
+    });
+    return;
   }
+  memBlacklist.set(jti, Date.now() + JWT_EXPIRES_MS);
+}
+
+async function isTokenBlacklisted(jti: string): Promise<boolean> {
+  if (redis) {
+    try {
+      return (await redis.exists(`bl:${jti}`)) > 0;
+    } catch {
+      // Redis unavailable — fall through to in-memory check
+    }
+  }
+  const exp = memBlacklist.get(jti);
+  if (exp === undefined) return false;
+  if (Date.now() > exp) { memBlacklist.delete(jti); return false; }
   return true;
 }
 
@@ -87,7 +109,7 @@ export async function authenticateToken(req: AuthenticatedRequest, res: Response
 
     const payload = verifyToken(token);
 
-    if (isTokenBlacklisted(payload.jti)) {
+    if (await isTokenBlacklisted(payload.jti)) {
       return res.status(401).json({ error: 'Token revogado. Faça login novamente.' });
     }
 

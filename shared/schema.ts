@@ -92,6 +92,7 @@ export const enrollments = pgTable("enrollments", {
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"),
   active: boolean("active").default(true),
+  updatedBy: uuid("updated_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
 }, (t) => ({
@@ -126,6 +127,7 @@ export const payments = pgTable("payments", {
   paidDate: timestamp("paid_date"),
   status: text("status").notNull().default('pending'), // pending, paid, overdue
   notes: text("notes"),
+  updatedBy: uuid("updated_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
 }, (t) => ({

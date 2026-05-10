@@ -115,6 +115,7 @@ router.patch('/:id',
       const updated = await storage.updatePayment(req.params.id, {
         ...updateData,
         paidDate: updateData.paidDate ? new Date(updateData.paidDate) : undefined,
+        updatedBy: req.user!.id,
       });
 
       res.json(updated);
