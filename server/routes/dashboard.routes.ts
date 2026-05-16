@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, gte, count, sum } from "drizzle-orm";
+import { eq, and, gte, count, sum, sql } from "drizzle-orm";
 import { db } from "../db";
 import { users, payments, attendance, classes } from "@shared/schema";
 import { storage } from "../storage";
@@ -128,6 +128,82 @@ router.get('/stats',
       });
     } catch (error) {
       console.error('Dashboard stats error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// GET /api/dashboard/charts
+router.get('/charts',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório' });
+
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+      sixMonthsAgo.setDate(1);
+      sixMonthsAgo.setHours(0, 0, 0, 0);
+
+      const [growthRows, revenueRows, beltRows] = await Promise.all([
+        // Novos alunos por mês (últimos 6 meses)
+        db.execute(sql`
+          SELECT
+            TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
+            COUNT(*)::int AS count
+          FROM users
+          WHERE academy_id = ${academyId}::uuid
+            AND role = 'ALUNO'
+            AND created_at >= ${sixMonthsAgo}::timestamp
+          GROUP BY DATE_TRUNC('month', created_at)
+          ORDER BY DATE_TRUNC('month', created_at)
+        `),
+
+        // Receita por mês (últimos 6 meses)
+        db.execute(sql`
+          SELECT
+            TO_CHAR(DATE_TRUNC('month', paid_date), 'YYYY-MM') AS month,
+            COALESCE(SUM(amount), 0)::bigint AS total
+          FROM payments
+          WHERE academy_id = ${academyId}::uuid
+            AND status = 'paid'
+            AND paid_date >= ${sixMonthsAgo}::timestamp
+          GROUP BY DATE_TRUNC('month', paid_date)
+          ORDER BY DATE_TRUNC('month', paid_date)
+        `),
+
+        // Distribuição de faixas (alunos ativos)
+        db.execute(sql`
+          SELECT belt, COUNT(*)::int AS count
+          FROM users
+          WHERE academy_id = ${academyId}::uuid
+            AND role = 'ALUNO'
+            AND active = true
+            AND belt IS NOT NULL
+            AND belt <> ''
+          GROUP BY belt
+          ORDER BY count DESC
+        `),
+      ]);
+
+      res.json({
+        studentGrowth: growthRows.rows.map(r => ({
+          month: r.month as string,
+          count: Number(r.count),
+        })),
+        monthlyRevenue: revenueRows.rows.map(r => ({
+          month: r.month as string,
+          total: Number(r.total),
+        })),
+        beltDistribution: beltRows.rows.map(r => ({
+          belt: r.belt as string,
+          count: Number(r.count),
+        })),
+      });
+    } catch (error) {
+      console.error('Dashboard charts error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }

@@ -1,5 +1,6 @@
 import { DashboardInfo } from "@/components/DashboardInfo";
 import { DashboardStats } from "@/components/DashboardStats";
+import { DashboardCharts } from "@/components/DashboardCharts";
 import { StudentManagement } from "@/components/StudentManagement";
 import { ClassManagement } from "@/components/ClassManagement";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +20,12 @@ export default function Dashboard() {
       
       {/* Stats Overview */}
       <DashboardStats />
+
+      {/* Charts */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Tendências</h2>
+        <DashboardCharts />
+      </div>
 
       {/* Management Tabs */}
       <Tabs defaultValue="students" className="space-y-6">
