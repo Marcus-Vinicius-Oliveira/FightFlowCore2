@@ -43,6 +43,8 @@ export interface User {
   email: string;
   role: string;
   phone?: string;
+  belt?: string;
+  dateOfBirth?: string;
   active?: boolean;
   firstAccess?: boolean;
   createdAt?: string;
@@ -210,10 +212,16 @@ class ApiClient {
   }
 
   async changePassword(passwordData: ChangePasswordRequest): Promise<{ message: string }> {
-    return this.request<{ message: string }>('/auth/change-password', {
+    const response = await this.request<{ message: string; token?: string }>('/auth/change-password', {
       method: 'POST',
       body: JSON.stringify(passwordData),
     });
+    // Server rotates the token on password change — update localStorage so the
+    // next request uses the fresh token instead of the revoked one.
+    if (response.token) {
+      localStorage.setItem('auth_token', response.token);
+    }
+    return response;
   }
 
   // Students

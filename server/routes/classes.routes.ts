@@ -49,6 +49,41 @@ router.post('/class-types',
   }
 );
 
+// PATCH /api/class-types/:id — update or deactivate
+router.patch('/class-types/:id',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA']),
+  requireSameAcademy,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const updateSchema = z.object({
+        name: z.string().min(1).optional(),
+        description: z.string().optional(),
+        duration: z.number().int().positive().optional(),
+        maxCapacity: z.number().int().positive().optional(),
+        active: z.boolean().optional(),
+      });
+
+      const updateData = updateSchema.parse(req.body);
+
+      const existing = await storage.getClassType(req.params.id);
+      if (!existing || existing.academyId !== req.user!.academyId) {
+        return res.status(404).json({ error: 'Tipo de aula não encontrado' });
+      }
+
+      const updated = await storage.updateClassType(req.params.id, updateData);
+      if (!updated) return res.status(404).json({ error: 'Tipo de aula não encontrado' });
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Erro de validação', details: error.errors });
+      }
+      console.error('Update class type error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
 // GET /api/classes
 router.get('/',
   authenticateToken,
@@ -93,6 +128,49 @@ router.post('/',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Create class error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// GET /api/classes/schedule/weekly — must be before /:id to avoid shadowing
+router.get('/schedule/weekly',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+  requireSameAcademy,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório' });
+
+      const allClasses = await storage.getClassesByAcademy(academyId);
+      const filteredClasses = req.user!.role === 'PROFESSOR'
+        ? allClasses.filter(c => c.instructorId === req.user!.id)
+        : allClasses;
+
+      const weeklySchedule: Record<string, unknown[]> = {
+        "0": [], "1": [], "2": [], "3": [], "4": [], "5": [], "6": [],
+      };
+
+      filteredClasses.forEach(cls => {
+        const day = cls.dayOfWeek.toString();
+        weeklySchedule[day].push({
+          id: cls.id,
+          classType: cls.classType?.name,
+          instructor: cls.instructor?.name,
+          startTime: cls.startTime,
+          endTime: cls.endTime,
+          active: cls.active,
+        });
+      });
+
+      Object.keys(weeklySchedule).forEach(day => {
+        (weeklySchedule[day] as any[]).sort((a, b) => a.startTime.localeCompare(b.startTime));
+      });
+
+      res.json(weeklySchedule);
+    } catch (error) {
+      console.error('Get weekly schedule error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -164,49 +242,6 @@ router.delete('/:id',
       res.json({ message: 'Turma desativada com sucesso' });
     } catch (error) {
       console.error('Delete class error:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  }
-);
-
-// GET /api/classes/schedule/weekly
-router.get('/schedule/weekly',
-  authenticateToken,
-  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
-  requireSameAcademy,
-  async (req: AuthenticatedRequest, res) => {
-    try {
-      const academyId = req.user!.academyId;
-      if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório' });
-
-      const allClasses = await storage.getClassesByAcademy(academyId);
-      const filteredClasses = req.user!.role === 'PROFESSOR'
-        ? allClasses.filter(c => c.instructorId === req.user!.id)
-        : allClasses;
-
-      const weeklySchedule: Record<string, unknown[]> = {
-        "0": [], "1": [], "2": [], "3": [], "4": [], "5": [], "6": [],
-      };
-
-      filteredClasses.forEach(cls => {
-        const day = cls.dayOfWeek.toString();
-        weeklySchedule[day].push({
-          id: cls.id,
-          classType: cls.classType?.name,
-          instructor: cls.instructor?.name,
-          startTime: cls.startTime,
-          endTime: cls.endTime,
-          active: cls.active,
-        });
-      });
-
-      Object.keys(weeklySchedule).forEach(day => {
-        (weeklySchedule[day] as any[]).sort((a, b) => a.startTime.localeCompare(b.startTime));
-      });
-
-      res.json(weeklySchedule);
-    } catch (error) {
-      console.error('Get weekly schedule error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }

@@ -71,12 +71,15 @@ export interface IStorage {
 
   // Membership plan operations
   getMembershipPlansByAcademy(academyId: string): Promise<MembershipPlan[]>;
+  getMembershipPlan(id: string): Promise<MembershipPlan | undefined>;
   createMembershipPlan(plan: InsertMembershipPlan): Promise<MembershipPlan>;
+  updateMembershipPlan(id: string, updates: Partial<InsertMembershipPlan>): Promise<MembershipPlan | undefined>;
 
   // Class type operations
   getClassTypesByAcademy(academyId: string): Promise<ClassType[]>;
   getClassType(id: string): Promise<ClassType | undefined>;
   createClassType(classType: InsertClassType): Promise<ClassType>;
+  updateClassType(id: string, updates: Partial<InsertClassType>): Promise<ClassType | undefined>;
 
   // Class operations
   getClassesByAcademy(academyId: string): Promise<ClassWithRefs[]>;
@@ -104,6 +107,14 @@ export interface IStorage {
   getPayment(id: string): Promise<Payment | undefined>;
   createPayment(payment: InsertPayment): Promise<Payment>;
   updatePayment(id: string, updates: Partial<InsertPayment>): Promise<Payment | undefined>;
+
+  // User lookup helpers
+  getUserByEmailAndAcademy(email: string, academyId: string): Promise<User | undefined>;
+  createAcademyWithAdmin(
+    academyData: InsertAcademy,
+    userData: Omit<InsertUser, 'academyId'>,
+    freePlanoId?: string,
+  ): Promise<{ academy: Academy; user: User; assinatura?: Assinatura }>;
 
   // Super Admin operations
   getAllAcademies(): Promise<Academy[]>;
@@ -252,8 +263,18 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(membershipPlans.academyId, academyId), eq(membershipPlans.active, true)));
   }
 
+  async getMembershipPlan(id: string): Promise<MembershipPlan | undefined> {
+    const [plan] = await db.select().from(membershipPlans).where(eq(membershipPlans.id, id));
+    return plan;
+  }
+
   async createMembershipPlan(insertPlan: InsertMembershipPlan): Promise<MembershipPlan> {
     const [plan] = await db.insert(membershipPlans).values(insertPlan).returning();
+    return plan;
+  }
+
+  async updateMembershipPlan(id: string, updates: Partial<InsertMembershipPlan>): Promise<MembershipPlan | undefined> {
+    const [plan] = await db.update(membershipPlans).set(updates).where(eq(membershipPlans.id, id)).returning();
     return plan;
   }
 
@@ -271,6 +292,11 @@ export class DatabaseStorage implements IStorage {
 
   async createClassType(insertClassType: InsertClassType): Promise<ClassType> {
     const [ct] = await db.insert(classTypes).values(insertClassType).returning();
+    return ct;
+  }
+
+  async updateClassType(id: string, updates: Partial<InsertClassType>): Promise<ClassType | undefined> {
+    const [ct] = await db.update(classTypes).set(updates).where(eq(classTypes.id, id)).returning();
     return ct;
   }
 
@@ -403,6 +429,35 @@ export class DatabaseStorage implements IStorage {
   async updatePayment(id: string, updates: Partial<InsertPayment>): Promise<Payment | undefined> {
     const [payment] = await db.update(payments).set(updates).where(eq(payments.id, id)).returning();
     return payment;
+  }
+
+  async getUserByEmailAndAcademy(email: string, academyId: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.email, email), eq(users.academyId, academyId)));
+    return user;
+  }
+
+  async createAcademyWithAdmin(
+    academyData: InsertAcademy,
+    userData: Omit<InsertUser, 'academyId'>,
+    freePlanoId?: string,
+  ): Promise<{ academy: Academy; user: User; assinatura?: Assinatura }> {
+    return db.transaction(async (tx) => {
+      const [academy] = await tx.insert(academies).values(academyData).returning();
+      const [user] = await tx.insert(users).values({ ...userData, academyId: academy.id }).returning();
+
+      let assinatura: Assinatura | undefined;
+      if (freePlanoId) {
+        [assinatura] = await tx
+          .insert(assinaturas)
+          .values({ academiaId: academy.id, planoId: freePlanoId, dataInicio: new Date(), status: 'teste' })
+          .returning();
+      }
+
+      return { academy, user, assinatura };
+    });
   }
 
   async getAllAcademies(): Promise<Academy[]> {

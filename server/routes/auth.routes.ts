@@ -9,7 +9,7 @@ import {
   blacklistToken,
   type AuthenticatedRequest,
 } from "../auth";
-import { loginLimiter } from "../middleware";
+import { loginLimiter, signupLimiter } from "../middleware";
 
 const router = Router();
 
@@ -23,17 +23,16 @@ router.post('/login', loginLimiter, async (req, res) => {
     }
 
     const user = await storage.getUserByEmail(email);
-    if (!user) {
+
+    // Check existence and active status before the costly bcrypt call.
+    // Return the same generic message to prevent user enumeration.
+    if (!user || !user.active) {
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 
     const isValidPassword = await comparePassword(password, user.password);
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Credenciais inválidas' });
-    }
-
-    if (!user.active) {
-      return res.status(401).json({ error: 'Conta desativada' });
     }
 
     const token = generateToken({
@@ -64,72 +63,52 @@ router.post('/login', loginLimiter, async (req, res) => {
 });
 
 // POST /api/auth/signup
-router.post('/signup', async (req, res) => {
+router.post('/signup', signupLimiter, async (req, res) => {
   try {
     const signupSchema = z.object({
       name: z.string().min(1, 'Nome é obrigatório'),
       email: z.string().email('Email inválido'),
       password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
       role: z.enum(['ADMIN_ACADEMIA', 'PROFESSOR', 'ALUNO']),
-      academyName: z.string().optional(),
+      academyName: z.string().min(1, 'Nome da academia é obrigatório'),
     });
 
     const validatedData = signupSchema.parse(req.body);
 
+    // Optimistic pre-checks — unique constraints at DB level are the real guard.
     const existingUser = await storage.getUserByEmail(validatedData.email);
     if (existingUser) {
       return res.status(409).json({ error: 'Já existe um usuário com este email' });
     }
 
-    let academyId: string;
+    const academySlug = validatedData.academyName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
 
-    if (validatedData.academyName) {
-      const academySlug = validatedData.academyName
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
-
-      const existingAcademy = await storage.getAcademyBySlug(academySlug);
-
-      if (existingAcademy) {
-        if (validatedData.role === 'ADMIN_ACADEMIA') {
-          return res.status(409).json({ error: 'Nome de academia já em uso' });
-        }
-        return res.status(400).json({ error: 'Cadastro de academia não permitido. Contate o administrador.' });
-      }
-
-      const newAcademy = await storage.createAcademy({
-        name: validatedData.academyName,
-        slug: academySlug,
-        email: validatedData.email,
-      });
-      academyId = newAcademy.id;
-    } else {
-      return res.status(400).json({ error: 'Nome da academia é obrigatório' });
+    const existingAcademy = await storage.getAcademyBySlug(academySlug);
+    if (existingAcademy) {
+      return res.status(409).json({ error: 'Nome de academia já em uso' });
     }
+
+    // Resolve free trial plan before opening the transaction.
+    const allPlanos = await storage.getAllPlanos();
+    const freePlano = allPlanos.find(p => p.ativo && p.precoMensal === 0);
 
     const hashedPassword = await hashPassword(validatedData.password);
 
-    const newUser = await storage.createUser({
-      name: validatedData.name,
-      email: validatedData.email,
-      password: hashedPassword,
-      role: validatedData.role,
-      academyId,
-    });
-
-    // Auto-enroll new academy in free trial platform plan if one exists
-    const allPlanos = await storage.getAllPlanos();
-    const freePlano = allPlanos.find(p => p.ativo && p.precoMensal === 0);
-    if (freePlano) {
-      await storage.createAssinatura({
-        academiaId: academyId,
-        planoId: freePlano.id,
-        dataInicio: new Date(),
-        status: 'teste',
-      });
-    }
+    // Single transaction: academy + user + optional trial subscription.
+    const { academy, user: newUser } = await storage.createAcademyWithAdmin(
+      { name: validatedData.academyName, slug: academySlug, email: validatedData.email },
+      {
+        name: validatedData.name,
+        email: validatedData.email,
+        password: hashedPassword,
+        role: validatedData.role,
+      },
+      freePlano?.id,
+    );
 
     const token = generateToken({
       userId: newUser.id,
@@ -139,8 +118,6 @@ router.post('/signup', async (req, res) => {
       name: newUser.name,
     });
 
-    const academy = await storage.getAcademy(academyId);
-
     res.status(201).json({
       token,
       user: {
@@ -149,7 +126,7 @@ router.post('/signup', async (req, res) => {
         email: newUser.email,
         role: newUser.role,
         firstAccess: newUser.firstAccess,
-        academy: academy ? { id: academy.id, name: academy.name, slug: academy.slug } : null,
+        academy: { id: academy.id, name: academy.name, slug: academy.slug },
       },
     });
   } catch (error) {
@@ -185,7 +162,18 @@ router.post('/change-password', authenticateToken, async (req: AuthenticatedRequ
     const hashedNewPassword = await hashPassword(newPassword);
     await storage.updateUser(user.id, { password: hashedNewPassword, firstAccess: false });
 
-    res.json({ message: 'Senha alterada com sucesso' });
+    // Revoke the current session token and issue a fresh one.
+    if (req.tokenJti) blacklistToken(req.tokenJti);
+
+    const newToken = generateToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      academyId: user.academyId,
+      name: user.name,
+    });
+
+    res.json({ message: 'Senha alterada com sucesso', token: newToken });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Erro de validação', details: error.errors });
@@ -217,6 +205,10 @@ router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
       email: user.email,
       role: user.role,
       phone: user.phone,
+      belt: user.belt,
+      dateOfBirth: user.dateOfBirth,
+      firstAccess: user.firstAccess,
+      active: user.active,
       academy: academy ? { id: academy.id, name: academy.name, slug: academy.slug } : null,
     });
   } catch (error) {

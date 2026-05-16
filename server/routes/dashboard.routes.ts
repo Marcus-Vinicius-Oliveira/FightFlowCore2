@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { storage } from "../storage";
-import { authenticateToken, type AuthenticatedRequest } from "../auth";
+import { authenticateToken, requireRole, type AuthenticatedRequest } from "../auth";
 
 const router = Router();
 
 // GET /api/dashboard/info
 router.get('/info',
   authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
   async (req: AuthenticatedRequest, res) => {
     try {
       const academyId = req.user!.academyId;

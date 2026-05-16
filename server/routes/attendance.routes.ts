@@ -85,7 +85,7 @@ router.post('/',
 
       const attendanceSchema = z.object({
         studentId: z.string().uuid(),
-        date: z.string(),
+        date: z.coerce.date(),
         status: z.enum(['presente', 'falta', 'justificado']),
         notes: z.string().optional(),
       });
@@ -102,7 +102,7 @@ router.post('/',
         return res.status(400).json({ error: 'Aluno não está matriculado nesta turma' });
       }
 
-      const dateObj = new Date(attendanceData.date);
+      const dateObj = attendanceData.date;
       const existing = await storage.getAttendanceByStudentClassAndDate(attendanceData.studentId, classId, dateObj);
 
       let record;

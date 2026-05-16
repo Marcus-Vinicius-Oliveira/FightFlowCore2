@@ -9,6 +9,7 @@ import {
   requireSameAcademy,
   type AuthenticatedRequest,
 } from "../auth";
+import type { User } from "@shared/schema";
 
 const router = Router();
 
@@ -19,7 +20,7 @@ function generateRandomPassword(): string {
     .join('');
 }
 
-export function sanitizeUser(user: Record<string, unknown>) {
+export function sanitizeUser(user: User) {
   const { password: _p, ...safe } = user;
   return safe;
 }
@@ -70,7 +71,7 @@ router.get('/:id',
       if (!student || student.academyId !== req.user!.academyId || student.role !== 'ALUNO') {
         return res.status(404).json({ error: 'Aluno não encontrado' });
       }
-      const { password: _p, ...safe } = student as any;
+      const { password: _p, ...safe } = student;
       res.json(safe);
     } catch (error) {
       console.error('Get student error:', error);
@@ -117,7 +118,7 @@ router.post('/',
         return res.status(403).json({ error: result.limitError });
       }
 
-      res.status(201).json(sanitizeUser(result.user as any));
+      res.status(201).json(sanitizeUser(result.user));
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
@@ -163,7 +164,7 @@ router.patch('/:id',
       });
 
       if (!updated) return res.status(404).json({ error: 'Aluno não encontrado' });
-      res.json(sanitizeUser(updated as any));
+      res.json(sanitizeUser(updated));
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });

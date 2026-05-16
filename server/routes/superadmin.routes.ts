@@ -62,18 +62,21 @@ router.get('/academias/:id',
       const academy = await storage.getAcademy(req.params.id);
       if (!academy) return res.status(404).json({ error: 'Academia não encontrada' });
 
-      const [assinaturasList, usersList] = await Promise.all([
+      const [assinaturasList, totalUsers, students, professors, admins] = await Promise.all([
         storage.getAssinaturasByAcademia(academy.id),
-        storage.getUsersByAcademy(academy.id),
+        storage.countUsersByAcademy(academy.id),
+        storage.countUsersByAcademy(academy.id, 'ALUNO'),
+        storage.countUsersByAcademy(academy.id, 'PROFESSOR'),
+        storage.countUsersByAcademy(academy.id, 'ADMIN_ACADEMIA'),
       ]);
 
       res.json({
         ...academy,
         assinaturas: assinaturasList,
-        totalUsers: usersList.length,
-        students: usersList.filter(u => u.role === 'ALUNO').length,
-        professors: usersList.filter(u => u.role === 'PROFESSOR').length,
-        admins: usersList.filter(u => u.role === 'ADMIN_ACADEMIA').length,
+        totalUsers,
+        students,
+        professors,
+        admins,
       });
     } catch (error) {
       console.error('Get academy error:', error);

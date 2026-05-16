@@ -9,8 +9,8 @@ import {
 
 const router = Router();
 
-// GET /api/users — search users within the academy (single optimized query)
-router.get('/',
+// GET /api/users — search users within the academy
+router.get('/users',
   authenticateToken,
   requireRole(['ADMIN_ACADEMIA']),
   requireSameAcademy,
@@ -21,11 +21,20 @@ router.get('/',
 
       const { email, role } = req.query;
 
-      // Single query for all roles instead of 3 separate round trips
-      let allUsers = await storage.getUsersByAcademyAndRoles(academyId, ['ALUNO', 'PROFESSOR', 'ADMIN_ACADEMIA']);
-
-      if (email) allUsers = allUsers.filter(u => u.email === email);
-      if (role) allUsers = allUsers.filter(u => u.role === role);
+      let allUsers;
+      if (typeof email === 'string' && email) {
+        // Single user lookup by email — DB-level exact match
+        const found = await storage.getUserByEmailAndAcademy(email, academyId);
+        allUsers = found ? [found] : [];
+        if (typeof role === 'string' && role) {
+          allUsers = allUsers.filter(u => u.role === role);
+        }
+      } else if (typeof role === 'string' && role) {
+        // DB-level role filter
+        allUsers = await storage.getUsersByAcademy(academyId, role);
+      } else {
+        allUsers = await storage.getUsersByAcademyAndRoles(academyId, ['ALUNO', 'PROFESSOR', 'ADMIN_ACADEMIA']);
+      }
 
       const sanitized = allUsers.map(u => ({
         id: u.id, name: u.name, email: u.email,

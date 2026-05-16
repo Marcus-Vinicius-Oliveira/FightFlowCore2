@@ -10,8 +10,8 @@ import {
 
 const router = Router();
 
-// GET /api/payments — list payments for the academy
-router.get('/',
+// GET /api/payments
+router.get('/payments',
   authenticateToken,
   requireRole(['ADMIN_ACADEMIA']),
   requireSameAcademy,
@@ -43,8 +43,27 @@ router.get('/',
   }
 );
 
-// POST /api/payments — create payment record
-router.post('/',
+// GET /api/payments/:id
+router.get('/payments/:id',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA']),
+  requireSameAcademy,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const payment = await storage.getPayment(req.params.id);
+      if (!payment || payment.academyId !== req.user!.academyId) {
+        return res.status(404).json({ error: 'Pagamento não encontrado' });
+      }
+      res.json(payment);
+    } catch (error) {
+      console.error('Get payment error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// POST /api/payments
+router.post('/payments',
   authenticateToken,
   requireRole(['ADMIN_ACADEMIA']),
   requireSameAcademy,
@@ -54,8 +73,8 @@ router.post('/',
         studentId: z.string().uuid(),
         membershipPlanId: z.string().uuid(),
         amount: z.number().int().positive('Valor deve ser positivo (em centavos)'),
-        dueDate: z.string(),
-        paidDate: z.string().optional(),
+        dueDate: z.coerce.date(),
+        paidDate: z.coerce.date().optional(),
         status: z.enum(['pending', 'paid', 'overdue']).default('pending'),
         notes: z.string().optional(),
       });
@@ -73,13 +92,7 @@ router.post('/',
         return res.status(400).json({ error: 'Plano de mensalidade não encontrado na sua academia' });
       }
 
-      const payment = await storage.createPayment({
-        ...data,
-        academyId,
-        dueDate: new Date(data.dueDate),
-        paidDate: data.paidDate ? new Date(data.paidDate) : undefined,
-      });
-
+      const payment = await storage.createPayment({ ...data, academyId });
       res.status(201).json(payment);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -91,8 +104,8 @@ router.post('/',
   }
 );
 
-// PATCH /api/payments/:id — update payment (mark as paid, etc.)
-router.patch('/:id',
+// PATCH /api/payments/:id
+router.patch('/payments/:id',
   authenticateToken,
   requireRole(['ADMIN_ACADEMIA']),
   requireSameAcademy,
@@ -100,7 +113,7 @@ router.patch('/:id',
     try {
       const updateSchema = z.object({
         status: z.enum(['pending', 'paid', 'overdue']).optional(),
-        paidDate: z.string().optional(),
+        paidDate: z.coerce.date().optional(),
         notes: z.string().optional(),
         amount: z.number().int().positive().optional(),
       });
@@ -114,7 +127,6 @@ router.patch('/:id',
 
       const updated = await storage.updatePayment(req.params.id, {
         ...updateData,
-        paidDate: updateData.paidDate ? new Date(updateData.paidDate) : undefined,
         updatedBy: req.user!.id,
       });
 
@@ -172,6 +184,42 @@ router.post('/membership-plans',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Create membership plan error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// PATCH /api/membership-plans/:id — update or deactivate
+router.patch('/membership-plans/:id',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA']),
+  requireSameAcademy,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const updateSchema = z.object({
+        name: z.string().min(1).optional(),
+        description: z.string().optional(),
+        price: z.number().int().nonnegative().optional(),
+        duration: z.number().int().positive().optional(),
+        classesPerWeek: z.number().int().positive().optional(),
+        active: z.boolean().optional(),
+      });
+
+      const updateData = updateSchema.parse(req.body);
+
+      const existing = await storage.getMembershipPlan(req.params.id);
+      if (!existing || existing.academyId !== req.user!.academyId) {
+        return res.status(404).json({ error: 'Plano não encontrado' });
+      }
+
+      const updated = await storage.updateMembershipPlan(req.params.id, updateData);
+      if (!updated) return res.status(404).json({ error: 'Plano não encontrado' });
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Erro de validação', details: error.errors });
+      }
+      console.error('Update membership plan error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
