@@ -9,6 +9,7 @@ import {
   payments,
   planos,
   assinaturas,
+  beltHistory,
   userRoleEnum,
   type User,
   type Academy,
@@ -20,6 +21,7 @@ import {
   type Payment,
   type Plano,
   type Assinatura,
+  type BeltHistory,
   type ClassWithRefs,
   type EnrollmentWithRefs,
   type InsertUser,
@@ -32,6 +34,7 @@ import {
   type InsertPayment,
   type InsertPlano,
   type InsertAssinatura,
+  type InsertBeltHistory,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, inArray, gte, lt, count } from "drizzle-orm";
@@ -115,6 +118,10 @@ export interface IStorage {
     userData: Omit<InsertUser, 'academyId'>,
     freePlanoId?: string,
   ): Promise<{ academy: Academy; user: User; assinatura?: Assinatura }>;
+
+  // Belt history operations
+  getBeltHistory(studentId: string): Promise<BeltHistory[]>;
+  createBeltHistoryEntry(data: InsertBeltHistory): Promise<BeltHistory>;
 
   // Super Admin operations
   getAllAcademies(): Promise<Academy[]>;
@@ -499,6 +506,17 @@ export class DatabaseStorage implements IStorage {
   async updateAssinatura(id: string, updates: Partial<InsertAssinatura>): Promise<Assinatura | undefined> {
     const [assinatura] = await db.update(assinaturas).set(updates).where(eq(assinaturas.id, id)).returning();
     return assinatura;
+  }
+
+  async getBeltHistory(studentId: string): Promise<BeltHistory[]> {
+    return db.select().from(beltHistory)
+      .where(eq(beltHistory.studentId, studentId))
+      .orderBy(desc(beltHistory.promotedAt));
+  }
+
+  async createBeltHistoryEntry(data: InsertBeltHistory): Promise<BeltHistory> {
+    const [entry] = await db.insert(beltHistory).values(data).returning();
+    return entry;
   }
 }
 

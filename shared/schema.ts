@@ -161,6 +161,21 @@ export const assinaturas = pgTable("assinaturas", {
   academiaIdIdx: index("assinaturas_academia_id_idx").on(t.academiaId),
 }));
 
+export const beltHistory = pgTable("belt_history", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: uuid("student_id").references(() => users.id).notNull(),
+  academyId: uuid("academy_id").references(() => academies.id).notNull(),
+  beltBefore: text("belt_before"),
+  beltAfter: text("belt_after").notNull(),
+  promotedBy: uuid("promoted_by").references(() => users.id).notNull(),
+  promotedAt: timestamp("promoted_at").notNull().defaultNow(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => ({
+  studentIdIdx: index("belt_history_student_id_idx").on(t.studentId),
+  academyIdIdx: index("belt_history_academy_id_idx").on(t.academyId),
+}));
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const academiesRelations = relations(academies, ({ many }) => ({
@@ -216,6 +231,12 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   membershipPlan: one(membershipPlans, { fields: [payments.membershipPlanId], references: [membershipPlans.id] }),
 }));
 
+export const beltHistoryRelations = relations(beltHistory, ({ one }) => ({
+  student: one(users, { fields: [beltHistory.studentId], references: [users.id] }),
+  academy: one(academies, { fields: [beltHistory.academyId], references: [academies.id] }),
+  promotedByUser: one(users, { fields: [beltHistory.promotedBy], references: [users.id], relationName: "promoter" }),
+}));
+
 export const planosRelations = relations(planos, ({ many }) => ({
   assinaturas: many(assinaturas),
 }));
@@ -237,6 +258,7 @@ export const insertAttendanceSchema = createInsertSchema(attendance).omit({ id: 
 export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertPlanoSchema = createInsertSchema(planos).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAssinaturaSchema = createInsertSchema(assinaturas).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertBeltHistorySchema = createInsertSchema(beltHistory).omit({ id: true, createdAt: true });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -250,6 +272,7 @@ export type Attendance = typeof attendance.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type Plano = typeof planos.$inferSelect;
 export type Assinatura = typeof assinaturas.$inferSelect;
+export type BeltHistory = typeof beltHistory.$inferSelect;
 
 export type ClassWithRefs = Class & {
   classType?: ClassType;
@@ -272,6 +295,7 @@ export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type InsertPlano = z.infer<typeof insertPlanoSchema>;
 export type InsertAssinatura = z.infer<typeof insertAssinaturaSchema>;
+export type InsertBeltHistory = z.infer<typeof insertBeltHistorySchema>;
 
 // Student creation schema used by admin panels
 export const studentCreateSchema = insertUserSchema

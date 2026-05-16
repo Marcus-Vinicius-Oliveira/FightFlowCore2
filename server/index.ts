@@ -4,12 +4,14 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { startOverduePaymentsJob } from "./jobs/markOverduePayments";
 
 const app = express();
 
-// Security headers
+// Security headers — CSP disabled in dev (Vite injects inline scripts for HMR)
 app.use(helmet({
-  crossOriginEmbedderPolicy: false, // required for Vite dev assets
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: process.env.NODE_ENV === 'production',
 }));
 
 // CORS — restrict to known frontend origin in production
@@ -54,6 +56,7 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
+  startOverduePaymentsJob();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -73,7 +76,7 @@ app.use((req, res, next) => {
   }
 
   const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({ port, host: '0.0.0.0', reusePort: true }, () => {
+  server.listen({ port, host: '0.0.0.0' }, () => {
     log(`serving on port ${port}`);
   });
 })();

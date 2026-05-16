@@ -228,4 +228,71 @@ router.delete('/:id/permanent',
   }
 );
 
+// GET /api/students/:id/belt-history
+router.get('/:id/belt-history',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academyId = req.user!.academyId;
+      const student = await storage.getUser(req.params.id);
+      if (!student || student.academyId !== academyId) {
+        return res.status(404).json({ error: 'Aluno não encontrado' });
+      }
+      const history = await storage.getBeltHistory(req.params.id);
+      res.json(history);
+    } catch (error) {
+      console.error('Get belt history error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// POST /api/students/:id/graduate
+const graduateSchema = z.object({
+  beltAfter: z.string().min(1, 'Nova faixa é obrigatória'),
+  notes: z.string().optional(),
+  promotedAt: z.string().optional(),
+});
+
+router.post('/:id/graduate',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório' });
+
+      const student = await storage.getUser(req.params.id);
+      if (!student || student.academyId !== academyId) {
+        return res.status(404).json({ error: 'Aluno não encontrado' });
+      }
+
+      const body = graduateSchema.parse(req.body);
+      const promotedAt = body.promotedAt ? new Date(body.promotedAt) : new Date();
+
+      const [entry] = await Promise.all([
+        storage.createBeltHistoryEntry({
+          studentId: student.id,
+          academyId,
+          beltBefore: student.belt ?? null,
+          beltAfter: body.beltAfter,
+          promotedBy: req.user!.id,
+          promotedAt,
+          notes: body.notes ?? null,
+        }),
+        storage.updateUser(student.id, { belt: body.beltAfter }),
+      ]);
+
+      res.status(201).json(entry);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Erro de validação', details: error.errors });
+      }
+      console.error('Graduate student error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
 export default router;

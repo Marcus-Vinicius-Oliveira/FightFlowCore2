@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Search, UserPlus, Edit, Trash2, Eye, AlertTriangle, Mail, UserX, UserCheck } from "lucide-react";
+import { MoreHorizontal, Search, UserPlus, Edit, Trash2, Eye, AlertTriangle, Mail, UserX, UserCheck, Award } from "lucide-react";
 import { type Student } from "@/lib/api";
 import { AddStudentDialog } from "@/components/AddStudentDialog";
+import { GraduationDialog } from "@/components/GraduationDialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { z } from "zod";
@@ -169,6 +170,7 @@ export function StudentManagement() {
   const [deleteStudent, setDeleteStudent] = useState<Student | undefined>();
   const [activateStudent, setActivateStudent] = useState<Student | undefined>();
   const [permanentDeleteStudent, setPermanentDeleteStudent] = useState<Student | undefined>();
+  const [graduateStudent, setGraduateStudent] = useState<Student | undefined>();
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -471,12 +473,19 @@ export function StudentManagement() {
                               <Eye className="mr-2 h-4 w-4" />
                               Ver Detalhes
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               onClick={() => handleEdit(student)}
                               data-testid={`button-edit-student-${student.id}`}
                             >
                               <Edit className="mr-2 h-4 w-4" />
                               Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setGraduateStudent(student)}
+                              data-testid={`button-graduate-student-${student.id}`}
+                            >
+                              <Award className="mr-2 h-4 w-4 text-yellow-500" />
+                              Registrar Graduação
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {student.active ? (
@@ -665,6 +674,12 @@ export function StudentManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <GraduationDialog
+        student={graduateStudent}
+        open={!!graduateStudent}
+        onOpenChange={(open) => !open && setGraduateStudent(undefined)}
+      />
     </Card>
   );
 }

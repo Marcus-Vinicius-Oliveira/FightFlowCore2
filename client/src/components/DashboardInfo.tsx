@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Building2, Users, Calendar, Shield, AlertTriangle, RefreshCw } from "lucide-react";
@@ -19,11 +19,6 @@ interface DashboardInfoData {
     totalClassTypes: number;
   };
   message: string;
-  multitenancyProof: {
-    requestorRole: string;
-    isolatedByAcademyId: string;
-    timestamp: string;
-  };
 }
 
 export function DashboardInfo() {
@@ -141,38 +136,6 @@ export function DashboardInfo() {
         </Card>
       </div>
 
-      {/* Multitenancy Proof */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm flex items-center space-x-2">
-            <Shield className="h-4 w-4" />
-            <span>Contexto de Segurança Multi-tenant</span>
-          </CardTitle>
-          <CardDescription>
-            Prova de que a arquitetura de segurança e isolamento de dados está funcionando
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Função do usuário:</span>
-              <Badge variant="outline">{data.multitenancyProof.requestorRole}</Badge>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Academia isolada por ID:</span>
-              <code className="text-xs bg-muted px-2 py-1 rounded">
-                {data.multitenancyProof.isolatedByAcademyId}
-              </code>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Timestamp da consulta:</span>
-              <span className="text-xs">
-                {new Date(data.multitenancyProof.timestamp).toLocaleString('pt-BR')}
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
