@@ -21,13 +21,14 @@ app.use(cors({
   credentials: true,
 }));
 
-// Global rate limiter — prevents general abuse
+// Global rate limiter — bypassed em dev para localhost
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500,
+  max: process.env.NODE_ENV === 'production' ? 500 : 0, // 0 = ilimitado
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Muitas requisições. Tente novamente em alguns minutos.' },
+  skip: () => process.env.NODE_ENV !== 'production',
 }));
 
 app.use(express.json());
