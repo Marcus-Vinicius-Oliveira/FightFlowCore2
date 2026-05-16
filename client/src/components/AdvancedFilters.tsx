@@ -3,12 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { CalendarIcon, Filter, X, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
+import { Filter, X, ArrowDown, ArrowUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { BeltBadge } from "@/components/BeltBadge";
+
+const BELT_OPTIONS = [
+  "branca", "cinza", "amarela", "laranja",
+  "verde", "azul", "roxa", "marrom", "preta", "coral", "vermelha",
+];
 
 export interface FilterOptions {
   status: "all" | "active" | "inactive";
+  belt: string;
   dateFrom: string;
   dateTo: string;
   sortBy: "name" | "date";
@@ -37,6 +44,7 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
   const clearAllFilters = () => {
     onFiltersChange({
       status: "all",
+      belt: "",
       dateFrom: "",
       dateTo: "",
       sortBy: "name",
@@ -44,16 +52,18 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
     });
   };
 
-  const hasActiveFilters = 
+  const hasActiveFilters =
     filters.status !== "all" ||
-    filters.dateFrom ||
-    filters.dateTo ||
+    !!filters.belt ||
+    !!filters.dateFrom ||
+    !!filters.dateTo ||
     filters.sortBy !== "name" ||
     filters.sortOrder !== "asc";
 
   const getActiveFiltersCount = () => {
     let count = 0;
     if (filters.status !== "all") count++;
+    if (filters.belt) count++;
     if (filters.dateFrom) count++;
     if (filters.dateTo) count++;
     if (filters.sortBy !== "name" || filters.sortOrder !== "asc") count++;
@@ -116,6 +126,33 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
                       <SelectItem value="all">Todos</SelectItem>
                       <SelectItem value="active">Apenas Ativos</SelectItem>
                       <SelectItem value="inactive">Apenas Inativos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Belt Filter */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Graduação / Faixa</Label>
+                  <Select
+                    value={filters.belt || "all"}
+                    onValueChange={(value) => handleFilterChange("belt", value === "all" ? "" : value)}
+                  >
+                    <SelectTrigger data-testid="select-belt-filter">
+                      <SelectValue>
+                        {filters.belt
+                          ? <BeltBadge belt={filters.belt} />
+                          : <span className="text-muted-foreground">Todas as faixas</span>}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        <span className="text-muted-foreground text-sm">Todas as faixas</span>
+                      </SelectItem>
+                      {BELT_OPTIONS.map(belt => (
+                        <SelectItem key={belt} value={belt}>
+                          <BeltBadge belt={belt} />
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -211,6 +248,19 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
                 </Button>
               </Badge>
             )}
+            {filters.belt && (
+              <Badge variant="secondary" className="gap-1 items-center">
+                <BeltBadge belt={filters.belt} />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 hover:bg-transparent ml-1"
+                  onClick={() => handleFilterChange("belt", "")}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </Badge>
+            )}
             {filters.dateFrom && (
               <Badge variant="secondary" className="gap-1">
                 De: {new Date(filters.dateFrom).toLocaleDateString('pt-BR')}
@@ -278,8 +328,15 @@ export function applyFilters<T extends { active: boolean; createdAt: string; nam
 
   // Apply status filter
   if (filters.status !== "all") {
-    filteredItems = filteredItems.filter(item => 
+    filteredItems = filteredItems.filter(item =>
       filters.status === "active" ? item.active : !item.active
+    );
+  }
+
+  // Apply belt filter (case-insensitive)
+  if (filters.belt) {
+    filteredItems = filteredItems.filter(item =>
+      (item as any).belt?.toLowerCase() === filters.belt.toLowerCase()
     );
   }
 

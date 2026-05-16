@@ -7,19 +7,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Edit, Mail, Phone, Calendar, MoreHorizontal, Trash2, Eye, UserX, UserCheck } from "lucide-react";
+import { Plus, Search, Edit, Mail, Phone, Calendar, MoreHorizontal, Trash2, Eye, UserX, UserCheck, Award } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
 import { AdvancedFilters, FilterOptions, applyFilters } from "@/components/AdvancedFilters";
 import { AddStudentDialog } from "@/components/AddStudentDialog";
+import { BeltBadge } from "@/components/BeltBadge";
+import { GraduationDialog } from "@/components/GraduationDialog";
 
 interface Student {
   id: string;
   name: string;
   email: string;
+  role: string;
   phone?: string;
   dateOfBirth?: string;
   belt?: string;
@@ -222,9 +225,11 @@ export default function StudentManagement() {
   const [viewStudent, setViewStudent] = useState<Student | undefined>();
   const [activateStudent, setActivateStudent] = useState<Student | undefined>();
   const [permanentDeleteStudent, setPermanentDeleteStudent] = useState<Student | undefined>();
+  const [graduateStudent, setGraduateStudent] = useState<Student | undefined>();
   
   const [filters, setFilters] = useState<FilterOptions>({
     status: "all",
+    belt: "",
     dateFrom: "",
     dateTo: "",
     sortBy: "name",
@@ -515,14 +520,12 @@ export default function StudentManagement() {
                 </div>
               )}
 
-              {viewStudent?.belt && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Graduação</Label>
-                  <div className="p-2 bg-muted rounded-md text-sm">
-                    <Badge variant="secondary">{viewStudent.belt}</Badge>
-                  </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Graduação</Label>
+                <div className="p-2 bg-muted rounded-md text-sm">
+                  <BeltBadge belt={viewStudent?.belt} />
                 </div>
-              )}
+              </div>
 
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Status</Label>
@@ -621,11 +624,7 @@ export default function StudentManagement() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {student.belt ? (
-                        <Badge variant="secondary">{student.belt}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
+                      <BeltBadge belt={student.belt} />
                     </TableCell>
                     <TableCell>
                       <Badge variant={student.active ? "default" : "secondary"}>
@@ -661,7 +660,7 @@ export default function StudentManagement() {
                             <Eye className="h-4 w-4 mr-2" />
                             Ver Detalhes
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
@@ -672,7 +671,18 @@ export default function StudentManagement() {
                             <Edit className="h-4 w-4 mr-2" />
                             Editar
                           </DropdownMenuItem>
-                          
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setGraduateStudent(student);
+                            }}
+                            data-testid={`button-graduate-student-${student.id}`}
+                          >
+                            <Award className="h-4 w-4 mr-2 text-yellow-500" />
+                            Registrar Graduação
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           {student.active ? (
                             <DropdownMenuItem 
                               onClick={(e) => {
@@ -723,6 +733,12 @@ export default function StudentManagement() {
           )}
         </CardContent>
       </Card>
+
+      <GraduationDialog
+        student={graduateStudent}
+        open={!!graduateStudent}
+        onOpenChange={(open) => !open && setGraduateStudent(undefined)}
+      />
     </div>
   );
 }

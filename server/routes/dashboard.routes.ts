@@ -174,16 +174,16 @@ router.get('/charts',
           ORDER BY DATE_TRUNC('month', paid_date)
         `),
 
-        // Distribuição de faixas (alunos ativos)
+        // Distribuição de faixas (alunos ativos) — normalizado para minúsculas
         db.execute(sql`
-          SELECT belt, COUNT(*)::int AS count
+          SELECT LOWER(belt) AS belt, COUNT(*)::int AS count
           FROM users
           WHERE academy_id = ${academyId}::uuid
             AND role = 'ALUNO'
             AND active = true
             AND belt IS NOT NULL
             AND belt <> ''
-          GROUP BY belt
+          GROUP BY LOWER(belt)
           ORDER BY count DESC
         `),
       ]);

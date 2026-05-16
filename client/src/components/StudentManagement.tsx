@@ -13,6 +13,7 @@ import { MoreHorizontal, Search, UserPlus, Edit, Trash2, Eye, AlertTriangle, Mai
 import { type Student } from "@/lib/api";
 import { AddStudentDialog } from "@/components/AddStudentDialog";
 import { GraduationDialog } from "@/components/GraduationDialog";
+import { BeltBadge } from "@/components/BeltBadge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { z } from "zod";
@@ -205,6 +206,7 @@ export function StudentManagement() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/charts'] });
       toast({
         title: "Aluno desativado com sucesso!",
         description: `${data.studentName} foi desativado da academia.`,
@@ -230,6 +232,7 @@ export function StudentManagement() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/charts'] });
       toast({
         title: "Aluno ativado com sucesso!",
         description: `${data.studentName} foi reativado na academia.`,
@@ -255,6 +258,7 @@ export function StudentManagement() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/charts'] });
       toast({
         title: "Aluno excluído permanentemente!",
         description: `${data.studentName} foi removido definitivamente do sistema.`,
@@ -288,6 +292,7 @@ export function StudentManagement() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/charts'] });
       toast({
         title: "Aluno atualizado com sucesso!",
         description: `Dados de ${data.studentName} foram atualizados.`,
