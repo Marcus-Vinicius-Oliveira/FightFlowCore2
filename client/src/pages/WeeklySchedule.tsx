@@ -168,9 +168,9 @@ export default function WeeklySchedule() {
   const [currentWeek, setCurrentWeek] = useState(0); // 0 = semana atual
   const { user } = useAuth();
 
-  const { data: schedule = {}, isLoading, error } = useQuery({
+  const { data: schedule = {}, isLoading, error } = useQuery<WeeklyScheduleData>({
     queryKey: ['/api/classes/schedule/weekly'],
-    queryFn: () => apiRequest('GET', '/api/classes/schedule/weekly')
+    queryFn: () => apiRequest('GET', '/api/classes/schedule/weekly').then(res => res.json())
   });
 
   const handleAttendance = (classId: string) => {

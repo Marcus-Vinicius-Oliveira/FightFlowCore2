@@ -185,7 +185,7 @@ export default function SuperAdminAcademias() {
                   <TableCell>
                     <div className="flex items-center gap-1 text-sm">
                       <Calendar className="h-3 w-3" />
-                      {new Date(academy.createdAt).toLocaleDateString('pt-BR')}
+                      {academy.createdAt ? new Date(academy.createdAt).toLocaleDateString('pt-BR') : 'N/A'}
                     </div>
                   </TableCell>
                   <TableCell>

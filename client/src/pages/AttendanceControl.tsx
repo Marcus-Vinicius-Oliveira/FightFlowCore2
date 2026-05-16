@@ -144,9 +144,9 @@ export default function AttendanceControl() {
   // Get class ID from URL parameters
   const classId = window.location.pathname.split('/').pop();
 
-  const { data: attendanceData, isLoading, error } = useQuery({
+  const { data: attendanceData, isLoading, error } = useQuery<ClassAttendanceData>({
     queryKey: ['/api/classes', classId, 'attendance', selectedDate],
-    queryFn: () => apiRequest('GET', `/api/classes/${classId}/attendance?date=${selectedDate}`),
+    queryFn: () => apiRequest('GET', `/api/classes/${classId}/attendance?date=${selectedDate}`).then(res => res.json()),
     enabled: !!classId
   });
 

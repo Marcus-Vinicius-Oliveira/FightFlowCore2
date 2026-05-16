@@ -174,7 +174,7 @@ export function StudentManagement() {
   const { toast } = useToast();
 
   // Fetch students
-  const { data: students = [], isLoading, error } = useQuery({
+  const { data: students = [], isLoading, error } = useQuery<Student[]>({
     queryKey: ['/api/students'],
   });
 
@@ -603,8 +603,8 @@ export function StudentManagement() {
             <AlertDialogAction
               onClick={() => deleteStudent && deleteMutation.mutate(deleteStudent.id)}
               disabled={deleteMutation.isPending}
-              variant="destructive"
               data-testid="button-confirm-delete"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleteMutation.isPending ? "Desativando..." : "Desativar"}
             </AlertDialogAction>
@@ -657,8 +657,8 @@ export function StudentManagement() {
             <AlertDialogAction
               onClick={() => permanentDeleteStudent && permanentDeleteMutation.mutate(permanentDeleteStudent.id)}
               disabled={permanentDeleteMutation.isPending}
-              variant="destructive"
               data-testid="button-confirm-permanent-delete"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {permanentDeleteMutation.isPending ? "Excluindo..." : "Excluir Permanentemente"}
             </AlertDialogAction>
