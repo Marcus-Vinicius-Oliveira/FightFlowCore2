@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "PowerShell(Start-Process -FilePath \"C:\\\\Users\\\\mvoli\\\\AppData\\\\Local\\\\Programs\\\\Microsoft VS Code\\\\bin\\\\code.cmd\" -ArgumentList \"tunnel\",\"--accept-server-license-terms\" -RedirectStandardOutput \"$env:TEMP\\\\tunnel_out.txt\" -RedirectStandardError \"$env:TEMP\\\\tunnel_err.txt\" -NoNewWindow; Start-Sleep -Seconds 8; Get-Content \"$env:TEMP\\\\tunnel_out.txt\" -ErrorAction SilentlyContinue; Get-Content \"$env:TEMP\\\\tunnel_err.txt\" -ErrorAction SilentlyContinue)"
+    ]
+  }
+}

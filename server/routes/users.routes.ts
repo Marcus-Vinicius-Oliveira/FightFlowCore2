@@ -51,6 +51,21 @@ router.get('/users',
   }
 );
 
+// GET /api/student/me/belt-history — student portal: own graduation history
+router.get('/student/me/belt-history',
+  authenticateToken,
+  requireRole(['ALUNO']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const history = await storage.getBeltHistory(req.user!.id);
+      res.json(history);
+    } catch (error) {
+      console.error('Get student belt history error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
 // GET /api/student/me — student portal: own data
 router.get('/student/me',
   authenticateToken,

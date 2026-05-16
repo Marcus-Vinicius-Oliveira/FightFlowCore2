@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"C:\\\\Users\\\\mvoli\\\\.claude\\\\projects\\\\f--FightFlowCore2-CLAUDE-FightFlowCore2\\\\memory\")",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "PowerShell(cd \"f:\\\\FightFlowCore2_CLAUDE\\\\FightFlowCore2\"; node_modules\\\\.bin\\\\tsc.cmd --noEmit 2>&1 | Where-Object { $_ -match \"^server/\" -or $_ -match \"^shared/\" } | Select-Object -First 30)",
+      "PowerShell(cd \"f:\\\\FightFlowCore2_CLAUDE\\\\FightFlowCore2\"; $output = node_modules\\\\.bin\\\\tsc.cmd --noEmit 2>&1; $output | Where-Object { $_ -notmatch \"^client/\" } | Select-Object -First 40)",
+      "PowerShell(cd \"f:\\\\FightFlowCore2_CLAUDE\\\\FightFlowCore2\"; $out = node_modules\\\\.bin\\\\tsc.cmd --noEmit 2>&1; $out | Select-String \"error TS\" | Where-Object { $_ -notmatch \"client/\" } | Select-Object -First 20)",
+      "PowerShell(cd \"f:\\\\FightFlowCore2_CLAUDE\\\\FightFlowCore2\"; $out = \\(node_modules\\\\.bin\\\\tsc.cmd --noEmit 2>&1\\); \\($out | Out-String\\) -split \"`n\" | Where-Object { \\($_ -match \"error TS\"\\) -and \\($_ -notmatch \"client/\"\\) })",
+      "PowerShell(cd \"f:\\\\FightFlowCore2_CLAUDE\\\\FightFlowCore2\"; node_modules\\\\.bin\\\\tsc.cmd --noEmit 2>&1 > $env:TEMP\\\\tsc_out.txt; Get-Content $env:TEMP\\\\tsc_out.txt | Where-Object { $_ -match \"^server|^shared\" })",
+      "PowerShell(cd \"f:\\\\FightFlowCore2_CLAUDE\\\\FightFlowCore2\"; node_modules\\\\.bin\\\\tsc.cmd --noEmit 2>&1 | Out-File -FilePath \"$env:TEMP\\\\tsc_out.txt\" -Encoding utf8; $content = Get-Content \"$env:TEMP\\\\tsc_out.txt\"; Write-Host \"Total lines: $\\($content.Count\\)\"; $content | Where-Object { $_ -notmatch \"^client/\" } | Where-Object { $_ -match \"error TS|\\\\.ts\\\\\\(\" })"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\mvoli\\.claude\\projects\\f--FightFlowCore2-CLAUDE-FightFlowCore2\\memory"
+    ]
+  }
+}

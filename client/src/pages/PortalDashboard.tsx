@@ -5,20 +5,30 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  Calendar, 
-  Clock, 
-  TrendingUp, 
-  Award, 
-  Users, 
-  CheckCircle2, 
+import {
+  Calendar,
+  Clock,
+  TrendingUp,
+  Award,
+  Users,
+  CheckCircle2,
   LogOut,
   CalendarDays,
-  AlertCircle 
+  AlertCircle,
+  ChevronRight
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { apiClient } from "@/lib/api";
+import { apiRequest } from "@/lib/queryClient";
+
+interface BeltHistoryEntry {
+  id: string;
+  beltBefore: string | null;
+  beltAfter: string;
+  promotedAt: string;
+  notes: string | null;
+}
 
 interface StudentData {
   enrollments: Array<{
@@ -76,6 +86,12 @@ export default function PortalDashboard() {
 
   const { data: studentData, isLoading, error } = useQuery<StudentData>({
     queryKey: ['/api/student/me'],
+    enabled: !!user && user.role === 'ALUNO',
+  });
+
+  const { data: beltHistory = [] } = useQuery<BeltHistoryEntry[]>({
+    queryKey: ['/api/student/me/belt-history'],
+    queryFn: () => apiRequest('GET', '/api/student/me/belt-history').then(r => r.json()),
     enabled: !!user && user.role === 'ALUNO',
   });
 
@@ -342,6 +358,54 @@ export default function PortalDashboard() {
               </CardContent>
             </Card>
           )}
+
+          {/* Minha Faixa */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Award className="h-5 w-5 text-yellow-500" />
+                Minha Graduação
+              </CardTitle>
+              <CardDescription>Sua faixa atual e histórico de graduações</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-sm text-muted-foreground">Faixa atual:</span>
+                {user?.belt ? (
+                  <Badge className={`text-sm px-3 py-1 ${beltColor(user.belt)}`} data-testid="badge-current-belt">
+                    {user.belt}
+                  </Badge>
+                ) : (
+                  <span className="text-sm text-muted-foreground">Não informada</span>
+                )}
+              </div>
+
+              {beltHistory.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Histórico</p>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {beltHistory.map(entry => (
+                      <div key={entry.id} className="flex items-center gap-2 text-sm p-2 rounded-md bg-muted/50">
+                        <span className="text-muted-foreground text-xs w-20 shrink-0">
+                          {new Date(entry.promotedAt).toLocaleDateString('pt-BR')}
+                        </span>
+                        {entry.beltBefore
+                          ? <Badge variant="outline" className={`text-xs ${beltColor(entry.beltBefore)}`}>{entry.beltBefore}</Badge>
+                          : <span className="text-xs text-muted-foreground">—</span>}
+                        <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <Badge className={`text-xs ${beltColor(entry.beltAfter)}`}>{entry.beltAfter}</Badge>
+                        {entry.notes && (
+                          <span className="text-xs text-muted-foreground truncate">{entry.notes}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Nenhuma graduação registrada ainda.</p>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>
@@ -443,6 +507,23 @@ function calculateStats(studentData: StudentData) {
     nextPaymentDate,
     paymentStatus,
   };
+}
+
+function beltColor(belt: string): string {
+  const map: Record<string, string> = {
+    branca: "bg-white border border-gray-300 text-gray-800",
+    cinza: "bg-gray-400 text-white",
+    amarela: "bg-yellow-400 text-gray-900",
+    laranja: "bg-orange-500 text-white",
+    verde: "bg-green-600 text-white",
+    azul: "bg-blue-600 text-white",
+    roxa: "bg-purple-600 text-white",
+    marrom: "bg-amber-800 text-white",
+    preta: "bg-gray-950 text-white",
+    coral: "bg-red-700 text-white",
+    vermelha: "bg-red-600 text-white",
+  };
+  return map[belt.toLowerCase()] ?? "bg-muted text-muted-foreground";
 }
 
 function formatDate(dateString: string) {
