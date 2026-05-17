@@ -6,12 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Edit, MoreHorizontal, Trash2, Eye, Clock, Users, Calendar, FileDown } from "lucide-react";
+import { Plus, Search, Edit, MoreHorizontal, Trash2, Eye, Clock, Calendar, FileDown, ChevronDown, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
@@ -189,11 +191,6 @@ function ClassForm({ classData, onClose }: ClassFormProps) {
 
   const toggleDay = (day: number) => {
     setFormData(prev => {
-      if (isEdit) {
-        // Edição: seleção única
-        return { ...prev, daysOfWeek: [day] };
-      }
-      // Criação: seleção múltipla
       const next = prev.daysOfWeek.includes(day)
         ? prev.daysOfWeek.filter(d => d !== day)
         : [...prev.daysOfWeek, day];
@@ -253,7 +250,7 @@ function ClassForm({ classData, onClose }: ClassFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label>{isEdit ? "Dia da Semana" : "Dias da Semana"}</Label>
+        <Label>Dias da Semana</Label>
         <div className="flex gap-1.5">
           {DAYS_OF_WEEK.map((day) => {
             const selected = formData.daysOfWeek.includes(day.value);
@@ -399,8 +396,18 @@ function ClassDetails({ classData, onClose }: ClassDetailsProps) {
   );
 }
 
+interface FilterState {
+  search: string;
+  classTypeId: string;
+  instructorId: string;
+  daysOfWeek: number[];
+}
+
+const EMPTY_FILTERS: FilterState = { search: "", classTypeId: "", instructorId: "", daysOfWeek: [] };
+
 export default function ClassManagement() {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [selectedClass, setSelectedClass] = useState<ClassData | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -408,6 +415,31 @@ export default function ClassManagement() {
   const [classToDelete, setClassToDelete] = useState<ClassData | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
+
+  // Debounce: propaga searchInput → filters.search com 350ms de delay
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters(prev => ({ ...prev, search: searchInput }));
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const hasActiveFilters =
+    !!searchInput || !!filters.classTypeId || !!filters.instructorId || filters.daysOfWeek.length > 0;
+
+  const clearFilters = () => {
+    setSearchInput("");
+    setFilters(EMPTY_FILTERS);
+  };
+
+  const toggleFilterDay = (day: number) => {
+    setFilters(prev => {
+      const days = prev.daysOfWeek.includes(day)
+        ? prev.daysOfWeek.filter(d => d !== day)
+        : [...prev.daysOfWeek, day];
+      return { ...prev, daysOfWeek: days };
+    });
+  };
 
   const handleExportPDF = async () => {
     setIsExporting(true);
@@ -437,8 +469,20 @@ export default function ClassManagement() {
     }
   };
 
+  const { data: filterClassTypes = [] } = useQuery<ClassType[]>({ queryKey: ['/api/classes/class-types'] });
+  const { data: filterInstructors = [] } = useQuery<Instructor[]>({ queryKey: ['/api/instructors'] });
+
   const { data: classes = [], isLoading, error } = useQuery<ClassData[]>({
-    queryKey: ['/api/classes']
+    queryKey: ['/api/classes', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filters.search)      params.set('search', filters.search);
+      if (filters.classTypeId) params.set('classTypeId', filters.classTypeId);
+      if (filters.instructorId) params.set('instructorId', filters.instructorId);
+      filters.daysOfWeek.forEach(d => params.append('days', String(d)));
+      const qs = params.toString();
+      return apiRequest('GET', `/api/classes${qs ? '?' + qs : ''}`);
+    },
   });
 
   const deleteMutation = useMutation({
@@ -493,13 +537,8 @@ export default function ClassManagement() {
     setSelectedClass(null);
   };
 
-  const filteredClasses = classes.filter((classData: ClassData) =>
-    classData.classType?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    classData.instructor?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    classData.daysOfWeek.some(day =>
-      DAYS_OF_WEEK.find(d => d.value === day)?.label.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+  // Filtragem acontece no servidor — classes já chegam filtradas
+  const filteredClasses = classes;
 
   if (error) {
     return (
@@ -554,17 +593,100 @@ export default function ClassManagement() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-2 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          {/* ── Toolbar de Filtros Avançados ── */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            {/* Busca textual com debounce */}
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por tipo de aula, professor ou dia..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar por modalidade..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="pl-8"
                 data-testid="input-search"
               />
             </div>
+
+            {/* Filtro por Modalidade */}
+            <Select
+              value={filters.classTypeId || "_all"}
+              onValueChange={(v) => setFilters(prev => ({ ...prev, classTypeId: v === "_all" ? "" : v }))}
+            >
+              <SelectTrigger className="w-[160px]" data-testid="select-filter-classtype">
+                <SelectValue placeholder="Modalidade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">Todas as modalidades</SelectItem>
+                {filterClassTypes.map(ct => (
+                  <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Filtro por Professor */}
+            <Select
+              value={filters.instructorId || "_all"}
+              onValueChange={(v) => setFilters(prev => ({ ...prev, instructorId: v === "_all" ? "" : v }))}
+            >
+              <SelectTrigger className="w-[160px]" data-testid="select-filter-instructor">
+                <SelectValue placeholder="Professor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">Todos os professores</SelectItem>
+                {filterInstructors.map(inst => (
+                  <SelectItem key={inst.id} value={inst.id}>{inst.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Filtro por Dias da Semana (Popover com checkboxes) */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn("w-[150px] justify-between font-normal", filters.daysOfWeek.length > 0 && "border-primary")}
+                  data-testid="popover-filter-days"
+                >
+                  <span>
+                    {filters.daysOfWeek.length === 0
+                      ? "Dias da semana"
+                      : filters.daysOfWeek.length === 1
+                        ? DAYS_OF_WEEK.find(d => d.value === filters.daysOfWeek[0])?.short
+                        : `${filters.daysOfWeek.length} dias`}
+                  </span>
+                  <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[160px] p-2" align="start">
+                {DAYS_OF_WEEK.map(day => (
+                  <div
+                    key={day.value}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-accent cursor-pointer"
+                    onClick={() => toggleFilterDay(day.value)}
+                  >
+                    <Checkbox
+                      checked={filters.daysOfWeek.includes(day.value)}
+                      onCheckedChange={() => toggleFilterDay(day.value)}
+                    />
+                    <span className="text-sm">{day.label}</span>
+                  </div>
+                ))}
+              </PopoverContent>
+            </Popover>
+
+            {/* Botão limpar filtros */}
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="text-muted-foreground h-9 px-2"
+                data-testid="button-clear-filters"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Limpar
+              </Button>
+            )}
           </div>
 
           {isLoading ? (

@@ -55,6 +55,13 @@ import {
 import { db } from "./db";
 import { eq, and, desc, inArray, gte, lt, count, asc, sql } from "drizzle-orm";
 
+export interface ClassFilters {
+  search?: string;
+  classTypeId?: string;
+  instructorId?: string;
+  daysOfWeek?: number[];
+}
+
 export interface PaginationParams {
   limit?: number;
   offset?: number;
@@ -103,7 +110,7 @@ export interface IStorage {
 
   // Class operations
   getClassesByAcademy(academyId: string): Promise<ClassWithRefs[]>;
-  getClassesByAcademyGrouped(academyId: string): Promise<ClassGrouped[]>;
+  getClassesByAcademyGrouped(academyId: string, filters?: ClassFilters): Promise<ClassGrouped[]>;
   getClass(id: string): Promise<ClassWithRefs | undefined>;
   createClass(classData: InsertClass): Promise<Class>;
   updateClass(id: string, updates: Partial<InsertClass>): Promise<Class | undefined>;
@@ -367,17 +374,27 @@ export class DatabaseStorage implements IStorage {
     }) as Promise<ClassWithRefs[]>;
   }
 
-  async getClassesByAcademyGrouped(academyId: string): Promise<ClassGrouped[]> {
-    // Fetch all active classes ordered by day so daysOfWeek[] stays 0→6 naturalmente
+  async getClassesByAcademyGrouped(academyId: string, filters?: ClassFilters): Promise<ClassGrouped[]> {
     const rows = await db.query.classes.findMany({
-      where: and(eq(classes.academyId, academyId), eq(classes.active, true)),
+      where: and(
+        eq(classes.academyId, academyId),
+        eq(classes.active, true),
+        ...(filters?.classTypeId ? [eq(classes.classTypeId, filters.classTypeId)] : []),
+        ...(filters?.instructorId ? [eq(classes.instructorId, filters.instructorId)] : []),
+        ...(filters?.daysOfWeek?.length ? [inArray(classes.dayOfWeek, filters.daysOfWeek)] : []),
+      ),
       with: { classType: true, instructor: true },
       orderBy: asc(classes.dayOfWeek),
     }) as ClassWithRefs[];
 
+    // Filtro textual sobre nome da modalidade — antes do agrupamento
+    const filtered = filters?.search
+      ? rows.filter(r => r.classType?.name.toLowerCase().includes(filters.search!.toLowerCase()))
+      : rows;
+
     const groupMap = new Map<string, ClassGrouped>();
 
-    for (const row of rows) {
+    for (const row of filtered) {
       const key = `${row.classTypeId}|${row.instructorId}|${row.startTime}|${row.endTime}`;
       if (!groupMap.has(key)) {
         groupMap.set(key, {

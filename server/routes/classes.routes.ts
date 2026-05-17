@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { storage } from "../storage";
+import { storage, type ClassFilters } from "../storage";
 import {
   authenticateToken,
   requireRole,
@@ -105,7 +105,20 @@ router.get('/',
     try {
       const academyId = req.user!.academyId;
       if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório' });
-      const grouped = await storage.getClassesByAcademyGrouped(academyId);
+
+      const daysRaw = req.query.days;
+      const filters: ClassFilters = {
+        search:       (req.query.search as string) || undefined,
+        classTypeId:  (req.query.classTypeId as string) || undefined,
+        instructorId: (req.query.instructorId as string) || undefined,
+        daysOfWeek:   daysRaw
+          ? (Array.isArray(daysRaw) ? daysRaw : [daysRaw])
+              .map(Number)
+              .filter(n => !isNaN(n) && n >= 0 && n <= 6)
+          : undefined,
+      };
+
+      const grouped = await storage.getClassesByAcademyGrouped(academyId, filters);
       res.json(grouped);
     } catch (error) {
       console.error('Get classes error:', error);
