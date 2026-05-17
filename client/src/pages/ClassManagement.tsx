@@ -546,7 +546,7 @@ export default function ClassManagement() {
                 <TableRow>
                   <TableHead>Tipo de Aula</TableHead>
                   <TableHead>Professor</TableHead>
-                  <TableHead>Dia da Semana</TableHead>
+                  <TableHead className="min-w-[160px]">Dia da Semana</TableHead>
                   <TableHead>Horário</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-[50px]"></TableHead>

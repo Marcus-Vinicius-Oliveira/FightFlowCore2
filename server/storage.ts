@@ -404,7 +404,10 @@ export class DatabaseStorage implements IStorage {
       group.daysOfWeek.push(row.dayOfWeek);
     }
 
-    return Array.from(groupMap.values());
+    // Ordena grupos por horário de início (HH:MM — comparação lexicográfica é suficiente)
+    return Array.from(groupMap.values()).sort((a, b) =>
+      a.startTime.localeCompare(b.startTime)
+    );
   }
 
   async getClass(id: string): Promise<ClassWithRefs | undefined> {
