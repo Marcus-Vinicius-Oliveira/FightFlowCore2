@@ -476,12 +476,13 @@ export default function ClassManagement() {
     queryKey: ['/api/classes', filters],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (filters.search)      params.set('search', filters.search);
-      if (filters.classTypeId) params.set('classTypeId', filters.classTypeId);
+      if (filters.search)       params.set('search', filters.search);
+      if (filters.classTypeId)  params.set('classTypeId', filters.classTypeId);
       if (filters.instructorId) params.set('instructorId', filters.instructorId);
       filters.daysOfWeek.forEach(d => params.append('days', String(d)));
       const qs = params.toString();
-      return apiRequest('GET', `/api/classes${qs ? '?' + qs : ''}`);
+      const res = await apiRequest('GET', `/api/classes${qs ? '?' + qs : ''}`);
+      return res.json();
     },
   });
 
