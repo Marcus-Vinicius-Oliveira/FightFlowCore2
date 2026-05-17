@@ -99,7 +99,7 @@ function buildHtml(academyName: string, classes: ClassWithRefs[]): string {
           <span class="card-name">${typeName}</span>
           <span class="card-inst">${instructorName}</span>
         </div>`).join('');
-      return `<td>${cards}</td>`;
+      return `<td class="has-cards">${cards}</td>`;
     }).join('');
 
     return `<tr><td class="time">${label}</td>${cells}</tr>`;
@@ -156,29 +156,42 @@ thead th:first-child { text-align: left; padding-left: 10px; width: 108px; }
 tbody tr { border-bottom: 1px solid #e2e8f0; }
 tbody tr:nth-child(even) { background: #f8fafc; }
 
-td { padding: 5px 4px; vertical-align: top; }
+td {
+  padding: 5px 4px;
+  vertical-align: middle; /* todas as células centradas por padrão */
+}
 td.time {
   font-size: 10.5px;
   font-weight: 700;
   color: #334155;
-  vertical-align: middle;
   padding-left: 10px;
   white-space: nowrap;
 }
 td.empty {
   text-align: center;
-  vertical-align: middle;
   color: #cbd5e1;
   font-size: 14px;
+}
+/* Células com cards: flex coluna para distribuir cards empilhados */
+td.has-cards {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 5px 4px;
+  box-sizing: border-box;
 }
 
 /* ── Cards ──────────────────────────────────── */
 .card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;  /* centraliza verticalmente dentro do card */
+  box-sizing: border-box;
   border-radius: 4px;
-  padding: 4px 7px;
-  margin-bottom: 3px;
+  padding: 5px 7px;
+  min-height: 32px;         /* altura mínima consistente entre cards */
 }
-.card:last-child { margin-bottom: 0; }
 .card-name {
   display: block;
   font-size: 10.5px;
@@ -189,7 +202,7 @@ td.empty {
   display: block;
   font-size: 8.5px;
   opacity: 0.75;
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
 /* ── Misc ───────────────────────────────────── */
