@@ -197,6 +197,7 @@ export default function InstructorManagement() {
     status: "all",
     belt: "",
     classTypeId: "",
+    rankId: "",
     dateFrom: "",
     dateTo: "",
     sortBy: "name",

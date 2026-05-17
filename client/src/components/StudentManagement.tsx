@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -236,9 +236,21 @@ export function StudentManagement() {
     queryFn: () => apiRequest('GET', '/api/graduation/systems').then(r => r.json()),
   });
 
-  // Class types that have at least one active enrollment (for modality dropdown)
-  const enrolledClassTypeIds = new Set(modalityEnrollments.map(e => e.classTypeId));
-  const filterableClassTypes = classTypes.filter(ct => enrolledClassTypeIds.has(ct.id));
+  // Fix 2: pré-computa Map<classTypeId, Set<studentId>> para lookups O(1) no filter
+  const enrollmentsByModality = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const e of modalityEnrollments) {
+      if (!map.has(e.classTypeId)) map.set(e.classTypeId, new Set());
+      map.get(e.classTypeId)!.add(e.studentId);
+    }
+    return map;
+  }, [modalityEnrollments]);
+
+  // Fix 6: só mostra modalidades com alunos no dropdown
+  const filterableClassTypes = useMemo(
+    () => classTypes.filter(ct => enrollmentsByModality.has(ct.id)),
+    [classTypes, enrollmentsByModality]
+  );
 
   // Ranks for the currently selected modality filter
   const activeFilterSystem = graduationSystems.find(s => s.classTypeId === filterClassTypeId);
@@ -376,19 +388,29 @@ export function StudentManagement() {
   });
 
 
-  const filteredStudents = students.filter(student => {
-    const matchesSearch =
-      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.email.toLowerCase().includes(searchTerm.toLowerCase());
+  // Fix 3: pré-computa Set de alunos por (modalidade + rank) para lookup O(1)
+  const enrolledByModalityAndRank = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const r of modalityRanks) {
+      const key = `${r.classTypeId}:${r.rankId}`;
+      if (!map.has(key)) map.set(key, new Set());
+      map.get(key)!.add(r.studentId);
+    }
+    return map;
+  }, [modalityRanks]);
 
-    const matchesModality = !filterClassTypeId ||
-      modalityEnrollments.some(e => e.studentId === student.id && e.classTypeId === filterClassTypeId);
-
-    const matchesRank = !filterRankId || !filterClassTypeId ||
-      modalityRanks.some(r => r.studentId === student.id && r.classTypeId === filterClassTypeId && r.rankId === filterRankId);
-
-    return matchesSearch && matchesModality && matchesRank;
-  });
+  const termLower = searchTerm.toLowerCase();
+  const filteredStudents = useMemo(() => {
+    return students.filter(student => {
+      if (termLower && !student.name.toLowerCase().includes(termLower) && !student.email.toLowerCase().includes(termLower))
+        return false;
+      if (filterClassTypeId && !(enrollmentsByModality.get(filterClassTypeId)?.has(student.id) ?? false))
+        return false;
+      if (filterClassTypeId && filterRankId && !(enrolledByModalityAndRank.get(`${filterClassTypeId}:${filterRankId}`)?.has(student.id) ?? false))
+        return false;
+      return true;
+    });
+  }, [students, termLower, filterClassTypeId, filterRankId, enrollmentsByModality, enrolledByModalityAndRank]);
 
   const getStatusBadge = (active?: boolean) => {
     return active ? (

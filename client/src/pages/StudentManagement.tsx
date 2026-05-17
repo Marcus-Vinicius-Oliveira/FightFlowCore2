@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { AdvancedFilters, FilterOptions, applyFilters } from "@/components/Advan
 import { AddStudentDialog } from "@/components/AddStudentDialog";
 import { BeltBadge } from "@/components/BeltBadge";
 import { GraduationDialog } from "@/components/GraduationDialog";
+import { invalidateAfterStudentChange } from "@/lib/cache-helpers";
 
 interface Student {
   id: string;
@@ -235,6 +236,7 @@ export default function StudentManagement() {
     status: "all",
     belt: "",
     classTypeId: "",
+    rankId: "",
     dateFrom: "",
     dateTo: "",
     sortBy: "name",
@@ -250,12 +252,52 @@ export default function StudentManagement() {
     queryFn: () => apiRequest('GET', '/api/students/academy-modality-enrollments').then(r => r.json()),
   });
 
+  const { data: modalityRanks = [] } = useQuery<{ studentId: string; classTypeId: string; rankId: string }[]>({
+    queryKey: ['/api/graduation/modality-ranks'],
+    queryFn: () => apiRequest('GET', '/api/graduation/modality-ranks').then(r => r.json()),
+  });
+
+  // Fix 2: pré-computa Sets por modalidade para lookups O(1) no filter
+  const enrolledByModality = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const e of modalityEnrollments) {
+      if (!map.has(e.classTypeId)) map.set(e.classTypeId, new Set());
+      map.get(e.classTypeId)!.add(e.studentId);
+    }
+    return map;
+  }, [modalityEnrollments]);
+
+  // Fix 6: apenas modalidades com alunos aparecem no dropdown
+  const availableClassTypeIds = useMemo(
+    () => new Set(modalityEnrollments.map(e => e.classTypeId)),
+    [modalityEnrollments]
+  );
+
+  // Fix 3: pré-computa Set de alunos por (modalidade + rank) para lookup O(1)
+  const enrolledByModalityAndRank = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const r of modalityRanks) {
+      const key = `${r.classTypeId}:${r.rankId}`;
+      if (!map.has(key)) map.set(key, new Set());
+      map.get(key)!.add(r.studentId);
+    }
+    return map;
+  }, [modalityRanks]);
+
   const baseFiltered = applyFilters(students, filters, searchTerm);
-  const filteredStudents = filters.classTypeId
-    ? baseFiltered.filter(s =>
-        modalityEnrollments.some(e => e.studentId === s.id && e.classTypeId === filters.classTypeId)
-      )
-    : baseFiltered;
+
+  const filteredStudents = useMemo(() => {
+    let result = baseFiltered;
+    if (filters.classTypeId) {
+      const enrolled = enrolledByModality.get(filters.classTypeId);
+      result = result.filter(s => enrolled?.has(s.id) ?? false);
+    }
+    if (filters.classTypeId && filters.rankId) {
+      const ranked = enrolledByModalityAndRank.get(`${filters.classTypeId}:${filters.rankId}`);
+      result = result.filter(s => ranked?.has(s.id) ?? false);
+    }
+    return result;
+  }, [baseFiltered, filters.classTypeId, filters.rankId, enrolledByModality, enrolledByModalityAndRank]);
 
   const handleEdit = (student: Student) => {
     setSelectedStudent(student);
@@ -281,8 +323,7 @@ export default function StudentManagement() {
         .then(result => ({ ...result, studentName }));
     },
     onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/students'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
+      invalidateAfterStudentChange(queryClient);
       toast({
         title: "Aluno desativado com sucesso!",
         description: `${data.studentName} foi desativado da academia.`,
@@ -307,8 +348,7 @@ export default function StudentManagement() {
         .then(result => ({ ...result, studentName }));
     },
     onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/students'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
+      invalidateAfterStudentChange(queryClient);
       toast({
         title: "Aluno ativado com sucesso!",
         description: `${data.studentName} foi reativado na academia.`,
@@ -333,8 +373,7 @@ export default function StudentManagement() {
         .then(result => ({ ...result, studentName }));
     },
     onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/students'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
+      invalidateAfterStudentChange(queryClient);
       toast({
         title: "Aluno excluído permanentemente!",
         description: `${data.studentName} foi removido definitivamente do sistema.`,
@@ -572,6 +611,7 @@ export default function StudentManagement() {
       <AdvancedFilters
         filters={filters}
         onFiltersChange={setFilters}
+        availableClassTypeIds={availableClassTypeIds}
         className="mb-4"
       />
 

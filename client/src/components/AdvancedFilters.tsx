@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Filter, X, ArrowDown, ArrowUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { BeltBadge } from "@/components/BeltBadge";
+import { apiRequest } from "@/lib/queryClient";
 
 const BELT_OPTIONS = [
   "branca", "cinza", "amarela", "laranja",
@@ -18,33 +19,73 @@ export interface FilterOptions {
   status: "all" | "active" | "inactive";
   belt: string;
   classTypeId: string;
+  rankId: string;
   dateFrom: string;
   dateTo: string;
   sortBy: "name" | "date";
   sortOrder: "asc" | "desc";
 }
 
+interface GraduationRank {
+  id: string;
+  name: string;
+  displayOrder: number;
+  colorClass: string;
+}
+
+interface GraduationSystem {
+  id: string;
+  classTypeId: string | null;
+  ranks: GraduationRank[];
+}
+
 interface AdvancedFiltersProps {
   filters: FilterOptions;
   onFiltersChange: (filters: FilterOptions) => void;
+  /** IDs das modalidades que possuem ao menos um aluno matriculado */
+  availableClassTypeIds?: Set<string>;
   className?: string;
 }
 
-export function AdvancedFilters({ filters, onFiltersChange, className = "" }: AdvancedFiltersProps) {
+export function AdvancedFilters({
+  filters,
+  onFiltersChange,
+  availableClassTypeIds,
+  className = "",
+}: AdvancedFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const { data: classTypes = [] } = useQuery<{ id: string; name: string }[]>({
+  const { data: allClassTypes = [] } = useQuery<{ id: string; name: string }[]>({
     queryKey: ['/api/classes/class-types'],
   });
+
+  const { data: graduationSystems = [] } = useQuery<GraduationSystem[]>({
+    queryKey: ['/api/graduation/systems'],
+    queryFn: () => apiRequest('GET', '/api/graduation/systems').then(r => r.json()),
+    enabled: !!filters.classTypeId,
+  });
+
+  // Fix 6: só mostra modalidades com alunos matriculados (quando availableClassTypeIds é passado)
+  const classTypes = useMemo(() => {
+    if (!availableClassTypeIds) return allClassTypes;
+    return allClassTypes.filter(ct => availableClassTypeIds.has(ct.id));
+  }, [allClassTypes, availableClassTypeIds]);
+
+  // Ranks da modalidade selecionada, ordenados
+  const ranksForSelectedModality = useMemo(() => {
+    if (!filters.classTypeId) return [];
+    const system = graduationSystems.find(s => s.classTypeId === filters.classTypeId);
+    return (system?.ranks ?? []).slice().sort((a, b) => a.displayOrder - b.displayOrder);
+  }, [graduationSystems, filters.classTypeId]);
 
   const handleFilterChange = <K extends keyof FilterOptions>(
     key: K,
     value: FilterOptions[K]
   ) => {
-    onFiltersChange({
-      ...filters,
-      [key]: value,
-    });
+    const next: FilterOptions = { ...filters, [key]: value };
+    // Reset rankId quando a modalidade muda
+    if (key === "classTypeId") next.rankId = "";
+    onFiltersChange(next);
   };
 
   const clearAllFilters = () => {
@@ -52,6 +93,7 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
       status: "all",
       belt: "",
       classTypeId: "",
+      rankId: "",
       dateFrom: "",
       dateTo: "",
       sortBy: "name",
@@ -63,6 +105,7 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
     filters.status !== "all" ||
     !!filters.belt ||
     !!filters.classTypeId ||
+    !!filters.rankId ||
     !!filters.dateFrom ||
     !!filters.dateTo ||
     filters.sortBy !== "name" ||
@@ -73,21 +116,20 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
     if (filters.status !== "all") count++;
     if (filters.belt) count++;
     if (filters.classTypeId) count++;
+    if (filters.rankId) count++;
     if (filters.dateFrom) count++;
     if (filters.dateTo) count++;
     if (filters.sortBy !== "name" || filters.sortOrder !== "asc") count++;
     return count;
   };
 
-  const activeClassTypeName = classTypes.find(ct => ct.id === filters.classTypeId)?.name ?? "";
+  const activeClassTypeName = allClassTypes.find(ct => ct.id === filters.classTypeId)?.name ?? "";
+  const activeRankName = ranksForSelectedModality.find(r => r.id === filters.rankId)?.name ?? "";
 
-  const getSortIcon = () => {
-    if (filters.sortOrder === "asc") {
-      return <ArrowUp className="h-4 w-4" />;
-    } else {
-      return <ArrowDown className="h-4 w-4" />;
-    }
-  };
+  const getSortIcon = () =>
+    filters.sortOrder === "asc"
+      ? <ArrowUp className="h-4 w-4" />
+      : <ArrowDown className="h-4 w-4" />;
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -123,133 +165,156 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
                 )}
               </div>
 
-                {/* Status Filter */}
+              {/* Status Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Status</Label>
+                <Select
+                  value={filters.status}
+                  onValueChange={(value) => handleFilterChange("status", value as FilterOptions["status"])}
+                >
+                  <SelectTrigger data-testid="select-status-filter">
+                    <SelectValue placeholder="Selecione o status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="active">Apenas Ativos</SelectItem>
+                    <SelectItem value="inactive">Apenas Inativos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Modality Filter — Fix 6: só exibe modalidades com alunos */}
+              {classTypes.length > 0 && (
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Status</Label>
+                  <Label className="text-sm font-medium">Modalidade</Label>
                   <Select
-                    value={filters.status}
-                    onValueChange={(value) => handleFilterChange("status", value as FilterOptions["status"])}
+                    value={filters.classTypeId || "all"}
+                    onValueChange={(value) => handleFilterChange("classTypeId", value === "all" ? "" : value)}
                   >
-                    <SelectTrigger data-testid="select-status-filter">
-                      <SelectValue placeholder="Selecione o status" />
+                    <SelectTrigger data-testid="select-modality-filter">
+                      <SelectValue placeholder="Todas as modalidades" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="active">Apenas Ativos</SelectItem>
-                      <SelectItem value="inactive">Apenas Inativos</SelectItem>
+                      <SelectItem value="all">Todas as modalidades</SelectItem>
+                      {classTypes.map(ct => (
+                        <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
+              )}
 
-                {/* Modality Filter */}
-                {classTypes.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Modalidade</Label>
-                    <Select
-                      value={filters.classTypeId || "all"}
-                      onValueChange={(value) => handleFilterChange("classTypeId", value === "all" ? "" : value)}
-                    >
-                      <SelectTrigger data-testid="select-modality-filter">
-                        <SelectValue placeholder="Todas as modalidades" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todas as modalidades</SelectItem>
-                        {classTypes.map(ct => (
-                          <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* Belt Filter */}
+              {/* Fix 3: Rank filter — só exibe quando uma modalidade está selecionada e tem ranks */}
+              {filters.classTypeId && ranksForSelectedModality.length > 0 && (
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Graduação / Faixa</Label>
+                  <Label className="text-sm font-medium">Graduação na Modalidade</Label>
                   <Select
-                    value={filters.belt || "all"}
-                    onValueChange={(value) => handleFilterChange("belt", value === "all" ? "" : value)}
+                    value={filters.rankId || "all"}
+                    onValueChange={(value) => handleFilterChange("rankId", value === "all" ? "" : value)}
                   >
-                    <SelectTrigger data-testid="select-belt-filter">
-                      <SelectValue>
-                        {filters.belt
-                          ? <BeltBadge belt={filters.belt} />
-                          : <span className="text-muted-foreground">Todas as faixas</span>}
-                      </SelectValue>
+                    <SelectTrigger data-testid="select-rank-filter">
+                      <SelectValue placeholder="Todas as graduações" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">
-                        <span className="text-muted-foreground text-sm">Todas as faixas</span>
-                      </SelectItem>
-                      {BELT_OPTIONS.map(belt => (
-                        <SelectItem key={belt} value={belt}>
-                          <BeltBadge belt={belt} />
+                      <SelectItem value="all">Todas as graduações</SelectItem>
+                      {ranksForSelectedModality.map(rank => (
+                        <SelectItem key={rank.id} value={rank.id}>
+                          {rank.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+              )}
 
-                {/* Date Range Filter */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Data de Cadastro</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">De</Label>
-                      <Input
-                        type="date"
-                        value={filters.dateFrom}
-                        onChange={(e) => handleFilterChange("dateFrom", e.target.value)}
-                        data-testid="input-date-from"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Até</Label>
-                      <Input
-                        type="date"
-                        value={filters.dateTo}
-                        onChange={(e) => handleFilterChange("dateTo", e.target.value)}
-                        data-testid="input-date-to"
-                      />
-                    </div>
+              {/* Belt Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Graduação / Faixa</Label>
+                <Select
+                  value={filters.belt || "all"}
+                  onValueChange={(value) => handleFilterChange("belt", value === "all" ? "" : value)}
+                >
+                  <SelectTrigger data-testid="select-belt-filter">
+                    <SelectValue>
+                      {filters.belt
+                        ? <BeltBadge belt={filters.belt} />
+                        : <span className="text-muted-foreground">Todas as faixas</span>}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <span className="text-muted-foreground text-sm">Todas as faixas</span>
+                    </SelectItem>
+                    {BELT_OPTIONS.map(belt => (
+                      <SelectItem key={belt} value={belt}>
+                        <BeltBadge belt={belt} />
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Date Range Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Data de Cadastro</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">De</Label>
+                    <Input
+                      type="date"
+                      value={filters.dateFrom}
+                      onChange={(e) => handleFilterChange("dateFrom", e.target.value)}
+                      data-testid="input-date-from"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Até</Label>
+                    <Input
+                      type="date"
+                      value={filters.dateTo}
+                      onChange={(e) => handleFilterChange("dateTo", e.target.value)}
+                      data-testid="input-date-to"
+                    />
                   </div>
                 </div>
+              </div>
 
-                {/* Sort Options */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Ordenação</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Select
-                      value={filters.sortBy}
-                      onValueChange={(value) => handleFilterChange("sortBy", value as FilterOptions["sortBy"])}
-                    >
-                      <SelectTrigger data-testid="select-sort-by">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="name">Nome</SelectItem>
-                        <SelectItem value="date">Data de Cadastro</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    
-                    <Button
-                      variant="outline"
-                      onClick={() => 
-                        handleFilterChange("sortOrder", filters.sortOrder === "asc" ? "desc" : "asc")
-                      }
-                      className="gap-2"
-                      data-testid="button-sort-order"
-                    >
-                      {getSortIcon()}
-                      {filters.sortOrder === "asc" ? "Crescente" : "Decrescente"}
-                    </Button>
-                  </div>
+              {/* Sort Options */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Ordenação</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Select
+                    value={filters.sortBy}
+                    onValueChange={(value) => handleFilterChange("sortBy", value as FilterOptions["sortBy"])}
+                  >
+                    <SelectTrigger data-testid="select-sort-by">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="name">Nome</SelectItem>
+                      <SelectItem value="date">Data de Cadastro</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      handleFilterChange("sortOrder", filters.sortOrder === "asc" ? "desc" : "asc")
+                    }
+                    className="gap-2"
+                    data-testid="button-sort-order"
+                  >
+                    {getSortIcon()}
+                    {filters.sortOrder === "asc" ? "Crescente" : "Decrescente"}
+                  </Button>
                 </div>
+              </div>
 
               <div className="flex justify-end">
-                <Button 
+                <Button
                   type="button"
-                  variant="default" 
-                  size="sm" 
+                  variant="default"
+                  size="sm"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -288,6 +353,19 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
                   size="sm"
                   className="h-auto p-0 hover:bg-transparent"
                   onClick={() => handleFilterChange("classTypeId", "")}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </Badge>
+            )}
+            {filters.rankId && activeRankName && (
+              <Badge variant="secondary" className="gap-1">
+                {activeRankName}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 hover:bg-transparent"
+                  onClick={() => handleFilterChange("rankId", "")}
                 >
                   <X className="h-3 w-3" />
                 </Button>
@@ -340,8 +418,8 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
                   size="sm"
                   className="h-auto p-0 hover:bg-transparent"
                   onClick={() => {
-                    handleFilterChange("sortBy", "name");
-                    handleFilterChange("sortOrder", "asc");
+                    const next = { ...filters, sortBy: "name" as const, sortOrder: "asc" as const };
+                    onFiltersChange(next);
                   }}
                 >
                   <X className="h-3 w-3" />
@@ -356,68 +434,52 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
 }
 
 // Utility function to apply filters to an array of items
-export function applyFilters<T extends { active: boolean; createdAt: string; name: string }>(
+export function applyFilters<T extends { active: boolean; createdAt: string; name: string; email?: string; belt?: string | null }>(
   items: T[],
   filters: FilterOptions,
   searchTerm: string = ""
 ): T[] {
-  let filteredItems = [...items];
+  let result = [...items];
 
-  // Apply text search
   if (searchTerm.trim()) {
-    filteredItems = filteredItems.filter(item =>
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ('email' in item && (item as any).email.toLowerCase().includes(searchTerm.toLowerCase()))
+    const term = searchTerm.toLowerCase();
+    result = result.filter(item =>
+      item.name.toLowerCase().includes(term) ||
+      (item.email != null && item.email.toLowerCase().includes(term))
     );
   }
 
-  // Apply status filter
   if (filters.status !== "all") {
-    filteredItems = filteredItems.filter(item =>
+    result = result.filter(item =>
       filters.status === "active" ? item.active : !item.active
     );
   }
 
-  // Apply belt filter (case-insensitive)
   if (filters.belt) {
-    filteredItems = filteredItems.filter(item =>
-      (item as any).belt?.toLowerCase() === filters.belt.toLowerCase()
-    );
+    const beltLower = filters.belt.toLowerCase();
+    result = result.filter(item => item.belt?.toLowerCase() === beltLower);
   }
 
-  // Apply date range filter
   if (filters.dateFrom) {
     const fromDate = new Date(filters.dateFrom);
-    filteredItems = filteredItems.filter(item => 
-      new Date(item.createdAt) >= fromDate
-    );
+    result = result.filter(item => new Date(item.createdAt) >= fromDate);
   }
 
   if (filters.dateTo) {
     const toDate = new Date(filters.dateTo);
-    toDate.setHours(23, 59, 59, 999); // Include the entire day
-    filteredItems = filteredItems.filter(item => 
-      new Date(item.createdAt) <= toDate
-    );
+    toDate.setHours(23, 59, 59, 999);
+    result = result.filter(item => new Date(item.createdAt) <= toDate);
   }
 
-  // Apply sorting
-  filteredItems.sort((a, b) => {
+  result.sort((a, b) => {
     let comparison = 0;
-    
     if (filters.sortBy === "name") {
-      comparison = a.name.localeCompare(b.name, 'pt-BR', { 
-        sensitivity: 'base',
-        numeric: true 
-      });
+      comparison = a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base', numeric: true });
     } else {
-      const dateA = new Date(a.createdAt);
-      const dateB = new Date(b.createdAt);
-      comparison = dateA.getTime() - dateB.getTime();
+      comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     }
-
     return filters.sortOrder === "asc" ? comparison : -comparison;
   });
 
-  return filteredItems;
+  return result;
 }
