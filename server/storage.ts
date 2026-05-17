@@ -33,6 +33,7 @@ import {
   type StudentRankHistory,
   type StudentModalityEnrollment,
   type ClassWithRefs,
+  type ClassGrouped,
   type EnrollmentWithRefs,
   type InsertUser,
   type InsertAcademy,
@@ -102,6 +103,7 @@ export interface IStorage {
 
   // Class operations
   getClassesByAcademy(academyId: string): Promise<ClassWithRefs[]>;
+  getClassesByAcademyGrouped(academyId: string): Promise<ClassGrouped[]>;
   getClass(id: string): Promise<ClassWithRefs | undefined>;
   createClass(classData: InsertClass): Promise<Class>;
   updateClass(id: string, updates: Partial<InsertClass>): Promise<Class | undefined>;
@@ -363,6 +365,46 @@ export class DatabaseStorage implements IStorage {
       where: and(eq(classes.academyId, academyId), eq(classes.active, true)),
       with: { classType: true, instructor: true },
     }) as Promise<ClassWithRefs[]>;
+  }
+
+  async getClassesByAcademyGrouped(academyId: string): Promise<ClassGrouped[]> {
+    // Fetch all active classes ordered by day so daysOfWeek[] stays 0→6 naturalmente
+    const rows = await db.query.classes.findMany({
+      where: and(eq(classes.academyId, academyId), eq(classes.active, true)),
+      with: { classType: true, instructor: true },
+      orderBy: asc(classes.dayOfWeek),
+    }) as ClassWithRefs[];
+
+    const groupMap = new Map<string, ClassGrouped>();
+
+    for (const row of rows) {
+      const key = `${row.classTypeId}|${row.instructorId}|${row.startTime}|${row.endTime}`;
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          id: row.id,
+          ids: [],
+          dayRecords: [],
+          classTypeId: row.classTypeId,
+          instructorId: row.instructorId,
+          startTime: row.startTime,
+          endTime: row.endTime,
+          daysOfWeek: [],
+          active: row.active ?? true,
+          classType: row.classType,
+          instructor: row.instructor ? {
+            id: row.instructor.id,
+            name: row.instructor.name,
+            email: row.instructor.email,
+          } : undefined,
+        });
+      }
+      const group = groupMap.get(key)!;
+      group.ids.push(row.id);
+      group.dayRecords.push({ id: row.id, dayOfWeek: row.dayOfWeek });
+      group.daysOfWeek.push(row.dayOfWeek);
+    }
+
+    return Array.from(groupMap.values());
   }
 
   async getClass(id: string): Promise<ClassWithRefs | undefined> {

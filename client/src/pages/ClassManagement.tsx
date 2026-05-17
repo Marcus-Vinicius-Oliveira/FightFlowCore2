@@ -33,15 +33,17 @@ interface Instructor {
 
 interface ClassData {
   id: string;
+  ids: string[];
+  dayRecords: { id: string; dayOfWeek: number }[];
   classTypeId: string;
   instructorId: string;
-  dayOfWeek: number;
+  daysOfWeek: number[];
   startTime: string;
   endTime: string;
   active: boolean;
   classType?: ClassType;
   instructor?: Instructor;
-  createdAt: string;
+  createdAt?: string;
 }
 
 const classFormSchema = z.object({
@@ -77,7 +79,7 @@ function ClassForm({ classData, onClose }: ClassFormProps) {
   const [formData, setFormData] = useState<ClassFormData>({
     classTypeId: classData?.classTypeId || "",
     instructorId: classData?.instructorId || "",
-    daysOfWeek: classData ? [classData.dayOfWeek] : [],
+    daysOfWeek: classData?.daysOfWeek ?? [],
     startTime: classData?.startTime || "",
     endTime: classData?.endTime || "",
   });
@@ -121,14 +123,34 @@ function ClassForm({ classData, onClose }: ClassFormProps) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: ClassFormData) =>
-      apiRequest('PATCH', `/api/classes/${classData!.id}`, {
-        classTypeId: data.classTypeId,
-        instructorId: data.instructorId,
-        dayOfWeek: data.daysOfWeek[0],
-        startTime: data.startTime,
-        endTime: data.endTime,
-      }),
+    mutationFn: async (data: ClassFormData) => {
+      const oldRecords = classData!.dayRecords;
+      const newDays = data.daysOfWeek;
+
+      const toRemove = oldRecords.filter(r => !newDays.includes(r.dayOfWeek));
+      const toUpdate = oldRecords.filter(r => newDays.includes(r.dayOfWeek));
+      const toAdd = newDays.filter(d => !oldRecords.some(r => r.dayOfWeek === d));
+
+      await Promise.all([
+        // Dias removidos → desativa o registro individual
+        ...toRemove.map(r => apiRequest('DELETE', `/api/classes/${r.id}`)),
+        // Dias mantidos → atualiza campos (tipo, professor, horário)
+        ...toUpdate.map(r => apiRequest('PATCH', `/api/classes/${r.id}`, {
+          classTypeId: data.classTypeId,
+          instructorId: data.instructorId,
+          startTime: data.startTime,
+          endTime: data.endTime,
+        })),
+        // Dias adicionados → cria novo registro
+        ...toAdd.map(day => apiRequest('POST', '/api/classes', {
+          classTypeId: data.classTypeId,
+          instructorId: data.instructorId,
+          dayOfWeek: day,
+          startTime: data.startTime,
+          endTime: data.endTime,
+        })),
+      ]);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/classes'] });
       toast({ title: "Aula atualizada com sucesso!", description: "Os dados da aula foram atualizados." });
@@ -322,8 +344,6 @@ interface ClassDetailsProps {
 }
 
 function ClassDetails({ classData, onClose }: ClassDetailsProps) {
-  const dayName = DAYS_OF_WEEK.find(d => d.value === classData.dayOfWeek)?.label || "N/A";
-
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
@@ -337,14 +357,25 @@ function ClassDetails({ classData, onClose }: ClassDetailsProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label className="text-sm font-medium text-muted-foreground">Dia da Semana</Label>
-          <p className="text-sm">{dayName}</p>
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium text-muted-foreground">Dias da Semana</Label>
+        <div className="flex flex-wrap gap-1.5">
+          {classData.daysOfWeek.map(day => (
+            <Badge key={day} variant="secondary" className="text-xs">
+              {DAYS_OF_WEEK.find(d => d.value === day)?.label ?? day}
+            </Badge>
+          ))}
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <Label className="text-sm font-medium text-muted-foreground">Horário</Label>
           <p className="text-sm">{classData.startTime} - {classData.endTime}</p>
+        </div>
+        <div>
+          <Label className="text-sm font-medium text-muted-foreground">Duração</Label>
+          <p className="text-sm">{classData.classType?.duration || "N/A"} minutos</p>
         </div>
       </div>
 
@@ -356,10 +387,6 @@ function ClassDetails({ classData, onClose }: ClassDetailsProps) {
               {classData.active ? "Ativa" : "Inativa"}
             </Badge>
           </p>
-        </div>
-        <div>
-          <Label className="text-sm font-medium text-muted-foreground">Duração</Label>
-          <p className="text-sm">{classData.classType?.duration || "N/A"} minutos</p>
         </div>
       </div>
 
@@ -386,7 +413,8 @@ export default function ClassManagement() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest('DELETE', `/api/classes/${id}`),
+    mutationFn: (classData: ClassData) =>
+      Promise.all(classData.ids.map(id => apiRequest('DELETE', `/api/classes/${id}`))),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/classes'] });
       toast({
@@ -422,7 +450,7 @@ export default function ClassManagement() {
 
   const confirmDelete = () => {
     if (classToDelete) {
-      deleteMutation.mutate(classToDelete.id);
+      deleteMutation.mutate(classToDelete);
     }
   };
 
@@ -439,7 +467,9 @@ export default function ClassManagement() {
   const filteredClasses = classes.filter((classData: ClassData) =>
     classData.classType?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     classData.instructor?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    DAYS_OF_WEEK.find(d => d.value === classData.dayOfWeek)?.label.toLowerCase().includes(searchTerm.toLowerCase())
+    classData.daysOfWeek.some(day =>
+      DAYS_OF_WEEK.find(d => d.value === day)?.label.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   );
 
   if (error) {
@@ -530,7 +560,13 @@ export default function ClassManagement() {
                     </TableCell>
                     <TableCell>{classData.instructor?.name || "N/A"}</TableCell>
                     <TableCell>
-                      {DAYS_OF_WEEK.find(d => d.value === classData.dayOfWeek)?.label || "N/A"}
+                      <div className="flex flex-wrap gap-1">
+                        {classData.daysOfWeek.map(day => (
+                          <Badge key={day} variant="secondary" className="text-xs font-medium px-1.5 py-0">
+                            {DAYS_OF_WEEK.find(d => d.value === day)?.short ?? day}
+                          </Badge>
+                        ))}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">

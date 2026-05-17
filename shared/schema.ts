@@ -394,6 +394,24 @@ export type ClassWithRefs = Class & {
   instructor?: User;
 };
 
+export type ClassGrouped = {
+  /** ID representativo do primeiro registro do grupo (usado como key React e para fallback) */
+  id: string;
+  /** Todos os IDs do banco que compõem este grupo — necessário para delete/edit em lote */
+  ids: string[];
+  /** Mapeamento id → dayOfWeek para reconciliação no edit */
+  dayRecords: { id: string; dayOfWeek: number }[];
+  classTypeId: string;
+  instructorId: string;
+  startTime: string;
+  endTime: string;
+  /** Dias da semana (0 = Dom … 6 = Sáb), ordenados crescentemente */
+  daysOfWeek: number[];
+  active: boolean;
+  classType?: ClassType;
+  instructor?: Pick<User, 'id' | 'name' | 'email'>;
+};
+
 export type EnrollmentWithRefs = Enrollment & {
   student?: User;
   class?: Class;

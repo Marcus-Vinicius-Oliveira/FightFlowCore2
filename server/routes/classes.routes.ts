@@ -95,7 +95,7 @@ router.patch('/class-types/:id',
   }
 );
 
-// GET /api/classes
+// GET /api/classes — retorna registros agrupados por (modalidade, professor, horário)
 router.get('/',
   authenticateToken,
   requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
@@ -104,8 +104,8 @@ router.get('/',
     try {
       const academyId = req.user!.academyId;
       if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório' });
-      const allClasses = await storage.getClassesByAcademy(academyId);
-      res.json(allClasses);
+      const grouped = await storage.getClassesByAcademyGrouped(academyId);
+      res.json(grouped);
     } catch (error) {
       console.error('Get classes error:', error);
       res.status(500).json({ error: 'Internal server error' });
