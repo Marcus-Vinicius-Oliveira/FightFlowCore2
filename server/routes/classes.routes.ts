@@ -8,6 +8,7 @@ import {
   type AuthenticatedRequest,
 } from "../auth";
 import { insertClassSchema, insertClassTypeSchema } from "@shared/schema";
+import { generateSchedulePDF } from "../services/schedule-pdf.service";
 
 const router = Router();
 
@@ -183,6 +184,39 @@ router.get('/schedule/weekly',
     } catch (error) {
       console.error('Get weekly schedule error:', error);
       res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// GET /api/classes/export/pdf — grade horária em PDF (A4 landscape)
+router.get('/export/pdf',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório' });
+
+      const [academy, classes] = await Promise.all([
+        storage.getAcademy(academyId),
+        storage.getClassesByAcademy(academyId),
+      ]);
+
+      const pdf = await generateSchedulePDF(academy?.name ?? 'Academia', classes);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="grade_horaria.pdf"');
+      res.setHeader('Content-Length', pdf.length);
+      res.end(pdf);
+    } catch (error: any) {
+      console.error('PDF export error:', error);
+      const isBrowserMissing = /executable|chromium|browser/i.test(error?.message ?? '');
+      if (isBrowserMissing) {
+        return res.status(503).json({
+          error: 'Navegador Chromium não disponível. Execute: npx playwright install chromium',
+        });
+      }
+      res.status(500).json({ error: 'Erro ao gerar PDF' });
     }
   }
 );

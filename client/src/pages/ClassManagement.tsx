@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Edit, MoreHorizontal, Trash2, Eye, Clock, Users, Calendar } from "lucide-react";
+import { Plus, Search, Edit, MoreHorizontal, Trash2, Eye, Clock, Users, Calendar, FileDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
@@ -406,7 +406,36 @@ export default function ClassManagement() {
   const [showDetails, setShowDetails] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [classToDelete, setClassToDelete] = useState<ClassData | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
+
+  const handleExportPDF = async () => {
+    setIsExporting(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch('/api/classes/export/pdf', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? 'Erro ao gerar PDF');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'grade_horaria.pdf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast({ title: 'Erro ao exportar PDF', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const { data: classes = [], isLoading, error } = useQuery<ClassData[]>({
     queryKey: ['/api/classes']
@@ -495,13 +524,23 @@ export default function ClassManagement() {
             Gerencie a grade horária e organize as aulas da academia
           </p>
         </div>
-        <Button 
-          onClick={() => setShowForm(true)}
-          data-testid="button-add-class"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Aula
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleExportPDF}
+            disabled={isExporting}
+          >
+            <FileDown className="h-4 w-4 mr-2" />
+            {isExporting ? 'Gerando PDF…' : 'Exportar PDF'}
+          </Button>
+          <Button
+            onClick={() => setShowForm(true)}
+            data-testid="button-add-class"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Aula
+          </Button>
+        </div>
       </div>
 
       <Card>
