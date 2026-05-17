@@ -35,7 +35,7 @@ export default function Dashboard() {
         </TabsList>
         
         <TabsContent value="students">
-          <StudentManagement />
+          <StudentManagement mode="dashboard" />
         </TabsContent>
         
         <TabsContent value="classes">

@@ -2,6 +2,9 @@ import { Router } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import { authenticateToken, requireRole, type AuthenticatedRequest } from "../auth";
+import { db } from "../db";
+import { studentModalityRanks, graduationRanks } from "@shared/schema";
+import { eq, sql } from "drizzle-orm";
 
 const router = Router();
 
@@ -79,6 +82,21 @@ router.delete('/systems/:id',
     try {
       const sys = await storage.getGraduationSystem(req.params.id);
       if (!sys || sys.academyId !== req.user!.academyId) return res.status(404).json({ error: 'Sistema não encontrado' });
+
+      // Block deletion if any student currently holds a rank from this system
+      const [{ count }] = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${studentModalityRanks.studentId})::int` })
+        .from(studentModalityRanks)
+        .innerJoin(graduationRanks, eq(studentModalityRanks.rankId, graduationRanks.id))
+        .where(eq(graduationRanks.systemId, req.params.id));
+
+      if (count > 0) {
+        return res.status(409).json({
+          error: 'STUDENTS_ENROLLED',
+          count,
+          message: `Este sistema possui ${count} aluno${count > 1 ? 's' : ''} com graduação ativa e não pode ser removido. Transfira ou remova as graduações antes de excluir o sistema.`,
+        });
+      }
 
       await storage.deleteGraduationSystem(req.params.id);
       res.json({ message: 'Sistema removido' });

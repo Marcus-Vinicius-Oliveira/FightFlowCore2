@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -146,13 +146,27 @@ function Router() {
   );
 }
 
+const PUBLIC_ONLY_PATHS = ['/', '/login', '/auth', '/cadastro', '/recursos', '/precos', '/sobre'];
+
+function AuthenticatedRedirect() {
+  const { user } = useAuth();
+  if (user?.role === 'SUPER_ADMIN') return <Redirect to="/superadmin/dashboard" />;
+  if (user?.role === 'ALUNO') return <Redirect to="/portal/dashboard" />;
+  return <Redirect to="/dashboard" />;
+}
+
 function AppWithAuthentication() {
   const { user } = useAuth();
-  
+  const [location] = useLocation();
+
   const style = {
     "--sidebar-width": "18rem",
     "--sidebar-width-icon": "4rem",
   };
+
+  if (PUBLIC_ONLY_PATHS.includes(location)) {
+    return <AuthenticatedRedirect />;
+  }
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>

@@ -37,6 +37,17 @@ router.post('/class-types',
   async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertClassTypeSchema.parse({ ...req.body, academyId: req.user!.academyId });
+
+      // Reativa se já existe com o mesmo nome (evita duplicatas de classType → graduation system)
+      const existing = await storage.getClassTypeByName(data.academyId, data.name);
+      if (existing) {
+        if (!existing.active) {
+          const reactivated = await storage.updateClassType(existing.id, { active: true });
+          return res.json(reactivated);
+        }
+        return res.json(existing); // já ativo, idempotente
+      }
+
       const ct = await storage.createClassType(data);
       res.status(201).json(ct);
     } catch (error) {

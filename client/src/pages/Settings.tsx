@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Settings2, Plus, Pencil, Trash2, MoreHorizontal, Award, CheckCircle2 } from "lucide-react";
+import { Settings2, Plus, Pencil, Trash2, MoreHorizontal, Award, CheckCircle2, X, Users } from "lucide-react";
 import { BeltBar, isLightHex } from "@/components/BeltBadge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -25,6 +25,7 @@ interface RankTemplate {
 interface GraduationTemplate {
   id: string;
   sport: string;
+  keywords: string[];
   name: string;
   description: string;
   ranks: RankTemplate[];
@@ -34,6 +35,7 @@ const GRADUATION_TEMPLATES: GraduationTemplate[] = [
   {
     id: 'muay-thai-brasil',
     sport: 'Muay Thai',
+    keywords: ['muay thai', 'muaythai', 'thai'],
     name: 'Sistema Brasileiro (Corda / Prajied)',
     description: 'Cordões trançados no braço — padrão CMTB Brasil',
     ranks: [
@@ -53,6 +55,7 @@ const GRADUATION_TEMPLATES: GraduationTemplate[] = [
   {
     id: 'muay-thai-tradicional',
     sport: 'Muay Thai',
+    keywords: ['muay thai', 'muaythai', 'thai'],
     name: 'Sistema Tradicional (Khans / Cruang)',
     description: 'Reconhecido pela IFMA — 10 níveis Khan',
     ranks: [
@@ -71,36 +74,56 @@ const GRADUATION_TEMPLATES: GraduationTemplate[] = [
   {
     id: 'bjj',
     sport: 'Jiu-Jitsu Brasileiro',
-    name: 'Sistema BJJ (IBJJF)',
-    description: 'Padrão internacional de faixas para adultos',
+    keywords: ['bjj', 'jiu-jitsu', 'jiu jitsu', 'jiujitsu', 'jj', 'brazilian jiu'],
+    name: 'Sistema BJJ (CBJJ/IBJJF)',
+    description: 'Todas as faixas — infanto-juvenil e adulto — padrão CBJJ/IBJJF',
     ranks: [
-      { name: 'Branca',  displayOrder: 0, colorClass: '#f9fafb' },
-      { name: 'Azul',    displayOrder: 1, colorClass: '#2563eb' },
-      { name: 'Roxa',    displayOrder: 2, colorClass: '#7c3aed' },
-      { name: 'Marrom',  displayOrder: 3, colorClass: '#92400e' },
-      { name: 'Preta',   displayOrder: 4, colorClass: '#111827' },
+      { name: 'Branca',              displayOrder: 0,  colorClass: '#f9fafb' },
+      { name: 'Cinza e Branca',      displayOrder: 1,  colorClass: '#6b7280|#f9fafb' },
+      { name: 'Cinza',               displayOrder: 2,  colorClass: '#6b7280' },
+      { name: 'Cinza e Preta',       displayOrder: 3,  colorClass: '#6b7280|#111827' },
+      { name: 'Amarela e Branca',    displayOrder: 4,  colorClass: '#facc15|#f9fafb' },
+      { name: 'Amarela',             displayOrder: 5,  colorClass: '#facc15' },
+      { name: 'Amarela e Preta',     displayOrder: 6,  colorClass: '#facc15|#111827' },
+      { name: 'Laranja e Branca',    displayOrder: 7,  colorClass: '#f97316|#f9fafb' },
+      { name: 'Laranja',             displayOrder: 8,  colorClass: '#f97316' },
+      { name: 'Laranja e Preta',     displayOrder: 9,  colorClass: '#f97316|#111827' },
+      { name: 'Verde e Branca',      displayOrder: 10, colorClass: '#15803d|#f9fafb' },
+      { name: 'Verde',               displayOrder: 11, colorClass: '#15803d' },
+      { name: 'Verde e Preta',       displayOrder: 12, colorClass: '#15803d|#111827' },
+      { name: 'Azul',                displayOrder: 13, colorClass: '#2563eb' },
+      { name: 'Roxa',                displayOrder: 14, colorClass: '#7c3aed' },
+      { name: 'Marrom',              displayOrder: 15, colorClass: '#92400e' },
+      { name: 'Preta',               displayOrder: 16, colorClass: '#111827' },
+      { name: 'Coral',               displayOrder: 17, colorClass: '#dc2626|#111827' },
+      { name: 'Vermelha',            displayOrder: 18, colorClass: '#dc2626' },
     ],
   },
   {
     id: 'judo',
     sport: 'Judô',
-    name: 'Sistema Judô (IJF)',
-    description: 'Kyus e Dans — padrão IJF',
+    keywords: ['judô', 'judo'],
+    name: 'Sistema Judô (CBJ)',
+    description: 'Graduação brasileira oficial — Branca a Vermelha (12 faixas)',
     ranks: [
-      { name: '6º Kyu — Branca',   displayOrder: 0, colorClass: '#f9fafb' },
-      { name: '5º Kyu — Amarela',  displayOrder: 1, colorClass: '#facc15' },
-      { name: '4º Kyu — Laranja',  displayOrder: 2, colorClass: '#f97316' },
-      { name: '3º Kyu — Verde',    displayOrder: 3, colorClass: '#15803d' },
-      { name: '2º Kyu — Azul',     displayOrder: 4, colorClass: '#2563eb' },
-      { name: '1º Kyu — Marrom',   displayOrder: 5, colorClass: '#92400e' },
-      { name: '1º Dan — Preta',    displayOrder: 6, colorClass: '#111827' },
-      { name: '2º Dan — Preta',    displayOrder: 7, colorClass: '#111827' },
-      { name: '3º Dan — Preta',    displayOrder: 8, colorClass: '#111827' },
+      { name: 'Branca',     displayOrder: 0,  colorClass: '#f9fafb' },
+      { name: 'Cinza',      displayOrder: 1,  colorClass: '#6b7280' },
+      { name: 'Azul Claro', displayOrder: 2,  colorClass: '#60a5fa' },
+      { name: 'Azul Escuro',displayOrder: 3,  colorClass: '#1e40af' },
+      { name: 'Amarela',    displayOrder: 4,  colorClass: '#facc15' },
+      { name: 'Laranja',    displayOrder: 5,  colorClass: '#f97316' },
+      { name: 'Verde',      displayOrder: 6,  colorClass: '#15803d' },
+      { name: 'Roxa',       displayOrder: 7,  colorClass: '#7c3aed' },
+      { name: 'Marrom',     displayOrder: 8,  colorClass: '#92400e' },
+      { name: 'Preta',      displayOrder: 9,  colorClass: '#111827' },
+      { name: 'Coral',      displayOrder: 10, colorClass: '#dc2626|#111827' },
+      { name: 'Vermelha',   displayOrder: 11, colorClass: '#dc2626' },
     ],
   },
   {
     id: 'karate',
     sport: 'Karatê',
+    keywords: ['karatê', 'karate', 'karatê'],
     name: 'Sistema Karatê (WKF)',
     description: 'Kyus e Dans — padrão WKF',
     ranks: [
@@ -134,6 +157,7 @@ interface GraduationSystem {
   classTypeId: string | null;
   name: string;
   ranks: GraduationRank[];
+  classType?: { id: string; name: string } | null;
 }
 
 interface ClassType {
@@ -323,7 +347,6 @@ function SystemPanel({ system, classTypeName, onDeleteSystem }: SystemPanelProps
             <Award className="h-4 w-4 text-yellow-500" />
             {system.name}
           </h3>
-          <p className="text-xs text-muted-foreground">Modalidade: {classTypeName}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => setRankDialog({ open: true })}>
@@ -424,6 +447,7 @@ function ModalidadesTab() {
   const [newSystemClassTypeId, setNewSystemClassTypeId] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<GraduationTemplate | null>(null);
   const [deleteSystem, setDeleteSystem] = useState<GraduationSystem | undefined>();
+  const [deleteBlockedInfo, setDeleteBlockedInfo] = useState<{ system: GraduationSystem; count: number; message: string } | undefined>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -447,13 +471,25 @@ function ModalidadesTab() {
 
   const matchingTemplates = selectedClassType
     ? GRADUATION_TEMPLATES.filter(t => {
-        const ctName = selectedClassType.name.toLowerCase();
+        const ctName = selectedClassType.name.toLowerCase().trim();
         const sport = t.sport.toLowerCase();
-        return ctName.includes(sport.split(' ')[0]) ||
+        const keywords = t.keywords.map(k => k.toLowerCase());
+        return ctName === sport ||
+               ctName.includes(sport.split(' ')[0]) ||
                sport.includes(ctName.split(' ')[0]) ||
-               ctName === sport;
+               keywords.some(k => ctName === k || ctName.includes(k) || k.includes(ctName));
       })
     : [];
+
+
+  // Auto-select the first template when exactly one matches, and fill system name
+  useEffect(() => {
+    if (matchingTemplates.length === 1 && !selectedTemplate) {
+      setSelectedTemplate(matchingTemplates[0]);
+      setNewSystemName(matchingTemplates[0].name);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchingTemplates.length, newSystemClassTypeId]);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -488,13 +524,38 @@ function ModalidadesTab() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest('DELETE', `/api/graduation/systems/${id}`).then(r => r.json()),
+    mutationFn: async (system: GraduationSystem) => {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`/api/graduation/systems/${system.id}`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = Object.assign(new Error(body.message || 'Erro ao remover sistema'), { status: res.status, body });
+        throw err;
+      }
+      return body;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/graduation/systems'] });
-      toast({ title: 'Sistema removido' });
+      toast({ title: 'Sistema removido com sucesso' });
       setDeleteSystem(undefined);
     },
-    onError: () => toast({ title: 'Erro ao remover sistema', variant: 'destructive' }),
+    onError: (err: any, system: GraduationSystem) => {
+      setDeleteSystem(undefined);
+      // Auth / not found → toast genérico
+      if (err.status === 401 || err.status === 403 || err.status === 404) {
+        toast({ title: err.message || 'Erro ao remover sistema', variant: 'destructive' });
+        return;
+      }
+      // 409 (alunos vinculados) ou 500 (FK constraint = mesma causa) → diálogo informativo
+      const count: number = err.body?.count ?? 0;
+      const message: string = err.body?.message ||
+        'Este sistema possui alunos com graduações ativas e não pode ser removido. Transfira ou cancele as graduações antes de excluir.';
+      setDeleteBlockedInfo({ system, count, message });
+    },
   });
 
   const createClassTypeMutation = useMutation({
@@ -505,6 +566,16 @@ function ModalidadesTab() {
       toast({ title: `Modalidade "${ct.name}" adicionada!` });
     },
     onError: () => toast({ title: 'Erro ao adicionar modalidade', variant: 'destructive' }),
+  });
+
+  const removeModalityMutation = useMutation({
+    mutationFn: (ct: ClassType) =>
+      apiRequest('PATCH', `/api/classes/class-types/${ct.id}`, { active: false }).then(r => r.json()),
+    onSuccess: (_data, ct) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/classes/class-types'] });
+      toast({ title: `Modalidade "${ct.name}" removida.` });
+    },
+    onError: () => toast({ title: 'Erro ao remover modalidade', variant: 'destructive' }),
   });
 
   function submitCustomModality(e: React.FormEvent) {
@@ -520,9 +591,6 @@ function ModalidadesTab() {
   for (const sys of systems) {
     if (sys.classTypeId) systemByClassType[sys.classTypeId] = sys;
   }
-
-  const getClassTypeName = (classTypeId: string | null) =>
-    classTypeId ? (classTypes.find(c => c.id === classTypeId)?.name ?? 'Desconhecida') : 'Geral';
 
   const activeClassTypes = classTypes.filter(ct => ct.active);
   const missingSports = COMMON_SPORTS.filter(
@@ -584,8 +652,17 @@ function ModalidadesTab() {
         ) : (
           <div className="flex flex-wrap gap-2 items-center">
             {activeClassTypes.map(ct => (
-              <Badge key={ct.id} variant="secondary" className="text-sm py-1 px-3">
+              <Badge key={ct.id} variant="secondary" className="text-sm py-1 pl-3 pr-1.5 flex items-center gap-1.5">
                 {ct.name}
+                <button
+                  type="button"
+                  title={`Remover ${ct.name}`}
+                  onClick={() => removeModalityMutation.mutate(ct)}
+                  disabled={removeModalityMutation.isPending}
+                  className="rounded-full hover:bg-muted-foreground/20 p-0.5 transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
               </Badge>
             ))}
             {missingSports.map(sport => (
@@ -643,7 +720,7 @@ function ModalidadesTab() {
           <SystemPanel
             key={sys.id}
             system={sys}
-            classTypeName={getClassTypeName(sys.classTypeId)}
+            classTypeName={sys.classType?.name ?? classTypes.find(c => c.id === sys.classTypeId)?.name ?? (sys.classTypeId ? '' : 'Geral')}
             onDeleteSystem={setDeleteSystem}
           />
         ))}
@@ -824,10 +901,45 @@ function ModalidadesTab() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => deleteSystem && deleteMutation.mutate(deleteSystem.id)}
+              onClick={() => deleteSystem && deleteMutation.mutate(deleteSystem)}
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending ? 'Removendo...' : 'Remover'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete System Blocked — students enrolled */}
+      <AlertDialog open={!!deleteBlockedInfo} onOpenChange={open => !open && setDeleteBlockedInfo(undefined)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                <Users className="h-5 w-5" />
+              </div>
+              <AlertDialogTitle className="text-left">Não é possível remover este sistema</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-left space-y-2">
+              {(deleteBlockedInfo?.count ?? 0) > 0 ? (
+                <span className="block">
+                  O sistema <strong>{deleteBlockedInfo?.system.name}</strong> possui{' '}
+                  <strong>{deleteBlockedInfo?.count} aluno{(deleteBlockedInfo?.count ?? 0) > 1 ? 's' : ''}</strong>{' '}
+                  com graduação ativa vinculada a ele.
+                </span>
+              ) : (
+                <span className="block">
+                  O sistema <strong>{deleteBlockedInfo?.system.name}</strong> não pode ser removido porque há alunos com graduações ativas vinculadas a ele.
+                </span>
+              )}
+              <span className="block text-muted-foreground text-sm">
+                Para remover este sistema, primeiro transfira ou cancele as graduações dos alunos matriculados nesta modalidade.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setDeleteBlockedInfo(undefined)}>
+              Entendido
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

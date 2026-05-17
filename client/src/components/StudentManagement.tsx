@@ -29,6 +29,27 @@ interface ModalityRankEntry {
   colorClass: string;
 }
 
+function ModalityEnrollmentBadges({ studentId, enrollments, classTypeMap }: {
+  studentId: string;
+  enrollments: { studentId: string; classTypeId: string }[];
+  classTypeMap: Map<string, string>;
+}) {
+  const mine = enrollments.filter(e => e.studentId === studentId);
+  if (mine.length === 0) return <span className="text-muted-foreground text-sm">—</span>;
+  const visible = mine.slice(0, 3);
+  const extra = mine.length - visible.length;
+  return (
+    <div className="flex flex-wrap gap-1 items-center">
+      {visible.map(e => (
+        <Badge key={e.classTypeId} variant="outline" className="text-xs">
+          {classTypeMap.get(e.classTypeId) ?? '?'}
+        </Badge>
+      ))}
+      {extra > 0 && <span className="text-xs text-muted-foreground">+{extra}</span>}
+    </div>
+  );
+}
+
 function ModalityRanksBadges({ studentId, ranks }: { studentId: string; ranks: ModalityRankEntry[] }) {
   const mine = ranks.filter(r => r.studentId === studentId);
   if (mine.length === 0) return <span className="text-muted-foreground text-sm">—</span>;
@@ -192,7 +213,7 @@ function StudentEditForm({ student, onClose, updateMutation }: StudentEditFormPr
   );
 }
 
-export function StudentManagement() {
+export function StudentManagement({ mode = 'full' }: { mode?: 'dashboard' | 'full' }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterClassTypeId, setFilterClassTypeId] = useState('');
   const [filterRankId, setFilterRankId] = useState('');
@@ -235,6 +256,11 @@ export function StudentManagement() {
     queryKey: ['/api/graduation/systems'],
     queryFn: () => apiRequest('GET', '/api/graduation/systems').then(r => r.json()),
   });
+
+  const classTypeMap = useMemo(
+    () => new Map(classTypes.map(ct => [ct.id, ct.name])),
+    [classTypes]
+  );
 
   // Fix 2: pré-computa Map<classTypeId, Set<studentId>> para lookups O(1) no filter
   const enrollmentsByModality = useMemo(() => {
@@ -568,7 +594,7 @@ export function StudentManagement() {
                 <div>Aluno</div>
                 <div>Contato</div>
                 <div>Status</div>
-                <div>Graduações</div>
+                <div>{mode === 'dashboard' ? 'Modalidades' : 'Graduações'}</div>
                 <div>Ações</div>
               </div>
 
@@ -607,7 +633,10 @@ export function StudentManagement() {
                       </div>
 
                       <div>
-                        <ModalityRanksBadges studentId={student.id} ranks={modalityRanks} />
+                        {mode === 'dashboard'
+                          ? <ModalityEnrollmentBadges studentId={student.id} enrollments={modalityEnrollments} classTypeMap={classTypeMap} />
+                          : <ModalityRanksBadges studentId={student.id} ranks={modalityRanks} />
+                        }
                       </div>
                       
                       <div>

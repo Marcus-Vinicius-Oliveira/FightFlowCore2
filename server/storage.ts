@@ -52,7 +52,7 @@ import {
   type InsertStudentModalityEnrollment,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, inArray, gte, lt, count, asc } from "drizzle-orm";
+import { eq, and, desc, inArray, gte, lt, count, asc, sql } from "drizzle-orm";
 
 export interface PaginationParams {
   limit?: number;
@@ -96,6 +96,7 @@ export interface IStorage {
   // Class type operations
   getClassTypesByAcademy(academyId: string): Promise<ClassType[]>;
   getClassType(id: string): Promise<ClassType | undefined>;
+  getClassTypeByName(academyId: string, name: string): Promise<ClassType | undefined>;
   createClassType(classType: InsertClassType): Promise<ClassType>;
   updateClassType(id: string, updates: Partial<InsertClassType>): Promise<ClassType | undefined>;
 
@@ -338,6 +339,12 @@ export class DatabaseStorage implements IStorage {
 
   async getClassType(id: string): Promise<ClassType | undefined> {
     const [ct] = await db.select().from(classTypes).where(eq(classTypes.id, id));
+    return ct;
+  }
+
+  async getClassTypeByName(academyId: string, name: string): Promise<ClassType | undefined> {
+    const [ct] = await db.select().from(classTypes)
+      .where(and(eq(classTypes.academyId, academyId), sql`LOWER(${classTypes.name}) = LOWER(${name})`));
     return ct;
   }
 
@@ -598,11 +605,14 @@ export class DatabaseStorage implements IStorage {
       .orderBy(graduationRanks.displayOrder);
   }
 
-  async getGraduationSystemsWithRanks(academyId: string): Promise<(GraduationSystem & { ranks: GraduationRank[] })[]> {
+  async getGraduationSystemsWithRanks(academyId: string): Promise<(GraduationSystem & { ranks: GraduationRank[]; classType: ClassType | null })[]> {
     return db.query.graduationSystems.findMany({
       where: eq(graduationSystems.academyId, academyId),
-      with: { ranks: { orderBy: asc(graduationRanks.displayOrder) } },
-    }) as Promise<(GraduationSystem & { ranks: GraduationRank[] })[]>;
+      with: {
+        ranks: { orderBy: asc(graduationRanks.displayOrder) },
+        classType: true,
+      },
+    }) as Promise<(GraduationSystem & { ranks: GraduationRank[]; classType: ClassType | null })[]>;
   }
 
   async getAcademyModalityRanksEnriched(academyId: string): Promise<{ studentId: string; classTypeId: string; rankId: string; rankName: string; colorClass: string; promotedAt: Date }[]> {
