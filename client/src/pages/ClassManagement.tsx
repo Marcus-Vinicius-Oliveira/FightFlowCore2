@@ -84,7 +84,7 @@ function ClassForm({ classData, onClose }: ClassFormProps) {
 
   // Get class types
   const { data: classTypes = [] } = useQuery<ClassType[]>({
-    queryKey: ['/api/class-types']
+    queryKey: ['/api/classes/class-types']
   });
 
   // Get instructors (professors)  
