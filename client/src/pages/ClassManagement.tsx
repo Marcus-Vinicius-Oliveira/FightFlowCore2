@@ -610,13 +610,21 @@ export default function ClassManagement() {
         <CardContent>
           {/* ── Toolbar de Filtros Avançados ── */}
           <div className="flex flex-wrap items-center gap-2 mb-4">
-            {/* Filtro por Modalidade */}
+
+            {/* Modalidade */}
             <Select
               value={filters.classTypeId || "_all"}
               onValueChange={(v) => setFilters(prev => ({ ...prev, classTypeId: v === "_all" ? "" : v }))}
             >
-              <SelectTrigger className="w-[160px]" data-testid="select-filter-classtype">
-                <SelectValue placeholder="Modalidade" />
+              <SelectTrigger
+                className={cn("w-[150px]", filters.classTypeId && "border-primary")}
+                data-testid="select-filter-classtype"
+              >
+                <span className={cn("truncate text-sm", !filters.classTypeId && "text-muted-foreground")}>
+                  {filters.classTypeId
+                    ? filterClassTypes.find(ct => ct.id === filters.classTypeId)?.name ?? "Modalidade"
+                    : "Modalidade"}
+                </span>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="_all">Todas as modalidades</SelectItem>
@@ -626,13 +634,20 @@ export default function ClassManagement() {
               </SelectContent>
             </Select>
 
-            {/* Filtro por Professor */}
+            {/* Professor */}
             <Select
               value={filters.instructorId || "_all"}
               onValueChange={(v) => setFilters(prev => ({ ...prev, instructorId: v === "_all" ? "" : v }))}
             >
-              <SelectTrigger className="w-[160px]" data-testid="select-filter-instructor">
-                <SelectValue placeholder="Professor" />
+              <SelectTrigger
+                className={cn("w-[150px]", filters.instructorId && "border-primary")}
+                data-testid="select-filter-instructor"
+              >
+                <span className={cn("truncate text-sm", !filters.instructorId && "text-muted-foreground")}>
+                  {filters.instructorId
+                    ? filterInstructors.find(i => i.id === filters.instructorId)?.name ?? "Professor"
+                    : "Professor"}
+                </span>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="_all">Todos os professores</SelectItem>
@@ -642,29 +657,34 @@ export default function ClassManagement() {
               </SelectContent>
             </Select>
 
-            {/* Filtro por Dias da Semana (Popover com checkboxes) */}
+            {/* Dias da Semana — Popover com checkboxes */}
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className={cn("w-[150px] justify-between font-normal", filters.daysOfWeek.length > 0 && "border-primary")}
+                  className={cn(
+                    "w-[150px] justify-between font-normal text-sm",
+                    filters.daysOfWeek.length > 0 ? "border-primary" : "text-muted-foreground"
+                  )}
                   data-testid="popover-filter-days"
                 >
-                  <span>
+                  <span className="truncate">
                     {filters.daysOfWeek.length === 0
-                      ? "Dias da semana"
-                      : filters.daysOfWeek.length === 1
-                        ? DAYS_OF_WEEK.find(d => d.value === filters.daysOfWeek[0])?.short
+                      ? "Dia da semana"
+                      : filters.daysOfWeek.length <= 2
+                        ? filters.daysOfWeek
+                            .map(d => DAYS_OF_WEEK.find(x => x.value === d)?.short)
+                            .join(", ")
                         : `${filters.daysOfWeek.length} dias`}
                   </span>
-                  <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                  <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-1" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[160px] p-2" align="start">
                 {DAYS_OF_WEEK.map(day => (
                   <div
                     key={day.value}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-accent cursor-pointer"
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-accent cursor-pointer select-none"
                     onClick={() => toggleFilterDay(day.value)}
                   >
                     <Checkbox
@@ -677,13 +697,20 @@ export default function ClassManagement() {
               </PopoverContent>
             </Popover>
 
-            {/* Filtro por Horário */}
+            {/* Horário */}
             <Select
               value={filters.startTime || "_all"}
               onValueChange={(v) => setFilters(prev => ({ ...prev, startTime: v === "_all" ? "" : v }))}
             >
-              <SelectTrigger className="w-[160px]" data-testid="select-filter-time">
-                <SelectValue placeholder="Horário" />
+              <SelectTrigger
+                className={cn("w-[150px]", filters.startTime && "border-primary")}
+                data-testid="select-filter-time"
+              >
+                <span className={cn("truncate text-sm", !filters.startTime && "text-muted-foreground")}>
+                  {filters.startTime
+                    ? timeSlotOptions.find(o => o.startTime === filters.startTime)?.label ?? filters.startTime
+                    : "Horário"}
+                </span>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="_all">Todos os horários</SelectItem>
@@ -693,17 +720,17 @@ export default function ClassManagement() {
               </SelectContent>
             </Select>
 
-            {/* Botão limpar filtros */}
+            {/* Limpar filtros */}
             {hasActiveFilters && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={clearFilters}
-                className="text-muted-foreground h-9 px-2"
+                className="text-muted-foreground h-9 px-2 hover:text-foreground"
                 data-testid="button-clear-filters"
               >
-                <X className="h-4 w-4 mr-1" />
-                Limpar
+                <X className="h-3.5 w-3.5 mr-1" />
+                Limpar filtros
               </Button>
             )}
           </div>
