@@ -196,6 +196,7 @@ export default function InstructorManagement() {
   const [filters, setFilters] = useState<FilterOptions>({
     status: "all",
     belt: "",
+    classTypeId: "",
     dateFrom: "",
     dateTo: "",
     sortBy: "name",

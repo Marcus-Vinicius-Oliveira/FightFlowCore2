@@ -9,6 +9,8 @@ export function invalidateAfterStudentChange(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['/api/users'] });
   queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
   queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
+  queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
+  queryClient.invalidateQueries({ queryKey: ['/api/dashboard/charts'] });
 }
 
 /**

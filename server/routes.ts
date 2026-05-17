@@ -10,6 +10,7 @@ import financialRouter from "./routes/financial.routes";
 import superadminRouter from "./routes/superadmin.routes";
 import dashboardRouter from "./routes/dashboard.routes";
 import usersRouter from "./routes/users.routes";
+import graduationRouter from "./routes/graduation.routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/auth', authRouter);
@@ -20,6 +21,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api', financialRouter);           // /api/payments + /api/membership-plans
   app.use('/api/superadmin', superadminRouter);
   app.use('/api/dashboard', dashboardRouter);
+  app.use('/api/graduation', graduationRouter);
   app.use('/api', usersRouter);               // /api/users + /api/student/me
 
   return createServer(app);

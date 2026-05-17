@@ -10,6 +10,11 @@ import {
   planos,
   assinaturas,
   beltHistory,
+  graduationSystems,
+  graduationRanks,
+  studentModalityRanks,
+  studentRankHistory,
+  studentModalityEnrollments,
   userRoleEnum,
   type User,
   type Academy,
@@ -22,6 +27,11 @@ import {
   type Plano,
   type Assinatura,
   type BeltHistory,
+  type GraduationSystem,
+  type GraduationRank,
+  type StudentModalityRank,
+  type StudentRankHistory,
+  type StudentModalityEnrollment,
   type ClassWithRefs,
   type EnrollmentWithRefs,
   type InsertUser,
@@ -35,6 +45,11 @@ import {
   type InsertPlano,
   type InsertAssinatura,
   type InsertBeltHistory,
+  type InsertGraduationSystem,
+  type InsertGraduationRank,
+  type InsertStudentModalityRank,
+  type InsertStudentRankHistory,
+  type InsertStudentModalityEnrollment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, inArray, gte, lt, count } from "drizzle-orm";
@@ -122,6 +137,32 @@ export interface IStorage {
   // Belt history operations
   getBeltHistory(studentId: string): Promise<BeltHistory[]>;
   createBeltHistoryEntry(data: InsertBeltHistory): Promise<BeltHistory>;
+
+  // Graduation system operations
+  getGraduationSystemsByAcademy(academyId: string): Promise<GraduationSystem[]>;
+  getGraduationSystem(id: string): Promise<GraduationSystem | undefined>;
+  createGraduationSystem(data: InsertGraduationSystem): Promise<GraduationSystem>;
+  updateGraduationSystem(id: string, updates: Partial<InsertGraduationSystem>): Promise<GraduationSystem | undefined>;
+  deleteGraduationSystem(id: string): Promise<boolean>;
+
+  // Graduation rank operations
+  getGraduationRanksBySystem(systemId: string): Promise<GraduationRank[]>;
+  createGraduationRank(data: InsertGraduationRank): Promise<GraduationRank>;
+  updateGraduationRank(id: string, updates: Partial<InsertGraduationRank>): Promise<GraduationRank | undefined>;
+  deleteGraduationRank(id: string): Promise<boolean>;
+
+  // Student modality rank operations
+  getStudentModalityRanks(studentId: string): Promise<StudentModalityRank[]>;
+  getAcademyModalityRanks(academyId: string): Promise<StudentModalityRank[]>;
+  upsertStudentModalityRank(data: InsertStudentModalityRank): Promise<StudentModalityRank>;
+  getStudentRankHistory(studentId: string, classTypeId?: string): Promise<StudentRankHistory[]>;
+  createStudentRankHistory(data: InsertStudentRankHistory): Promise<StudentRankHistory>;
+
+  // Student modality enrollment operations
+  getStudentModalityEnrollments(studentId: string): Promise<StudentModalityEnrollment[]>;
+  getAcademyModalityEnrollments(academyId: string): Promise<StudentModalityEnrollment[]>;
+  upsertStudentModalityEnrollment(data: InsertStudentModalityEnrollment): Promise<StudentModalityEnrollment>;
+  deactivateStudentModalityEnrollment(studentId: string, classTypeId: string): Promise<boolean>;
 
   // Super Admin operations
   getAllAcademies(): Promise<Academy[]>;
@@ -517,6 +558,123 @@ export class DatabaseStorage implements IStorage {
   async createBeltHistoryEntry(data: InsertBeltHistory): Promise<BeltHistory> {
     const [entry] = await db.insert(beltHistory).values(data).returning();
     return entry;
+  }
+
+  async getGraduationSystemsByAcademy(academyId: string): Promise<GraduationSystem[]> {
+    return db.select().from(graduationSystems).where(eq(graduationSystems.academyId, academyId));
+  }
+
+  async getGraduationSystem(id: string): Promise<GraduationSystem | undefined> {
+    const [sys] = await db.select().from(graduationSystems).where(eq(graduationSystems.id, id));
+    return sys;
+  }
+
+  async createGraduationSystem(data: InsertGraduationSystem): Promise<GraduationSystem> {
+    const [sys] = await db.insert(graduationSystems).values(data).returning();
+    return sys;
+  }
+
+  async updateGraduationSystem(id: string, updates: Partial<InsertGraduationSystem>): Promise<GraduationSystem | undefined> {
+    const [sys] = await db.update(graduationSystems).set(updates).where(eq(graduationSystems.id, id)).returning();
+    return sys;
+  }
+
+  async deleteGraduationSystem(id: string): Promise<boolean> {
+    const result = await db.delete(graduationSystems).where(eq(graduationSystems.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getGraduationRanksBySystem(systemId: string): Promise<GraduationRank[]> {
+    return db.select().from(graduationRanks)
+      .where(eq(graduationRanks.systemId, systemId))
+      .orderBy(graduationRanks.displayOrder);
+  }
+
+  async createGraduationRank(data: InsertGraduationRank): Promise<GraduationRank> {
+    const [rank] = await db.insert(graduationRanks).values(data).returning();
+    return rank;
+  }
+
+  async updateGraduationRank(id: string, updates: Partial<InsertGraduationRank>): Promise<GraduationRank | undefined> {
+    const [rank] = await db.update(graduationRanks).set(updates).where(eq(graduationRanks.id, id)).returning();
+    return rank;
+  }
+
+  async deleteGraduationRank(id: string): Promise<boolean> {
+    const result = await db.delete(graduationRanks).where(eq(graduationRanks.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getStudentModalityRanks(studentId: string): Promise<StudentModalityRank[]> {
+    return db.select().from(studentModalityRanks)
+      .where(eq(studentModalityRanks.studentId, studentId))
+      .orderBy(studentModalityRanks.promotedAt);
+  }
+
+  async getAcademyModalityRanks(academyId: string): Promise<StudentModalityRank[]> {
+    return db.select().from(studentModalityRanks)
+      .where(eq(studentModalityRanks.academyId, academyId));
+  }
+
+  async upsertStudentModalityRank(data: InsertStudentModalityRank): Promise<StudentModalityRank> {
+    const [rank] = await db.insert(studentModalityRanks)
+      .values(data)
+      .onConflictDoUpdate({
+        target: [studentModalityRanks.studentId, studentModalityRanks.classTypeId],
+        set: {
+          rankId: data.rankId,
+          promotedAt: data.promotedAt,
+          promotedBy: data.promotedBy,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return rank;
+  }
+
+  async getStudentRankHistory(studentId: string, classTypeId?: string): Promise<StudentRankHistory[]> {
+    const conditions = classTypeId
+      ? and(eq(studentRankHistory.studentId, studentId), eq(studentRankHistory.classTypeId, classTypeId))
+      : eq(studentRankHistory.studentId, studentId);
+    return db.select().from(studentRankHistory)
+      .where(conditions)
+      .orderBy(desc(studentRankHistory.promotedAt));
+  }
+
+  async createStudentRankHistory(data: InsertStudentRankHistory): Promise<StudentRankHistory> {
+    const [entry] = await db.insert(studentRankHistory).values(data).returning();
+    return entry;
+  }
+
+  async getStudentModalityEnrollments(studentId: string): Promise<StudentModalityEnrollment[]> {
+    return db.select().from(studentModalityEnrollments)
+      .where(and(eq(studentModalityEnrollments.studentId, studentId), eq(studentModalityEnrollments.active, true)));
+  }
+
+  async getAcademyModalityEnrollments(academyId: string): Promise<StudentModalityEnrollment[]> {
+    return db.select().from(studentModalityEnrollments)
+      .where(and(eq(studentModalityEnrollments.academyId, academyId), eq(studentModalityEnrollments.active, true)));
+  }
+
+  async upsertStudentModalityEnrollment(data: InsertStudentModalityEnrollment): Promise<StudentModalityEnrollment> {
+    const [enrollment] = await db.insert(studentModalityEnrollments)
+      .values(data)
+      .onConflictDoUpdate({
+        target: [studentModalityEnrollments.studentId, studentModalityEnrollments.classTypeId],
+        set: { active: true, updatedAt: new Date() },
+      })
+      .returning();
+    return enrollment;
+  }
+
+  async deactivateStudentModalityEnrollment(studentId: string, classTypeId: string): Promise<boolean> {
+    const result = await db.update(studentModalityEnrollments)
+      .set({ active: false, updatedAt: new Date() })
+      .where(and(
+        eq(studentModalityEnrollments.studentId, studentId),
+        eq(studentModalityEnrollments.classTypeId, classTypeId),
+      ));
+    return (result.rowCount || 0) > 0;
   }
 }
 

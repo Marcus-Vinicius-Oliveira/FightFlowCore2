@@ -32,6 +32,7 @@ import PortalSchedule from "@/pages/PortalSchedule";
 import SuperAdminDashboard from "@/pages/SuperAdminDashboard";
 import SuperAdminAcademias from "@/pages/SuperAdminAcademias";
 import SuperAdminPlanos from "@/pages/SuperAdminPlanos";
+import SettingsPage from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
@@ -98,6 +99,11 @@ function Router() {
       <Route path="/dashboard/grade">
         <ProtectedRoute requireRole={['ADMIN_ACADEMIA', 'PROFESSOR']}>
           <WeeklySchedule />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/settings">
+        <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
+          <SettingsPage />
         </ProtectedRoute>
       </Route>
       <Route path="/dashboard/presenca/:classId">

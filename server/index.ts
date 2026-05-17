@@ -5,6 +5,9 @@ import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startOverduePaymentsJob } from "./jobs/markOverduePayments";
+import { db } from "./db";
+import { users } from "@shared/schema";
+import { isNull, or, eq, and } from "drizzle-orm";
 
 const app = express();
 
@@ -55,7 +58,19 @@ app.use((req, res, next) => {
   next();
 });
 
+async function backfillStudentBelts() {
+  try {
+    const result = await db.update(users)
+      .set({ belt: 'branca' })
+      .where(and(eq(users.role, 'ALUNO'), or(isNull(users.belt), eq(users.belt, ''))));
+    log(`Belt backfill: updated students with missing belt to 'branca'`);
+  } catch (e) {
+    console.error('Belt backfill failed:', e);
+  }
+}
+
 (async () => {
+  await backfillStudentBelts();
   const server = await registerRoutes(app);
   startOverduePaymentsJob();
 

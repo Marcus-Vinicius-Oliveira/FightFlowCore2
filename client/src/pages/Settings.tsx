@@ -1,0 +1,866 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Settings2, Plus, Pencil, Trash2, MoreHorizontal, Award, CheckCircle2 } from "lucide-react";
+import { BeltBar, isLightHex } from "@/components/BeltBadge";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+
+// ─── Graduation Templates ─────────────────────────────────────────────────────
+
+interface RankTemplate {
+  name: string;
+  displayOrder: number;
+  colorClass: string;
+}
+
+interface GraduationTemplate {
+  id: string;
+  sport: string;
+  name: string;
+  description: string;
+  ranks: RankTemplate[];
+}
+
+const GRADUATION_TEMPLATES: GraduationTemplate[] = [
+  {
+    id: 'muay-thai-brasil',
+    sport: 'Muay Thai',
+    name: 'Sistema Brasileiro (Corda / Prajied)',
+    description: 'Cordões trançados no braço — padrão CMTB Brasil',
+    ranks: [
+      { name: 'Branco',                    displayOrder: 0,  colorClass: '#f9fafb' },
+      { name: 'Branco ponta Vermelha',      displayOrder: 1,  colorClass: '#f9fafb|#dc2626' },
+      { name: 'Vermelho',                   displayOrder: 2,  colorClass: '#dc2626' },
+      { name: 'Vermelho ponta Azul Clara',  displayOrder: 3,  colorClass: '#dc2626|#60a5fa' },
+      { name: 'Azul Claro',                 displayOrder: 4,  colorClass: '#60a5fa' },
+      { name: 'Azul Claro ponta Azul Esc.', displayOrder: 5,  colorClass: '#60a5fa|#1d4ed8' },
+      { name: 'Azul Escura',               displayOrder: 6,  colorClass: '#1d4ed8' },
+      { name: 'Azul Escura ponta Preta',   displayOrder: 7,  colorClass: '#1d4ed8|#111827' },
+      { name: 'Preto',                      displayOrder: 8,  colorClass: '#111827' },
+      { name: 'Preto ponta Branca',         displayOrder: 9,  colorClass: '#111827|#f9fafb' },
+      { name: 'Preto, Branco e Vermelho',   displayOrder: 10, colorClass: '#111827|#dc2626' },
+    ],
+  },
+  {
+    id: 'muay-thai-tradicional',
+    sport: 'Muay Thai',
+    name: 'Sistema Tradicional (Khans / Cruang)',
+    description: 'Reconhecido pela IFMA — 10 níveis Khan',
+    ranks: [
+      { name: 'Khan 1 — Branco',           displayOrder: 0, colorClass: '#f9fafb' },
+      { name: 'Khan 2 — Amarelo',          displayOrder: 1, colorClass: '#facc15' },
+      { name: 'Khan 3 — Amarelo e Branco', displayOrder: 2, colorClass: '#facc15|#f9fafb' },
+      { name: 'Khan 4 — Verde',            displayOrder: 3, colorClass: '#15803d' },
+      { name: 'Khan 5 — Verde e Branco',   displayOrder: 4, colorClass: '#15803d|#f9fafb' },
+      { name: 'Khan 6 — Azul',             displayOrder: 5, colorClass: '#2563eb' },
+      { name: 'Khan 7 — Azul e Branco',    displayOrder: 6, colorClass: '#2563eb|#f9fafb' },
+      { name: 'Khan 8 — Marrom',           displayOrder: 7, colorClass: '#92400e' },
+      { name: 'Khan 9 — Marrom e Branco',  displayOrder: 8, colorClass: '#92400e|#f9fafb' },
+      { name: 'Khan 10 — Vermelho',        displayOrder: 9, colorClass: '#dc2626' },
+    ],
+  },
+  {
+    id: 'bjj',
+    sport: 'Jiu-Jitsu Brasileiro',
+    name: 'Sistema BJJ (IBJJF)',
+    description: 'Padrão internacional de faixas para adultos',
+    ranks: [
+      { name: 'Branca',  displayOrder: 0, colorClass: '#f9fafb' },
+      { name: 'Azul',    displayOrder: 1, colorClass: '#2563eb' },
+      { name: 'Roxa',    displayOrder: 2, colorClass: '#7c3aed' },
+      { name: 'Marrom',  displayOrder: 3, colorClass: '#92400e' },
+      { name: 'Preta',   displayOrder: 4, colorClass: '#111827' },
+    ],
+  },
+  {
+    id: 'judo',
+    sport: 'Judô',
+    name: 'Sistema Judô (IJF)',
+    description: 'Kyus e Dans — padrão IJF',
+    ranks: [
+      { name: '6º Kyu — Branca',   displayOrder: 0, colorClass: '#f9fafb' },
+      { name: '5º Kyu — Amarela',  displayOrder: 1, colorClass: '#facc15' },
+      { name: '4º Kyu — Laranja',  displayOrder: 2, colorClass: '#f97316' },
+      { name: '3º Kyu — Verde',    displayOrder: 3, colorClass: '#15803d' },
+      { name: '2º Kyu — Azul',     displayOrder: 4, colorClass: '#2563eb' },
+      { name: '1º Kyu — Marrom',   displayOrder: 5, colorClass: '#92400e' },
+      { name: '1º Dan — Preta',    displayOrder: 6, colorClass: '#111827' },
+      { name: '2º Dan — Preta',    displayOrder: 7, colorClass: '#111827' },
+      { name: '3º Dan — Preta',    displayOrder: 8, colorClass: '#111827' },
+    ],
+  },
+  {
+    id: 'karate',
+    sport: 'Karatê',
+    name: 'Sistema Karatê (WKF)',
+    description: 'Kyus e Dans — padrão WKF',
+    ranks: [
+      { name: '9º Kyu — Branca',   displayOrder: 0, colorClass: '#f9fafb' },
+      { name: '8º Kyu — Amarela',  displayOrder: 1, colorClass: '#facc15' },
+      { name: '7º Kyu — Laranja',  displayOrder: 2, colorClass: '#f97316' },
+      { name: '6º Kyu — Verde',    displayOrder: 3, colorClass: '#15803d' },
+      { name: '5º Kyu — Azul',     displayOrder: 4, colorClass: '#2563eb' },
+      { name: '4º Kyu — Roxa',     displayOrder: 5, colorClass: '#7c3aed' },
+      { name: '3º Kyu — Marrom',   displayOrder: 6, colorClass: '#92400e' },
+      { name: '2º Kyu — Marrom',   displayOrder: 7, colorClass: '#92400e' },
+      { name: '1º Kyu — Marrom',   displayOrder: 8, colorClass: '#92400e' },
+      { name: '1º Dan — Preta',    displayOrder: 9, colorClass: '#111827' },
+    ],
+  },
+];
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface GraduationRank {
+  id: string;
+  systemId: string;
+  name: string;
+  displayOrder: number;
+  colorClass: string;
+}
+
+interface GraduationSystem {
+  id: string;
+  academyId: string;
+  classTypeId: string | null;
+  name: string;
+  ranks: GraduationRank[];
+}
+
+interface ClassType {
+  id: string;
+  name: string;
+  duration: number;
+  maxCapacity: number | null;
+  active: boolean;
+}
+
+// ─── Colour presets ───────────────────────────────────────────────────────────
+
+const COLOR_PRESETS = [
+  { label: 'Branca',   hex: '#f9fafb' },
+  { label: 'Cinza',    hex: '#6b7280' },
+  { label: 'Amarela',  hex: '#facc15' },
+  { label: 'Laranja',  hex: '#f97316' },
+  { label: 'Verde',    hex: '#15803d' },
+  { label: 'Azul',     hex: '#2563eb' },
+  { label: 'Roxa',     hex: '#7c3aed' },
+  { label: 'Marrom',   hex: '#92400e' },
+  { label: 'Preta',    hex: '#111827' },
+  { label: 'Vermelha', hex: '#dc2626' },
+  { label: 'Coral',    hex: '#f43f5e' },
+];
+
+// ─── RankBadge ────────────────────────────────────────────────────────────────
+
+function RankBadge({ rank }: { rank: Pick<GraduationRank, 'name' | 'colorClass'> }) {
+  return (
+    <span className="inline-flex items-center gap-2 min-w-0">
+      <BeltBar color={rank.colorClass} name={rank.name} width={44} height={12} />
+      <span className="text-xs font-medium truncate">{rank.name}</span>
+    </span>
+  );
+}
+
+// ─── Rank Form (inside system panel) ─────────────────────────────────────────
+
+interface RankFormProps {
+  systemId: string;
+  rank?: GraduationRank;
+  nextOrder: number;
+  onClose: () => void;
+}
+
+function RankForm({ systemId, rank, nextOrder, onClose }: RankFormProps) {
+  const [name, setName] = useState(rank?.name ?? '');
+  const [displayOrder, setDisplayOrder] = useState(rank?.displayOrder ?? nextOrder);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Parse existing colorClass (may be "hex1" or "hex1|hex2")
+  const existingParts = rank?.colorClass?.split('|') ?? [];
+  const [color1, setColor1] = useState(existingParts[0] ?? COLOR_PRESETS[5].hex); // default azul
+  const [color2, setColor2] = useState(existingParts[1] ?? '');
+  const [bicolor, setBicolor] = useState(!!existingParts[1]);
+
+  const colorClass = bicolor && color2 ? `${color1}|${color2}` : color1;
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const payload = { name, colorClass, displayOrder };
+      const res = rank
+        ? await apiRequest('PATCH', `/api/graduation/ranks/${rank.id}`, payload)
+        : await apiRequest('POST', `/api/graduation/systems/${systemId}/ranks`, payload);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/graduation/systems'] });
+      toast({ title: rank ? 'Graduação atualizada' : 'Graduação criada' });
+      onClose();
+    },
+    onError: () => toast({ title: 'Erro ao salvar graduação', variant: 'destructive' }),
+  });
+
+  function ColorPicker({ selected, onSelect }: { selected: string; onSelect: (hex: string) => void }) {
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {COLOR_PRESETS.map(p => (
+          <button
+            key={p.hex}
+            type="button"
+            title={p.label}
+            onClick={() => onSelect(p.hex)}
+            style={{
+              backgroundColor: p.hex,
+              width: 28,
+              height: 18,
+              border: selected === p.hex
+                ? '2px solid hsl(var(--primary))'
+                : isLightHex(p.hex) ? '1px solid #d1d5db' : '2px solid transparent',
+              boxShadow: selected === p.hex ? '0 0 0 2px hsl(var(--primary) / 0.3)' : undefined,
+            }}
+            className="rounded-sm transition-all hover:scale-110"
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); if (name.trim()) saveMutation.mutate(); }}
+      className="space-y-4"
+    >
+      <div className="space-y-2">
+        <Label>Nome da graduação</Label>
+        <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Faixa Branca, 1º Grau..." />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Ordem de exibição</Label>
+        <Input type="number" min={0} value={displayOrder} onChange={e => setDisplayOrder(Number(e.target.value))} />
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label>Cor{bicolor ? ' primária' : ''}</Label>
+          <button
+            type="button"
+            onClick={() => { setBicolor(b => !b); if (bicolor) setColor2(''); }}
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border transition-colors ${bicolor ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/80' : 'border-border text-muted-foreground hover:border-muted-foreground'}`}
+          >
+            {bicolor ? '× Somente 1 cor' : '+ Bicolor'}
+          </button>
+        </div>
+        <ColorPicker selected={color1} onSelect={setColor1} />
+
+        {bicolor && (
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Cor secundária</Label>
+            <ColorPicker selected={color2} onSelect={setColor2} />
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          Prévia:
+          <BeltBar color={colorClass} name={name || 'Exemplo'} width={52} height={14} />
+          <span className="italic">{name || 'Exemplo'}</span>
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button type="submit" disabled={!name.trim() || saveMutation.isPending}>
+          {saveMutation.isPending ? 'Salvando...' : rank ? 'Atualizar' : 'Criar'}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ─── System Panel ─────────────────────────────────────────────────────────────
+
+interface SystemPanelProps {
+  system: GraduationSystem;
+  classTypeName: string;
+  onDeleteSystem: (sys: GraduationSystem) => void;
+}
+
+function SystemPanel({ system, classTypeName, onDeleteSystem }: SystemPanelProps) {
+  const [rankDialog, setRankDialog] = useState<{ open: boolean; rank?: GraduationRank }>({ open: false });
+  const [deleteRank, setDeleteRank] = useState<GraduationRank | undefined>();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const deleteRankMutation = useMutation({
+    mutationFn: (rankId: string) => apiRequest('DELETE', `/api/graduation/ranks/${rankId}`).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/graduation/systems'] });
+      toast({ title: 'Graduação removida' });
+      setDeleteRank(undefined);
+    },
+    onError: () => toast({ title: 'Erro ao remover graduação', variant: 'destructive' }),
+  });
+
+  const nextOrder = system.ranks.length > 0
+    ? Math.max(...system.ranks.map(r => r.displayOrder)) + 1
+    : 0;
+
+  return (
+    <div className="border rounded-lg p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold flex items-center gap-2">
+            <Award className="h-4 w-4 text-yellow-500" />
+            {system.name}
+          </h3>
+          <p className="text-xs text-muted-foreground">Modalidade: {classTypeName}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setRankDialog({ open: true })}>
+            <Plus className="h-3 w-3 mr-1" />
+            Graduação
+          </Button>
+          <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => onDeleteSystem(system)}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {system.ranks.length === 0 ? (
+        <p className="text-sm text-muted-foreground italic">Nenhuma graduação cadastrada. Clique em "+ Graduação" para adicionar.</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {[...system.ranks].sort((a, b) => a.displayOrder - b.displayOrder).map(rank => (
+            <div key={rank.id} className="group flex items-center gap-1">
+              <RankBadge rank={rank} />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" title="Opções" className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted">
+                    <MoreHorizontal className="h-3 w-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="text-sm">
+                  <DropdownMenuItem onClick={() => setRankDialog({ open: true, rank })}>
+                    <Pencil className="h-3 w-3 mr-2" />
+                    Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive" onClick={() => setDeleteRank(rank)}>
+                    <Trash2 className="h-3 w-3 mr-2" />
+                    Remover
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Rank Create/Edit Dialog */}
+      <Dialog open={rankDialog.open} onOpenChange={open => !open && setRankDialog({ open: false })}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{rankDialog.rank ? 'Editar Graduação' : 'Nova Graduação'}</DialogTitle>
+            <DialogDescription>Sistema: {system.name}</DialogDescription>
+          </DialogHeader>
+          <RankForm
+            systemId={system.id}
+            rank={rankDialog.rank}
+            nextOrder={nextOrder}
+            onClose={() => setRankDialog({ open: false })}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Rank Confirmation */}
+      <AlertDialog open={!!deleteRank} onOpenChange={open => !open && setDeleteRank(undefined)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover Graduação</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover a graduação <strong>{deleteRank?.name}</strong>?
+              Alunos com essa graduação não serão afetados retroativamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteRank && deleteRankMutation.mutate(deleteRank.id)}
+              disabled={deleteRankMutation.isPending}
+            >
+              {deleteRankMutation.isPending ? 'Removendo...' : 'Remover'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+// ─── Common sports for quick-add ─────────────────────────────────────────────
+
+const COMMON_SPORTS = [
+  'Muay Thai', 'BJJ', 'Judô', 'Karatê', 'Boxe',
+  'Kickboxing', 'MMA', 'Taekwondo', 'Luta Olímpica',
+];
+
+// ─── Modalidades Tab ──────────────────────────────────────────────────────────
+
+function ModalidadesTab() {
+  const [addModalityDialog, setAddModalityDialog] = useState(false);
+  const [customModalityName, setCustomModalityName] = useState('');
+  const [createDialog, setCreateDialog] = useState(false);
+  const [newSystemName, setNewSystemName] = useState('');
+  const [newSystemClassTypeId, setNewSystemClassTypeId] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState<GraduationTemplate | null>(null);
+  const [deleteSystem, setDeleteSystem] = useState<GraduationSystem | undefined>();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: classTypes = [] } = useQuery<ClassType[]>({
+    queryKey: ['/api/classes/class-types'],
+  });
+
+  const { data: systems = [], isLoading } = useQuery<GraduationSystem[]>({
+    queryKey: ['/api/graduation/systems'],
+    queryFn: () => apiRequest('GET', '/api/graduation/systems').then(r => r.json()),
+  });
+
+  function closeCreateDialog() {
+    setCreateDialog(false);
+    setNewSystemName('');
+    setNewSystemClassTypeId('');
+    setSelectedTemplate(null);
+  }
+
+  const selectedClassType = classTypes.find(ct => ct.id === newSystemClassTypeId);
+
+  const matchingTemplates = selectedClassType
+    ? GRADUATION_TEMPLATES.filter(t => {
+        const ctName = selectedClassType.name.toLowerCase();
+        const sport = t.sport.toLowerCase();
+        return ctName.includes(sport.split(' ')[0]) ||
+               sport.includes(ctName.split(' ')[0]) ||
+               ctName === sport;
+      })
+    : [];
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      apiRequest('POST', '/api/graduation/systems', {
+        name: newSystemName,
+        classTypeId: newSystemClassTypeId || null,
+      }).then(r => r.json()),
+    onSuccess: async (createdSystem) => {
+      if (selectedTemplate) {
+        try {
+          await Promise.all(
+            selectedTemplate.ranks.map(rank =>
+              apiRequest('POST', `/api/graduation/systems/${createdSystem.id}/ranks`, rank).then(r => r.json())
+            )
+          );
+        } catch {
+          toast({ title: 'Sistema criado, mas houve erro ao importar graduações.', variant: 'destructive' });
+          queryClient.invalidateQueries({ queryKey: ['/api/graduation/systems'] });
+          closeCreateDialog();
+          return;
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/graduation/systems'] });
+      toast({
+        title: selectedTemplate
+          ? `Sistema criado com ${selectedTemplate.ranks.length} graduações!`
+          : 'Sistema de graduação criado!',
+      });
+      closeCreateDialog();
+    },
+    onError: (err: any) => toast({ title: err.message || 'Erro ao criar sistema', variant: 'destructive' }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest('DELETE', `/api/graduation/systems/${id}`).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/graduation/systems'] });
+      toast({ title: 'Sistema removido' });
+      setDeleteSystem(undefined);
+    },
+    onError: () => toast({ title: 'Erro ao remover sistema', variant: 'destructive' }),
+  });
+
+  const createClassTypeMutation = useMutation({
+    mutationFn: (name: string) =>
+      apiRequest('POST', '/api/classes/class-types', { name, duration: 60, active: true }).then(r => r.json()),
+    onSuccess: (ct) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/classes/class-types'] });
+      toast({ title: `Modalidade "${ct.name}" adicionada!` });
+    },
+    onError: () => toast({ title: 'Erro ao adicionar modalidade', variant: 'destructive' }),
+  });
+
+  function submitCustomModality(e: React.FormEvent) {
+    e.preventDefault();
+    const name = customModalityName.trim();
+    if (!name) return;
+    createClassTypeMutation.mutate(name);
+    setCustomModalityName('');
+    setAddModalityDialog(false);
+  }
+
+  const systemByClassType: Record<string, GraduationSystem> = {};
+  for (const sys of systems) {
+    if (sys.classTypeId) systemByClassType[sys.classTypeId] = sys;
+  }
+
+  const getClassTypeName = (classTypeId: string | null) =>
+    classTypeId ? (classTypes.find(c => c.id === classTypeId)?.name ?? 'Desconhecida') : 'Geral';
+
+  const activeClassTypes = classTypes.filter(ct => ct.active);
+  const missingSports = COMMON_SPORTS.filter(
+    s => !activeClassTypes.some(ct => ct.name.toLowerCase() === s.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-6">
+
+      {/* ── Modalidades da Academia ──────────────────────────────────────── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Modalidades da Academia</h2>
+            <p className="text-sm text-muted-foreground">
+              Esportes praticados — vinculados aos sistemas de graduação.
+            </p>
+          </div>
+          {activeClassTypes.length > 0 && (
+            <Button size="sm" variant="outline" onClick={() => setAddModalityDialog(true)}>
+              <Plus className="h-3 w-3 mr-1" />
+              Personalizada
+            </Button>
+          )}
+        </div>
+
+        {activeClassTypes.length === 0 ? (
+          <Card>
+            <CardContent className="py-6 space-y-3 text-center">
+              <p className="text-sm text-muted-foreground">
+                Nenhuma modalidade cadastrada. Clique para adicionar:
+              </p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {COMMON_SPORTS.map(sport => (
+                  <button
+                    key={sport}
+                    type="button"
+                    disabled={createClassTypeMutation.isPending}
+                    onClick={() => createClassTypeMutation.mutate(sport)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border rounded-full hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors disabled:opacity-50"
+                  >
+                    <Plus className="h-3 w-3" />
+                    {sport}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Ou{' '}
+                <button
+                  type="button"
+                  className="underline text-primary"
+                  onClick={() => setAddModalityDialog(true)}
+                >
+                  adicione uma modalidade personalizada
+                </button>.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="flex flex-wrap gap-2 items-center">
+            {activeClassTypes.map(ct => (
+              <Badge key={ct.id} variant="secondary" className="text-sm py-1 px-3">
+                {ct.name}
+              </Badge>
+            ))}
+            {missingSports.map(sport => (
+              <button
+                key={sport}
+                type="button"
+                disabled={createClassTypeMutation.isPending}
+                onClick={() => createClassTypeMutation.mutate(sport)}
+                className="inline-flex items-center gap-1 px-3 py-1 text-sm border border-dashed rounded-full hover:bg-muted transition-colors text-muted-foreground disabled:opacity-50"
+              >
+                <Plus className="h-3 w-3" />
+                {sport}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t" />
+
+      {/* ── Sistemas de Graduação ────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Sistemas de Graduação por Modalidade</h2>
+          <p className="text-sm text-muted-foreground">
+            Defina as faixas/graus de cada modalidade ensinada na academia.
+          </p>
+        </div>
+        <Button onClick={() => setCreateDialog(true)} disabled={activeClassTypes.length === 0}>
+          <Plus className="h-4 w-4 mr-2" />
+          Novo Sistema
+        </Button>
+      </div>
+
+      {isLoading && (
+        <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+      )}
+
+      {!isLoading && systems.length === 0 && (
+        <Card>
+          <CardContent className="py-12 text-center space-y-2">
+            <Award className="h-10 w-10 mx-auto text-muted-foreground" />
+            <p className="font-medium">Nenhum sistema de graduação ainda</p>
+            <p className="text-sm text-muted-foreground">
+              {activeClassTypes.length === 0
+                ? 'Adicione pelo menos uma modalidade acima para começar.'
+                : 'Crie um sistema para cada modalidade da sua academia (ex: BJJ, Muay Thai, Judô).'}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="space-y-4">
+        {systems.map(sys => (
+          <SystemPanel
+            key={sys.id}
+            system={sys}
+            classTypeName={getClassTypeName(sys.classTypeId)}
+            onDeleteSystem={setDeleteSystem}
+          />
+        ))}
+      </div>
+
+      {/* Modalidades without systems */}
+      {classTypes.filter(ct => !systemByClassType[ct.id] && ct.active).length > 0 && (
+        <div className="border-t pt-4">
+          <p className="text-sm text-muted-foreground mb-3">
+            Modalidades sem sistema de graduação:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {classTypes
+              .filter(ct => !systemByClassType[ct.id] && ct.active)
+              .map(ct => (
+                <button
+                  key={ct.id}
+                  type="button"
+                  onClick={() => {
+                    setNewSystemClassTypeId(ct.id);
+                    setNewSystemName(`Sistema ${ct.name}`);
+                    setCreateDialog(true);
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-1 text-sm border rounded-full hover:bg-muted transition-colors"
+                >
+                  <Plus className="h-3 w-3" />
+                  {ct.name}
+                </button>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add Custom Modality Dialog */}
+      <Dialog open={addModalityDialog} onOpenChange={open => { setAddModalityDialog(open); if (!open) setCustomModalityName(''); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Adicionar Modalidade</DialogTitle>
+            <DialogDescription>Insira o nome do esporte ou arte marcial praticada.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitCustomModality} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="custom-modality-name">Nome da modalidade</Label>
+              <Input
+                id="custom-modality-name"
+                value={customModalityName}
+                onChange={e => setCustomModalityName(e.target.value)}
+                placeholder="Ex: Capoeira, Kung Fu, Hapkido..."
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => { setAddModalityDialog(false); setCustomModalityName(''); }}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={!customModalityName.trim() || createClassTypeMutation.isPending}>
+                {createClassTypeMutation.isPending ? 'Adicionando...' : 'Adicionar'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create System Dialog */}
+      <Dialog open={createDialog} onOpenChange={open => !open && closeCreateDialog()}>
+        <DialogContent className="max-w-lg flex flex-col max-h-[85vh]">
+          <DialogHeader className="shrink-0">
+            <DialogTitle>Novo Sistema de Graduação</DialogTitle>
+            <DialogDescription>Configure as faixas/graus de uma modalidade.</DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => { e.preventDefault(); if (newSystemName.trim()) createMutation.mutate(); }}
+            className="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0 pr-1"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="new-sys-modality">Modalidade (opcional)</Label>
+              <select
+                id="new-sys-modality"
+                aria-label="Modalidade do sistema de graduação"
+                value={newSystemClassTypeId}
+                onChange={e => {
+                  setNewSystemClassTypeId(e.target.value);
+                  setSelectedTemplate(null);
+                }}
+                className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+              >
+                <option value="">— Geral (sem modalidade) —</option>
+                {classTypes.filter(ct => ct.active).map(ct => (
+                  <option key={ct.id} value={ct.id}>{ct.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Template cards — only shown when matching templates exist */}
+            {matchingTemplates.length > 0 && (
+              <div className="space-y-2">
+                <Label>Template de graduação (opcional)</Label>
+                <div className="space-y-2">
+                  {matchingTemplates.map(tmpl => (
+                    <button
+                      key={tmpl.id}
+                      type="button"
+                      onClick={() => {
+                        if (selectedTemplate?.id === tmpl.id) {
+                          setSelectedTemplate(null);
+                        } else {
+                          setSelectedTemplate(tmpl);
+                          setNewSystemName(tmpl.name);
+                        }
+                      }}
+                      className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                        selectedTemplate?.id === tmpl.id
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-muted-foreground'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm">{tmpl.name}</p>
+                          <p className="text-xs text-muted-foreground">{tmpl.description}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant="secondary">{tmpl.ranks.length} graus</Badge>
+                          {selectedTemplate?.id === tmpl.id && (
+                            <CheckCircle2 className="h-4 w-4 text-primary" />
+                          )}
+                        </div>
+                      </div>
+                      {selectedTemplate?.id === tmpl.id && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {tmpl.ranks.map(r => (
+                            <BeltBar key={r.name} color={r.colorClass} name={r.name} width={44} height={12} />
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="new-sys-name">Nome do sistema</Label>
+              <Input
+                id="new-sys-name"
+                value={newSystemName}
+                onChange={e => setNewSystemName(e.target.value)}
+                placeholder="Ex: Faixas BJJ, Graduações de Judô..."
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 shrink-0">
+              <Button type="button" variant="outline" onClick={closeCreateDialog}>Cancelar</Button>
+              <Button type="submit" disabled={!newSystemName.trim() || createMutation.isPending}>
+                {createMutation.isPending
+                  ? 'Criando...'
+                  : selectedTemplate
+                    ? `Criar com ${selectedTemplate.ranks.length} graduações`
+                    : 'Criar'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete System Confirmation */}
+      <AlertDialog open={!!deleteSystem} onOpenChange={open => !open && setDeleteSystem(undefined)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover Sistema de Graduação</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover o sistema <strong>{deleteSystem?.name}</strong>?
+              Todas as graduações (faixas/graus) deste sistema também serão removidas.
+              As graduações já atribuídas aos alunos serão mantidas no histórico.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteSystem && deleteMutation.mutate(deleteSystem.id)}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? 'Removendo...' : 'Remover'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function SettingsPage() {
+  return (
+    <div className="container max-w-4xl mx-auto py-6 space-y-6">
+      <div className="flex items-center gap-3">
+        <Settings2 className="h-6 w-6 text-muted-foreground" />
+        <div>
+          <h1 className="text-2xl font-bold">Configurações</h1>
+          <p className="text-muted-foreground text-sm">Gerencie as configurações da sua academia</p>
+        </div>
+      </div>
+
+      <Tabs defaultValue="modalidades">
+        <TabsList>
+          <TabsTrigger value="modalidades">
+            <Award className="h-4 w-4 mr-2" />
+            Modalidades & Graduações
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="modalidades" className="mt-6">
+          <ModalidadesTab />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +17,7 @@ const BELT_OPTIONS = [
 export interface FilterOptions {
   status: "all" | "active" | "inactive";
   belt: string;
+  classTypeId: string;
   dateFrom: string;
   dateTo: string;
   sortBy: "name" | "date";
@@ -31,6 +33,10 @@ interface AdvancedFiltersProps {
 export function AdvancedFilters({ filters, onFiltersChange, className = "" }: AdvancedFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
 
+  const { data: classTypes = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['/api/classes/class-types'],
+  });
+
   const handleFilterChange = <K extends keyof FilterOptions>(
     key: K,
     value: FilterOptions[K]
@@ -45,6 +51,7 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
     onFiltersChange({
       status: "all",
       belt: "",
+      classTypeId: "",
       dateFrom: "",
       dateTo: "",
       sortBy: "name",
@@ -55,6 +62,7 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
   const hasActiveFilters =
     filters.status !== "all" ||
     !!filters.belt ||
+    !!filters.classTypeId ||
     !!filters.dateFrom ||
     !!filters.dateTo ||
     filters.sortBy !== "name" ||
@@ -64,11 +72,14 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
     let count = 0;
     if (filters.status !== "all") count++;
     if (filters.belt) count++;
+    if (filters.classTypeId) count++;
     if (filters.dateFrom) count++;
     if (filters.dateTo) count++;
     if (filters.sortBy !== "name" || filters.sortOrder !== "asc") count++;
     return count;
   };
+
+  const activeClassTypeName = classTypes.find(ct => ct.id === filters.classTypeId)?.name ?? "";
 
   const getSortIcon = () => {
     if (filters.sortOrder === "asc") {
@@ -129,6 +140,27 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Modality Filter */}
+                {classTypes.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Modalidade</Label>
+                    <Select
+                      value={filters.classTypeId || "all"}
+                      onValueChange={(value) => handleFilterChange("classTypeId", value === "all" ? "" : value)}
+                    >
+                      <SelectTrigger data-testid="select-modality-filter">
+                        <SelectValue placeholder="Todas as modalidades" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as modalidades</SelectItem>
+                        {classTypes.map(ct => (
+                          <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {/* Belt Filter */}
                 <div className="space-y-2">
@@ -243,6 +275,19 @@ export function AdvancedFilters({ filters, onFiltersChange, className = "" }: Ad
                   size="sm"
                   className="h-auto p-0 hover:bg-transparent"
                   onClick={() => handleFilterChange("status", "all")}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </Badge>
+            )}
+            {filters.classTypeId && activeClassTypeName && (
+              <Badge variant="secondary" className="gap-1">
+                {activeClassTypeName}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 hover:bg-transparent"
+                  onClick={() => handleFilterChange("classTypeId", "")}
                 >
                   <X className="h-3 w-3" />
                 </Button>

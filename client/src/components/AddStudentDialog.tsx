@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { studentCreateFormSchema, type StudentCreateFormData } from "../../../shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { invalidateAfterStudentChange } from "@/lib/cache-helpers";
@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
 interface AddStudentDialogProps {
@@ -25,6 +26,12 @@ interface AddStudentDialogProps {
 export function AddStudentDialog({ open, onOpenChange }: AddStudentDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [selectedClassTypeIds, setSelectedClassTypeIds] = useState<string[]>([]);
+
+  const { data: classTypes = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['/api/classes/class-types'],
+    enabled: open,
+  });
 
   const form = useForm<StudentCreateFormData>({
     resolver: zodResolver(studentCreateFormSchema),
@@ -34,19 +41,27 @@ export function AddStudentDialog({ open, onOpenChange }: AddStudentDialogProps) 
       password: "",
       phone: "",
       dateOfBirth: "",
-      belt: "",
     },
   });
 
   const createStudentMutation = useMutation({
-    mutationFn: (data: StudentCreateFormData) => apiRequest('POST', '/api/students', data),
-    onSuccess: () => {
-      // Invalidate all relevant caches using centralized helper
+    mutationFn: async (data: StudentCreateFormData) => {
+      const res = await apiRequest('POST', '/api/students', data);
+      return res.json() as Promise<{ id: string }>;
+    },
+    onSuccess: async (student) => {
+      if (selectedClassTypeIds.length > 0) {
+        await Promise.all(
+          selectedClassTypeIds.map(classTypeId =>
+            apiRequest('POST', `/api/students/${student.id}/modality-enrollments`, { classTypeId }).catch(() => null)
+          )
+        );
+      }
       invalidateAfterStudentChange(queryClient);
-      
+      queryClient.invalidateQueries({ queryKey: ['/api/students/academy-modality-enrollments'] });
+      setSelectedClassTypeIds([]);
       form.reset();
       onOpenChange(false);
-      
       toast({
         title: "Aluno Adicionado",
         description: "Novo aluno foi adicionado com sucesso à sua academia.",
@@ -66,8 +81,15 @@ export function AddStudentDialog({ open, onOpenChange }: AddStudentDialogProps) 
   };
 
   const handleCancel = () => {
+    setSelectedClassTypeIds([]);
     form.reset();
     onOpenChange(false);
+  };
+
+  const toggleClassType = (id: string) => {
+    setSelectedClassTypeIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
   };
 
   return (
@@ -146,20 +168,25 @@ export function AddStudentDialog({ open, onOpenChange }: AddStudentDialogProps) 
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="student-belt">Graduação/Faixa (Opcional)</Label>
-            <Input
-              id="student-belt"
-              {...form.register("belt")}
-              placeholder="Faixa Branca, 1º Kyu, etc."
-              data-testid="input-student-belt"
-            />
-            {form.formState.errors.belt && (
-              <p className="text-sm text-destructive">
-                {form.formState.errors.belt.message}
-              </p>
-            )}
-          </div>
+          {classTypes.length > 0 && (
+            <div className="space-y-2">
+              <Label>Modalidades (Opcional)</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {classTypes.map(ct => (
+                  <div key={ct.id} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`ct-${ct.id}`}
+                      checked={selectedClassTypeIds.includes(ct.id)}
+                      onCheckedChange={() => toggleClassType(ct.id)}
+                    />
+                    <label htmlFor={`ct-${ct.id}`} className="text-sm cursor-pointer select-none">
+                      {ct.name}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="student-password">Senha Temporária</Label>

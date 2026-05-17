@@ -60,6 +60,41 @@ router.get('/',
   }
 );
 
+// GET /api/students/academy-modality-enrollments — all active enrollments for the academy (for client-side filter)
+router.get('/academy-modality-enrollments',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+  requireSameAcademy,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório' });
+
+      const [enrollments, ranks] = await Promise.all([
+        storage.getAcademyModalityEnrollments(academyId),
+        storage.getAcademyModalityRanks(academyId),
+      ]);
+
+      // Deduplicate: explicit enrollments + inferred from modality ranks (for legacy students)
+      const seen = new Set<string>();
+      const combined = [
+        ...enrollments.map(e => ({ studentId: e.studentId, classTypeId: e.classTypeId })),
+        ...ranks.map(r => ({ studentId: r.studentId, classTypeId: r.classTypeId })),
+      ].filter(item => {
+        const key = `${item.studentId}:${item.classTypeId}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      res.json(combined);
+    } catch (error) {
+      console.error('Get academy modality enrollments error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
 // GET /api/students/:id
 router.get('/:id',
   authenticateToken,
@@ -92,7 +127,7 @@ router.post('/',
         email: z.string().email(),
         phone: z.string().optional(),
         dateOfBirth: z.string().optional(),
-        belt: z.string().optional(),
+        password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres").optional(),
         role: z.enum(['ALUNO', 'PROFESSOR']).default('ALUNO'),
       });
 
@@ -104,11 +139,12 @@ router.post('/',
         return res.status(409).json({ error: 'Já existe um usuário com este email' });
       }
 
-      const defaultPassword = generateRandomPassword();
-      const hashedPassword = await hashPassword(defaultPassword);
+      const rawPassword = userData.password ?? generateRandomPassword();
+      const hashedPassword = await hashPassword(rawPassword);
 
       const result = await storage.createStudentWithPlanEnforcement({
         ...userData,
+        belt: 'branca', // always starts at white belt
         academyId,
         password: hashedPassword,
         dateOfBirth: userData.dateOfBirth ? new Date(userData.dateOfBirth) : undefined,
@@ -228,6 +264,111 @@ router.delete('/:id/permanent',
   }
 );
 
+// GET /api/students/:id/modality-ranks
+router.get('/:id/modality-ranks',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const student = await storage.getUser(req.params.id);
+      if (!student || student.academyId !== req.user!.academyId) {
+        return res.status(404).json({ error: 'Aluno não encontrado' });
+      }
+      const ranks = await storage.getStudentModalityRanks(req.params.id);
+      res.json(ranks);
+    } catch (error) {
+      console.error('Get modality ranks error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// POST /api/students/:id/graduate-modality
+const graduateModalitySchema = z.object({
+  classTypeId: z.string().uuid(),
+  rankId: z.string().uuid(),
+  notes: z.string().optional(),
+  promotedAt: z.string().optional(),
+});
+
+router.post('/:id/graduate-modality',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório' });
+
+      const student = await storage.getUser(req.params.id);
+      if (!student || student.academyId !== academyId) {
+        return res.status(404).json({ error: 'Aluno não encontrado' });
+      }
+
+      const body = graduateModalitySchema.parse(req.body);
+      const promotedAt = body.promotedAt ? new Date(body.promotedAt) : new Date();
+
+      // Get previous rank for history
+      const existingRanks = await storage.getStudentModalityRanks(req.params.id);
+      const prev = existingRanks.find(r => r.classTypeId === body.classTypeId);
+
+      const [rankEntry, histEntry] = await Promise.all([
+        storage.upsertStudentModalityRank({
+          studentId: student.id,
+          academyId,
+          classTypeId: body.classTypeId,
+          rankId: body.rankId,
+          promotedAt,
+          promotedBy: req.user!.id,
+        }),
+        storage.createStudentRankHistory({
+          studentId: student.id,
+          academyId,
+          classTypeId: body.classTypeId,
+          rankBeforeId: prev?.rankId ?? null,
+          rankAfterId: body.rankId,
+          promotedBy: req.user!.id,
+          promotedAt,
+          notes: body.notes ?? null,
+        }),
+        // auto-enroll on first graduation in this modality
+        storage.upsertStudentModalityEnrollment({
+          studentId: student.id,
+          academyId,
+          classTypeId: body.classTypeId,
+          enrolledAt: promotedAt,
+          active: true,
+        }),
+      ]);
+
+      res.status(201).json({ rank: rankEntry, history: histEntry });
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: 'Validação', details: error.errors });
+      console.error('Graduate modality error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// GET /api/students/:id/rank-history?classTypeId=...
+router.get('/:id/rank-history',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const student = await storage.getUser(req.params.id);
+      if (!student || student.academyId !== req.user!.academyId) {
+        return res.status(404).json({ error: 'Aluno não encontrado' });
+      }
+      const classTypeId = req.query.classTypeId as string | undefined;
+      const history = await storage.getStudentRankHistory(req.params.id, classTypeId);
+      res.json(history);
+    } catch (error) {
+      console.error('Get rank history error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
 // GET /api/students/:id/belt-history
 router.get('/:id/belt-history',
   authenticateToken,
@@ -290,6 +431,111 @@ router.post('/:id/graduate',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Graduate student error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// GET /api/students/:id/modality-enrollments
+router.get('/:id/modality-enrollments',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const student = await storage.getUser(req.params.id);
+      if (!student || student.academyId !== req.user!.academyId) {
+        return res.status(404).json({ error: 'Aluno não encontrado' });
+      }
+      const list = await storage.getStudentModalityEnrollments(req.params.id);
+      res.json(list);
+    } catch (error) {
+      console.error('Get student modality enrollments error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// POST /api/students/:id/modality-enrollments
+router.post('/:id/modality-enrollments',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório' });
+
+      const student = await storage.getUser(req.params.id);
+      if (!student || student.academyId !== academyId) {
+        return res.status(404).json({ error: 'Aluno não encontrado' });
+      }
+
+      const { classTypeId } = z.object({ classTypeId: z.string().uuid() }).parse(req.body);
+
+      const enrollment = await storage.upsertStudentModalityEnrollment({
+        studentId: student.id,
+        academyId,
+        classTypeId,
+        enrolledAt: new Date(),
+        active: true,
+      });
+
+      // Auto-assign first rank of this modality if student has none yet
+      const existingRanks = await storage.getStudentModalityRanks(student.id);
+      const hasRank = existingRanks.some(r => r.classTypeId === classTypeId);
+      if (!hasRank) {
+        const systems = await storage.getGraduationSystemsByAcademy(academyId);
+        const system = systems.find(s => s.classTypeId === classTypeId);
+        if (system) {
+          const ranks = await storage.getGraduationRanksBySystem(system.id);
+          const firstRank = ranks.sort((a, b) => a.displayOrder - b.displayOrder)[0];
+          if (firstRank) {
+            await Promise.all([
+              storage.upsertStudentModalityRank({
+                studentId: student.id,
+                academyId,
+                classTypeId,
+                rankId: firstRank.id,
+                promotedAt: new Date(),
+                promotedBy: req.user!.id,
+              }),
+              storage.createStudentRankHistory({
+                studentId: student.id,
+                academyId,
+                classTypeId,
+                rankBeforeId: null,
+                rankAfterId: firstRank.id,
+                promotedBy: req.user!.id,
+                promotedAt: new Date(),
+                notes: 'Graduação inicial',
+              }),
+            ]);
+          }
+        }
+      }
+
+      res.status(201).json(enrollment);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: 'Validação', details: error.errors });
+      console.error('Create modality enrollment error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// DELETE /api/students/:id/modality-enrollments/:classTypeId
+router.delete('/:id/modality-enrollments/:classTypeId',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const student = await storage.getUser(req.params.id);
+      if (!student || student.academyId !== req.user!.academyId) {
+        return res.status(404).json({ error: 'Aluno não encontrado' });
+      }
+      await storage.deactivateStudentModalityEnrollment(req.params.id, req.params.classTypeId);
+      res.json({ message: 'Matrícula na modalidade removida' });
+    } catch (error) {
+      console.error('Deactivate modality enrollment error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }

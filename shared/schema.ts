@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, integer, timestamp, boolean, uuid, pgEnum, index } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, boolean, uuid, pgEnum, index, unique } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -28,7 +28,7 @@ export const users = pgTable("users", {
   academyId: uuid("academy_id").references(() => academies.id),
   phone: text("phone"),
   dateOfBirth: timestamp("date_of_birth"),
-  belt: text("belt"),
+  belt: text("belt").default('branca'),
   active: boolean("active").default(true),
   firstAccess: boolean("first_access").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -161,6 +161,78 @@ export const assinaturas = pgTable("assinaturas", {
   academiaIdIdx: index("assinaturas_academia_id_idx").on(t.academiaId),
 }));
 
+// ─── Graduation System (per-modality ranks) ───────────────────────────────────
+
+export const graduationSystems = pgTable("graduation_systems", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: uuid("academy_id").references(() => academies.id).notNull(),
+  classTypeId: uuid("class_type_id").references(() => classTypes.id),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
+}, (t) => ({
+  academyIdIdx: index("graduation_systems_academy_id_idx").on(t.academyId),
+  uniqueAcademyClassType: unique("graduation_systems_academy_class_type_unique").on(t.academyId, t.classTypeId),
+}));
+
+export const graduationRanks = pgTable("graduation_ranks", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  systemId: uuid("system_id").references(() => graduationSystems.id, { onDelete: 'cascade' }).notNull(),
+  name: text("name").notNull(),
+  displayOrder: integer("display_order").notNull().default(0),
+  colorClass: text("color_class").notNull().default('bg-gray-400 text-white'),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => ({
+  systemIdIdx: index("graduation_ranks_system_id_idx").on(t.systemId),
+}));
+
+export const studentModalityRanks = pgTable("student_modality_ranks", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: uuid("student_id").references(() => users.id).notNull(),
+  academyId: uuid("academy_id").references(() => academies.id).notNull(),
+  classTypeId: uuid("class_type_id").references(() => classTypes.id).notNull(),
+  rankId: uuid("rank_id").references(() => graduationRanks.id).notNull(),
+  promotedAt: timestamp("promoted_at").notNull().defaultNow(),
+  promotedBy: uuid("promoted_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
+}, (t) => ({
+  uniqueStudentClassType: unique("student_modality_ranks_unique").on(t.studentId, t.classTypeId),
+  studentIdIdx: index("student_modality_ranks_student_id_idx").on(t.studentId),
+  academyIdIdx: index("student_modality_ranks_academy_id_idx").on(t.academyId),
+}));
+
+export const studentRankHistory = pgTable("student_rank_history", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: uuid("student_id").references(() => users.id).notNull(),
+  academyId: uuid("academy_id").references(() => academies.id).notNull(),
+  classTypeId: uuid("class_type_id").references(() => classTypes.id).notNull(),
+  rankBeforeId: uuid("rank_before_id").references(() => graduationRanks.id),
+  rankAfterId: uuid("rank_after_id").references(() => graduationRanks.id).notNull(),
+  promotedBy: uuid("promoted_by").references(() => users.id).notNull(),
+  promotedAt: timestamp("promoted_at").notNull().defaultNow(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => ({
+  studentIdIdx: index("student_rank_history_student_id_idx").on(t.studentId),
+  classTypeIdIdx: index("student_rank_history_class_type_id_idx").on(t.classTypeId),
+}));
+
+export const studentModalityEnrollments = pgTable("student_modality_enrollments", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: uuid("student_id").references(() => users.id).notNull(),
+  academyId: uuid("academy_id").references(() => academies.id).notNull(),
+  classTypeId: uuid("class_type_id").references(() => classTypes.id).notNull(),
+  enrolledAt: timestamp("enrolled_at").notNull().defaultNow(),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
+}, (t) => ({
+  uniqueStudentClassType: unique("student_modality_enrollments_unique").on(t.studentId, t.classTypeId),
+  academyIdIdx: index("student_modality_enrollments_academy_id_idx").on(t.academyId),
+  studentIdIdx: index("student_modality_enrollments_student_id_idx").on(t.studentId),
+}));
+
 export const beltHistory = pgTable("belt_history", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   studentId: uuid("student_id").references(() => users.id).notNull(),
@@ -237,6 +309,39 @@ export const beltHistoryRelations = relations(beltHistory, ({ one }) => ({
   promotedByUser: one(users, { fields: [beltHistory.promotedBy], references: [users.id], relationName: "promoter" }),
 }));
 
+export const graduationSystemsRelations = relations(graduationSystems, ({ one, many }) => ({
+  academy: one(academies, { fields: [graduationSystems.academyId], references: [academies.id] }),
+  classType: one(classTypes, { fields: [graduationSystems.classTypeId], references: [classTypes.id] }),
+  ranks: many(graduationRanks),
+}));
+
+export const graduationRanksRelations = relations(graduationRanks, ({ one }) => ({
+  system: one(graduationSystems, { fields: [graduationRanks.systemId], references: [graduationSystems.id] }),
+}));
+
+export const studentModalityRanksRelations = relations(studentModalityRanks, ({ one }) => ({
+  student: one(users, { fields: [studentModalityRanks.studentId], references: [users.id] }),
+  academy: one(academies, { fields: [studentModalityRanks.academyId], references: [academies.id] }),
+  classType: one(classTypes, { fields: [studentModalityRanks.classTypeId], references: [classTypes.id] }),
+  rank: one(graduationRanks, { fields: [studentModalityRanks.rankId], references: [graduationRanks.id] }),
+  promotedByUser: one(users, { fields: [studentModalityRanks.promotedBy], references: [users.id], relationName: "modalityPromoter" }),
+}));
+
+export const studentRankHistoryRelations = relations(studentRankHistory, ({ one }) => ({
+  student: one(users, { fields: [studentRankHistory.studentId], references: [users.id] }),
+  academy: one(academies, { fields: [studentRankHistory.academyId], references: [academies.id] }),
+  classType: one(classTypes, { fields: [studentRankHistory.classTypeId], references: [classTypes.id] }),
+  rankBefore: one(graduationRanks, { fields: [studentRankHistory.rankBeforeId], references: [graduationRanks.id], relationName: "rankBefore" }),
+  rankAfter: one(graduationRanks, { fields: [studentRankHistory.rankAfterId], references: [graduationRanks.id], relationName: "rankAfter" }),
+  promotedByUser: one(users, { fields: [studentRankHistory.promotedBy], references: [users.id], relationName: "rankHistoryPromoter" }),
+}));
+
+export const studentModalityEnrollmentsRelations = relations(studentModalityEnrollments, ({ one }) => ({
+  student: one(users, { fields: [studentModalityEnrollments.studentId], references: [users.id] }),
+  academy: one(academies, { fields: [studentModalityEnrollments.academyId], references: [academies.id] }),
+  classType: one(classTypes, { fields: [studentModalityEnrollments.classTypeId], references: [classTypes.id] }),
+}));
+
 export const planosRelations = relations(planos, ({ many }) => ({
   assinaturas: many(assinaturas),
 }));
@@ -259,6 +364,11 @@ export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true,
 export const insertPlanoSchema = createInsertSchema(planos).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAssinaturaSchema = createInsertSchema(assinaturas).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBeltHistorySchema = createInsertSchema(beltHistory).omit({ id: true, createdAt: true });
+export const insertGraduationSystemSchema = createInsertSchema(graduationSystems).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertGraduationRankSchema = createInsertSchema(graduationRanks).omit({ id: true, createdAt: true });
+export const insertStudentModalityRankSchema = createInsertSchema(studentModalityRanks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertStudentRankHistorySchema = createInsertSchema(studentRankHistory).omit({ id: true, createdAt: true });
+export const insertStudentModalityEnrollmentSchema = createInsertSchema(studentModalityEnrollments).omit({ id: true, createdAt: true, updatedAt: true });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -273,6 +383,11 @@ export type Payment = typeof payments.$inferSelect;
 export type Plano = typeof planos.$inferSelect;
 export type Assinatura = typeof assinaturas.$inferSelect;
 export type BeltHistory = typeof beltHistory.$inferSelect;
+export type GraduationSystem = typeof graduationSystems.$inferSelect;
+export type GraduationRank = typeof graduationRanks.$inferSelect;
+export type StudentModalityRank = typeof studentModalityRanks.$inferSelect;
+export type StudentRankHistory = typeof studentRankHistory.$inferSelect;
+export type StudentModalityEnrollment = typeof studentModalityEnrollments.$inferSelect;
 
 export type ClassWithRefs = Class & {
   classType?: ClassType;
@@ -296,6 +411,11 @@ export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type InsertPlano = z.infer<typeof insertPlanoSchema>;
 export type InsertAssinatura = z.infer<typeof insertAssinaturaSchema>;
 export type InsertBeltHistory = z.infer<typeof insertBeltHistorySchema>;
+export type InsertGraduationSystem = z.infer<typeof insertGraduationSystemSchema>;
+export type InsertGraduationRank = z.infer<typeof insertGraduationRankSchema>;
+export type InsertStudentModalityRank = z.infer<typeof insertStudentModalityRankSchema>;
+export type InsertStudentRankHistory = z.infer<typeof insertStudentRankHistorySchema>;
+export type InsertStudentModalityEnrollment = z.infer<typeof insertStudentModalityEnrollmentSchema>;
 
 // Student creation schema used by admin panels
 export const studentCreateSchema = insertUserSchema

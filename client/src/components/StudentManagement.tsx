@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -13,10 +14,39 @@ import { MoreHorizontal, Search, UserPlus, Edit, Trash2, Eye, AlertTriangle, Mai
 import { type Student } from "@/lib/api";
 import { AddStudentDialog } from "@/components/AddStudentDialog";
 import { GraduationDialog } from "@/components/GraduationDialog";
-import { BeltBadge } from "@/components/BeltBadge";
+import { BeltBar } from "@/components/BeltBadge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { z } from "zod";
+
+// ─── Modality rank types and badge ────────────────────────────────────────────
+
+interface ModalityRankEntry {
+  studentId: string;
+  classTypeId: string;
+  rankId: string;
+  rankName: string;
+  colorClass: string;
+}
+
+function ModalityRanksBadges({ studentId, ranks }: { studentId: string; ranks: ModalityRankEntry[] }) {
+  const mine = ranks.filter(r => r.studentId === studentId);
+  if (mine.length === 0) return <span className="text-muted-foreground text-sm">—</span>;
+
+  const visible = mine.slice(0, 3);
+  const extra = mine.length - visible.length;
+
+  return (
+    <div className="flex flex-wrap gap-1.5 items-center">
+      {visible.map(r => (
+        <BeltBar key={r.classTypeId} color={r.colorClass} name={r.rankName} width={52} height={14} />
+      ))}
+      {extra > 0 && (
+        <span className="text-xs text-muted-foreground">+{extra}</span>
+      )}
+    </div>
+  );
+}
 
 // Student Edit Form Schema
 const studentEditFormSchema = z.object({
@@ -30,7 +60,7 @@ const studentEditFormSchema = z.object({
 type StudentEditFormData = z.infer<typeof studentEditFormSchema>;
 
 // Shared grid layout for students table
-const STUDENTS_GRID_COLUMNS = '2fr 2fr 1fr 1fr 100px';
+const STUDENTS_GRID_COLUMNS = '2fr 2fr 1fr 1.5fr 100px';
 
 interface StudentEditFormProps {
   student?: Student;
@@ -164,6 +194,8 @@ function StudentEditForm({ student, onClose, updateMutation }: StudentEditFormPr
 
 export function StudentManagement() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterClassTypeId, setFilterClassTypeId] = useState('');
+  const [filterRankId, setFilterRankId] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | undefined>();
   const [showEditForm, setShowEditForm] = useState(false);
@@ -180,6 +212,37 @@ export function StudentManagement() {
   const { data: students = [], isLoading, error } = useQuery<Student[]>({
     queryKey: ['/api/students'],
   });
+
+  // Fetch all modality ranks for the academy (for multi-badge display)
+  const { data: modalityRanks = [] } = useQuery<ModalityRankEntry[]>({
+    queryKey: ['/api/graduation/modality-ranks'],
+    queryFn: () => apiRequest('GET', '/api/graduation/modality-ranks').then(r => r.json()),
+  });
+
+  // Fetch academy-wide modality enrollments for the modality filter
+  const { data: modalityEnrollments = [] } = useQuery<{ studentId: string; classTypeId: string }[]>({
+    queryKey: ['/api/students/academy-modality-enrollments'],
+    queryFn: () => apiRequest('GET', '/api/students/academy-modality-enrollments').then(r => r.json()),
+  });
+
+  // Fetch class types for the modality filter labels
+  const { data: classTypes = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['/api/classes/class-types'],
+  });
+
+  // Fetch graduation systems for the rank filter dropdown
+  const { data: graduationSystems = [] } = useQuery<{ id: string; classTypeId: string | null; ranks: { id: string; name: string; displayOrder: number; colorClass: string }[] }[]>({
+    queryKey: ['/api/graduation/systems'],
+    queryFn: () => apiRequest('GET', '/api/graduation/systems').then(r => r.json()),
+  });
+
+  // Class types that have at least one active enrollment (for modality dropdown)
+  const enrolledClassTypeIds = new Set(modalityEnrollments.map(e => e.classTypeId));
+  const filterableClassTypes = classTypes.filter(ct => enrolledClassTypeIds.has(ct.id));
+
+  // Ranks for the currently selected modality filter
+  const activeFilterSystem = graduationSystems.find(s => s.classTypeId === filterClassTypeId);
+  const ranksForFilter = (activeFilterSystem?.ranks ?? []).slice().sort((a, b) => a.displayOrder - b.displayOrder);
 
   // Handler functions
   const handleViewDetails = (student: Student) => {
@@ -206,6 +269,7 @@ export function StudentManagement() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/charts'] });
       toast({
         title: "Aluno desativado com sucesso!",
@@ -232,6 +296,7 @@ export function StudentManagement() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/charts'] });
       toast({
         title: "Aluno ativado com sucesso!",
@@ -258,6 +323,7 @@ export function StudentManagement() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/charts'] });
       toast({
         title: "Aluno excluído permanentemente!",
@@ -292,6 +358,7 @@ export function StudentManagement() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/charts'] });
       toast({
         title: "Aluno atualizado com sucesso!",
@@ -309,10 +376,19 @@ export function StudentManagement() {
   });
 
 
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStudents = students.filter(student => {
+    const matchesSearch =
+      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.email.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesModality = !filterClassTypeId ||
+      modalityEnrollments.some(e => e.studentId === student.id && e.classTypeId === filterClassTypeId);
+
+    const matchesRank = !filterRankId || !filterClassTypeId ||
+      modalityRanks.some(r => r.studentId === student.id && r.classTypeId === filterClassTypeId && r.rankId === filterRankId);
+
+    return matchesSearch && matchesModality && matchesRank;
+  });
 
   const getStatusBadge = (active?: boolean) => {
     return active ? (
@@ -379,16 +455,70 @@ export function StudentManagement() {
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar alunos..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-            data-testid="input-student-search"
-          />
+        {/* Search + Filters */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar alunos..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+              data-testid="input-student-search"
+            />
+          </div>
+
+          {filterableClassTypes.length > 0 && (
+            <Select
+              value={filterClassTypeId || '__all__'}
+              onValueChange={(v) => {
+                setFilterClassTypeId(v === '__all__' ? '' : v);
+                setFilterRankId('');
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-48" aria-label="Filtrar por modalidade">
+                <SelectValue placeholder="Modalidade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todas as modalidades</SelectItem>
+                {filterableClassTypes.map(ct => (
+                  <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {filterClassTypeId && ranksForFilter.length > 0 && (
+            <Select
+              value={filterRankId || '__all__'}
+              onValueChange={(v) => setFilterRankId(v === '__all__' ? '' : v)}
+            >
+              <SelectTrigger className="w-full sm:w-48" aria-label="Filtrar por graduação">
+                <SelectValue placeholder="Graduação" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todas as graduações</SelectItem>
+                {ranksForFilter.map(r => (
+                  <SelectItem key={r.id} value={r.id}>
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="inline-block rounded-sm shrink-0"
+                        style={{
+                          width: 32,
+                          height: 10,
+                          background: r.colorClass.includes('|')
+                            ? `linear-gradient(to right, ${r.colorClass.split('|')[0]} 50%, ${r.colorClass.split('|')[1]} 50%)`
+                            : r.colorClass,
+                          border: '1px solid #d1d5db',
+                        }}
+                      />
+                      {r.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {/* Loading State */}
@@ -416,7 +546,7 @@ export function StudentManagement() {
                 <div>Aluno</div>
                 <div>Contato</div>
                 <div>Status</div>
-                <div>Entrada</div>
+                <div>Graduações</div>
                 <div>Ações</div>
               </div>
 
@@ -453,9 +583,9 @@ export function StudentManagement() {
                       <div>
                         {getStatusBadge(student.active)}
                       </div>
-                      
-                      <div className="text-sm" data-testid={`text-join-date-${student.id}`}>
-                        {student.createdAt ? new Date(student.createdAt).toLocaleDateString() : 'N/A'}
+
+                      <div>
+                        <ModalityRanksBadges studentId={student.id} ranks={modalityRanks} />
                       </div>
                       
                       <div>

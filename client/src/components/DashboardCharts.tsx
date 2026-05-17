@@ -2,15 +2,25 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   BarChart, Bar, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, Cell,
 } from "recharts";
 import { TrendingUp, DollarSign, Award } from "lucide-react";
+import { BELT_HEX } from "@/components/BeltBadge";
+
+interface ModalityRankEntry {
+  modality: string;
+  rank: string;
+  colorClass: string;
+  displayOrder: number;
+  count: number;
+}
 
 interface ChartsData {
   studentGrowth: { month: string; count: number }[];
   monthlyRevenue: { month: string; total: number }[];
   beltDistribution: { belt: string; count: number }[];
+  modalityRankDistribution: ModalityRankEntry[];
 }
 
 const PT_MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -24,22 +34,8 @@ function formatBRL(cents: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
 }
 
-const BELT_COLORS: Record<string, string> = {
-  branca: '#e5e7eb',
-  cinza: '#9ca3af',
-  amarela: '#facc15',
-  laranja: '#f97316',
-  verde: '#16a34a',
-  azul: '#2563eb',
-  roxa: '#7c3aed',
-  marrom: '#92400e',
-  preta: '#111827',
-  coral: '#b91c1c',
-  vermelha: '#dc2626',
-};
-
 function beltColor(belt: string) {
-  return BELT_COLORS[belt.toLowerCase()] ?? '#6b7280';
+  return BELT_HEX[belt.toLowerCase()] ?? '#6b7280';
 }
 
 export function DashboardCharts() {
@@ -50,11 +46,32 @@ export function DashboardCharts() {
   const growth = (data?.studentGrowth ?? []).map(d => ({ ...d, month: formatMonth(d.month) }));
   const revenue = (data?.monthlyRevenue ?? []).map(d => ({ ...d, month: formatMonth(d.month) }));
   const belts = data?.beltDistribution ?? [];
+  const modalityRaw = data?.modalityRankDistribution ?? [];
+
+  // Build per-modality bar chart data: [{modality, rank1count, rank2count...}, ...]
+  const modalityNames = Array.from(new Set(modalityRaw.map(r => r.modality)));
+  const allRankNames = Array.from(new Set(modalityRaw.map(r => r.rank)));
+  const modalityChartData = modalityNames.map(mod => {
+    const row: Record<string, string | number> = { modality: mod };
+    for (const entry of modalityRaw.filter(r => r.modality === mod)) {
+      row[entry.rank] = entry.count;
+    }
+    return row;
+  });
+  // Color map: rank name → hex. colorClass stores "#hex" or "#hex1|#hex2"; take first.
+  const rankColorMap: Record<string, string> = {};
+  for (const entry of modalityRaw) {
+    if (!rankColorMap[entry.rank]) {
+      const first = entry.colorClass?.split('|')[0];
+      rankColorMap[entry.rank] = first?.startsWith('#') ? first : beltColor(entry.rank.toLowerCase());
+    }
+  }
 
   const hasGrowth = growth.length > 0;
   const hasRevenue = revenue.length > 0;
   const hasBelts = belts.length > 0;
-  const hasAny = hasGrowth || hasRevenue || hasBelts;
+  const hasModality = modalityChartData.length > 0;
+  const hasAny = hasGrowth || hasRevenue || hasBelts || hasModality;
 
   if (isLoading) {
     return (
@@ -84,7 +101,7 @@ export function DashboardCharts() {
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 
       {/* Crescimento de Alunos */}
-      <Card className="lg:col-span-1">
+      <Card className="lg:col-span-1 md:col-span-1">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-blue-500" />
@@ -193,6 +210,42 @@ export function DashboardCharts() {
           )}
         </CardContent>
       </Card>
+
+      {/* Graduações por Modalidade */}
+      {hasModality && (
+        <Card className="lg:col-span-3 md:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Award className="h-4 w-4 text-purple-500" />
+              Graduações por Modalidade
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={modalityChartData} margin={{ top: 4, right: 16, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                <XAxis dataKey="modality" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  formatter={(v: number, name: string) => [v, name]}
+                  contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                {allRankNames.map(rankName => (
+                  <Bar
+                    key={rankName}
+                    dataKey={rankName}
+                    stackId="modality"
+                    fill={rankColorMap[rankName] ?? '#6b7280'}
+                    radius={allRankNames.indexOf(rankName) === allRankNames.length - 1 ? [4, 4, 0, 0] : undefined}
+                    maxBarSize={48}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
 
     </div>
   );

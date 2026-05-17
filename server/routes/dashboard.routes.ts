@@ -4,6 +4,7 @@ import { db } from "../db";
 import { users, payments, attendance, classes } from "@shared/schema";
 import { storage } from "../storage";
 import { authenticateToken, requireRole, type AuthenticatedRequest } from "../auth";
+import { graduationRanks, graduationSystems, studentModalityRanks, classTypes } from "@shared/schema";
 
 const router = Router();
 
@@ -147,7 +148,7 @@ router.get('/charts',
       sixMonthsAgo.setDate(1);
       sixMonthsAgo.setHours(0, 0, 0, 0);
 
-      const [growthRows, revenueRows, beltRows] = await Promise.all([
+      const [growthRows, revenueRows, beltRows, modalityRows] = await Promise.all([
         // Novos alunos por mês (últimos 6 meses)
         db.execute(sql`
           SELECT
@@ -186,6 +187,23 @@ router.get('/charts',
           GROUP BY LOWER(belt)
           ORDER BY count DESC
         `),
+
+        // Distribuição de graduações por modalidade (student_modality_ranks)
+        db.execute(sql`
+          SELECT
+            ct.name   AS modality,
+            gr.name   AS rank,
+            gr.color_class AS color_class,
+            gr.display_order AS display_order,
+            COUNT(smr.id)::int AS count
+          FROM student_modality_ranks smr
+          JOIN class_types ct   ON ct.id  = smr.class_type_id
+          JOIN graduation_ranks gr ON gr.id = smr.rank_id
+          JOIN graduation_systems gs ON gs.id = gr.system_id
+          WHERE smr.academy_id = ${academyId}::uuid
+          GROUP BY ct.name, gr.name, gr.color_class, gr.display_order
+          ORDER BY ct.name, gr.display_order
+        `),
       ]);
 
       res.json({
@@ -199,6 +217,13 @@ router.get('/charts',
         })),
         beltDistribution: beltRows.rows.map(r => ({
           belt: r.belt as string,
+          count: Number(r.count),
+        })),
+        modalityRankDistribution: modalityRows.rows.map(r => ({
+          modality: r.modality as string,
+          rank: r.rank as string,
+          colorClass: r.color_class as string,
+          displayOrder: Number(r.display_order),
           count: Number(r.count),
         })),
       });

@@ -63,6 +63,8 @@ function StudentForm({ student, onClose }: StudentFormProps) {
       queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/charts'] });
       toast({
         title: "Aluno cadastrado com sucesso!",
         description: `${formData.name} foi adicionado à academia.`,
@@ -85,6 +87,8 @@ function StudentForm({ student, onClose }: StudentFormProps) {
       queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/charts'] });
       toast({
         title: "Aluno atualizado com sucesso!",
         description: `Dados de ${formData.name} foram atualizados.`,
@@ -230,6 +234,7 @@ export default function StudentManagement() {
   const [filters, setFilters] = useState<FilterOptions>({
     status: "all",
     belt: "",
+    classTypeId: "",
     dateFrom: "",
     dateTo: "",
     sortBy: "name",
@@ -240,7 +245,17 @@ export default function StudentManagement() {
     queryKey: ['/api/students'],
   });
 
-  const filteredStudents = applyFilters(students, filters, searchTerm);
+  const { data: modalityEnrollments = [] } = useQuery<{ studentId: string; classTypeId: string }[]>({
+    queryKey: ['/api/students/academy-modality-enrollments'],
+    queryFn: () => apiRequest('GET', '/api/students/academy-modality-enrollments').then(r => r.json()),
+  });
+
+  const baseFiltered = applyFilters(students, filters, searchTerm);
+  const filteredStudents = filters.classTypeId
+    ? baseFiltered.filter(s =>
+        modalityEnrollments.some(e => e.studentId === s.id && e.classTypeId === filters.classTypeId)
+      )
+    : baseFiltered;
 
   const handleEdit = (student: Student) => {
     setSelectedStudent(student);
