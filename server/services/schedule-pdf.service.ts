@@ -4,25 +4,26 @@ import type { ClassWithRefs } from '@shared/schema';
 
 interface ColorScheme { bg: string; border: string; text: string }
 
+// ── Paleta Combat Dark — fundos escuros + bordas/texto neon ──────────────────
 const COLOR_RULES: { pattern: RegExp; c: ColorScheme }[] = [
-  { pattern: /bjj|jiu.?jitsu/i,         c: { bg: '#DBEAFE', border: '#2563EB', text: '#1E40AF' } },
-  { pattern: /muay.?thai/i,             c: { bg: '#FEE2E2', border: '#DC2626', text: '#991B1B' } },
-  { pattern: /box(e|ing)/i,             c: { bg: '#FEF3C7', border: '#D97706', text: '#92400E' } },
-  { pattern: /karat[eê]/i,              c: { bg: '#EDE9FE', border: '#7C3AED', text: '#5B21B6' } },
-  { pattern: /jud[oô]/i,               c: { bg: '#DCFCE7', border: '#16A34A', text: '#14532D' } },
-  { pattern: /kick/i,                   c: { bg: '#FFEDD5', border: '#EA580C', text: '#9A3412' } },
-  { pattern: /luta.?livre|wrestling/i,  c: { bg: '#FCE7F3', border: '#DB2777', text: '#9D174D' } },
-  { pattern: /taekwondo|tkd/i,          c: { bg: '#FFF7ED', border: '#F97316', text: '#C2410C' } },
-  { pattern: /kung.?fu|wushu/i,         c: { bg: '#ECFDF5', border: '#10B981', text: '#064E3B' } },
+  { pattern: /bjj|jiu.?jitsu/i,         c: { bg: '#172554', border: '#3b82f6', text: '#93c5fd' } },
+  { pattern: /muay.?thai/i,             c: { bg: '#450a0a', border: '#ef4444', text: '#fca5a5' } },
+  { pattern: /box(e|ing)/i,             c: { bg: '#451a03', border: '#f59e0b', text: '#fcd34d' } },
+  { pattern: /karat[eê]/i,              c: { bg: '#2e1065', border: '#a855f7', text: '#d8b4fe' } },
+  { pattern: /jud[oô]/i,               c: { bg: '#2e1065', border: '#a855f7', text: '#d8b4fe' } },
+  { pattern: /kick/i,                   c: { bg: '#431407', border: '#f97316', text: '#fdba74' } },
+  { pattern: /luta.?livre|wrestling/i,  c: { bg: '#4a044e', border: '#e879f9', text: '#f0abfc' } },
+  { pattern: /taekwondo|tkd/i,          c: { bg: '#431407', border: '#f97316', text: '#fdba74' } },
+  { pattern: /kung.?fu|wushu/i,         c: { bg: '#052e16', border: '#22c55e', text: '#86efac' } },
 ];
 
 const FALLBACK: ColorScheme[] = [
-  { bg: '#F0F9FF', border: '#0284C7', text: '#075985' },
-  { bg: '#FDF4FF', border: '#A21CAF', text: '#701A75' },
-  { bg: '#F0FDF4', border: '#22C55E', text: '#166534' },
-  { bg: '#FFF1F2', border: '#E11D48', text: '#9F1239' },
-  { bg: '#F5F3FF', border: '#7C3AED', text: '#4C1D95' },
-  { bg: '#FFFBEB', border: '#D97706', text: '#92400E' },
+  { bg: '#0c1a2e', border: '#38bdf8', text: '#7dd3fc' },
+  { bg: '#1a0a2e', border: '#c084fc', text: '#e9d5ff' },
+  { bg: '#052e16', border: '#4ade80', text: '#bbf7d0' },
+  { bg: '#3b0a0a', border: '#f87171', text: '#fecaca' },
+  { bg: '#1c1917', border: '#a8a29e', text: '#d6d3d1' },
+  { bg: '#1a1a03', border: '#facc15', text: '#fef08a' },
 ];
 
 function classColor(name: string): ColorScheme {
@@ -114,12 +115,12 @@ function buildHtml(academyName: string, classes: ClassWithRefs[]): string {
 <head>
 <meta charset="UTF-8">
 <style>
-@page { size: A4 landscape; margin: 10mm 12mm; }
+@page { size: A4 landscape; margin: 10mm 12mm; background: #09090b; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: 'Segoe UI', Helvetica Neue, Arial, sans-serif;
-  color: #1e293b;
-  background: #fff;
+  color: #f4f4f5;
+  background: #09090b;
   font-size: 11px;
 }
 
@@ -127,87 +128,109 @@ body {
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  border-bottom: 3px solid #1d4ed8;
-  padding-bottom: 10px;
+  align-items: center;
+  border-bottom: 1px solid #3f3f46;
+  padding-bottom: 12px;
   margin-bottom: 14px;
 }
-.h-left   { display: flex; align-items: center; gap: 10px; }
-.logo     { font-size: 28px; line-height: 1; }
-.title    { font-size: 19px; font-weight: 700; color: #1e293b; letter-spacing: -0.4px; }
-.subtitle { font-size: 10px; color: #64748b; margin-top: 2px; }
-.meta     { text-align: right; font-size: 9.5px; color: #94a3b8; line-height: 1.7; }
+.h-left   { display: flex; align-items: center; gap: 12px; }
+.logo     { font-size: 30px; line-height: 1; }
+.title    {
+  font-size: 20px;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.subtitle {
+  font-size: 9px;
+  color: #71717a;
+  margin-top: 3px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.meta { text-align: right; font-size: 9px; color: #52525b; line-height: 1.8; }
 
 /* ── Table ──────────────────────────────────── */
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 
-thead tr { background: #1e3a5f; }
+thead tr { background: #18181b; border-bottom: 1px solid #3f3f46; }
 thead th {
-  color: #e2e8f0;
-  padding: 8px 5px;
-  font-size: 10px;
-  font-weight: 600;
+  color: #a1a1aa;
+  padding: 9px 5px;
+  font-size: 9px;
+  font-weight: 700;
   text-align: center;
-  letter-spacing: 0.8px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
 }
-thead th:first-child { text-align: left; padding-left: 10px; width: 108px; }
+thead th:first-child { text-align: left; padding-left: 10px; width: 108px; color: #71717a; }
 
-tbody tr { border-bottom: 1px solid #e2e8f0; }
-tbody tr:nth-child(even) { background: #f8fafc; }
+tbody tr { border-bottom: 1px solid #27272a; }
+tbody tr:nth-child(even) { background: #111113; }
 
-td { padding: 5px 4px; vertical-align: top; }
+td { padding: 6px 4px; vertical-align: middle; }
 td.time {
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
-  color: #334155;
-  vertical-align: middle;
+  color: #a1a1aa;
   padding-left: 10px;
   white-space: nowrap;
+  letter-spacing: 0.5px;
 }
 td.empty {
   text-align: center;
-  vertical-align: middle;
-  color: #cbd5e1;
-  font-size: 14px;
+  color: #3f3f46;
+  font-size: 16px;
+  letter-spacing: 2px;
 }
 
 /* ── Cards ──────────────────────────────────── */
 .card {
-  border-radius: 4px;
-  padding: 4px 7px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-radius: 3px;
+  padding: 5px 8px;
   margin-bottom: 3px;
+  min-height: 34px;
 }
 .card:last-child { margin-bottom: 0; }
 .card-name {
   display: block;
-  font-size: 10.5px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 800;
   line-height: 1.3;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 .card-inst {
   display: block;
   font-size: 8.5px;
-  opacity: 0.75;
-  margin-top: 1px;
+  opacity: 0.6;
+  margin-top: 2px;
+  letter-spacing: 0.3px;
 }
 
 /* ── Misc ───────────────────────────────────── */
 .footer {
-  margin-top: 10px;
-  font-size: 8.5px;
-  color: #94a3b8;
+  margin-top: 12px;
+  font-size: 8px;
+  color: #3f3f46;
   text-align: center;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 .no-data {
   padding: 40px;
   text-align: center;
-  color: #94a3b8;
+  color: #3f3f46;
   font-size: 13px;
 }
 
 @media print {
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @page { background: #09090b; }
 }
 </style>
 </head>
@@ -221,8 +244,8 @@ td.empty {
       </div>
     </div>
     <div class="meta">
-      <div>Gerado em ${dateStr}</div>
-      <div>${slots.length} horário${slots.length !== 1 ? 's' : ''} &nbsp;•&nbsp; ${activeDays.length} dia${activeDays.length !== 1 ? 's' : ''} ativo${activeDays.length !== 1 ? 's' : ''}</div>
+      <div>${dateStr}</div>
+      <div>${slots.length} horário${slots.length !== 1 ? 's' : ''} &nbsp;·&nbsp; ${activeDays.length} dia${activeDays.length !== 1 ? 's' : ''} ativo${activeDays.length !== 1 ? 's' : ''}</div>
     </div>
   </div>
 
