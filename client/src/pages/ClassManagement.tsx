@@ -474,18 +474,31 @@ export default function ClassManagement() {
     },
   });
 
-  // Slots de horário derivados dos dados sem filtro de horário (cascading filters)
+  // Query sem startTime para popular o Select de horários (cascading: respeita outros filtros)
+  const { data: classesForTimeOptions = [] } = useQuery<ClassData[]>({
+    queryKey: ['/api/classes', { ...filters, startTime: '' }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filters.classTypeId)  params.set('classTypeId', filters.classTypeId);
+      if (filters.instructorId) params.set('instructorId', filters.instructorId);
+      filters.daysOfWeek.forEach(d => params.append('days', String(d)));
+      const qs = params.toString();
+      const res = await apiRequest('GET', `/api/classes${qs ? '?' + qs : ''}`);
+      return res.json();
+    },
+  });
+
   const timeSlotOptions = useMemo(() => {
     const seen = new Set<string>();
     const opts: { startTime: string; label: string }[] = [];
-    for (const cls of classes) {
+    for (const cls of classesForTimeOptions) {
       if (!seen.has(cls.startTime)) {
         seen.add(cls.startTime);
         opts.push({ startTime: cls.startTime, label: `${cls.startTime} – ${cls.endTime}` });
       }
     }
     return opts.sort((a, b) => a.startTime.localeCompare(b.startTime));
-  }, [classes]);
+  }, [classesForTimeOptions]);
 
   const deleteMutation = useMutation({
     mutationFn: (classData: ClassData) =>
