@@ -4,26 +4,26 @@ import type { ClassWithRefs } from '@shared/schema';
 
 interface ColorScheme { bg: string; border: string; text: string }
 
-// ── Paleta Combat Dark — fundos escuros + bordas/texto neon ──────────────────
+// ── Paleta Corporativa Premium — fundo branco, bordas com cor forte ──────────
 const COLOR_RULES: { pattern: RegExp; c: ColorScheme }[] = [
-  { pattern: /bjj|jiu.?jitsu/i,         c: { bg: '#172554', border: '#3b82f6', text: '#93c5fd' } },
-  { pattern: /muay.?thai/i,             c: { bg: '#450a0a', border: '#ef4444', text: '#fca5a5' } },
-  { pattern: /box(e|ing)/i,             c: { bg: '#451a03', border: '#f59e0b', text: '#fcd34d' } },
-  { pattern: /karat[eê]/i,              c: { bg: '#2e1065', border: '#a855f7', text: '#d8b4fe' } },
-  { pattern: /jud[oô]/i,               c: { bg: '#2e1065', border: '#a855f7', text: '#d8b4fe' } },
-  { pattern: /kick/i,                   c: { bg: '#431407', border: '#f97316', text: '#fdba74' } },
-  { pattern: /luta.?livre|wrestling/i,  c: { bg: '#4a044e', border: '#e879f9', text: '#f0abfc' } },
-  { pattern: /taekwondo|tkd/i,          c: { bg: '#431407', border: '#f97316', text: '#fdba74' } },
-  { pattern: /kung.?fu|wushu/i,         c: { bg: '#052e16', border: '#22c55e', text: '#86efac' } },
+  { pattern: /bjj|jiu.?jitsu/i,         c: { bg: '#eff6ff', border: '#2563eb', text: '#1e40af' } },
+  { pattern: /muay.?thai/i,             c: { bg: '#fef2f2', border: '#dc2626', text: '#991b1b' } },
+  { pattern: /box(e|ing)/i,             c: { bg: '#fffbeb', border: '#d97706', text: '#92400e' } },
+  { pattern: /karat[eê]/i,              c: { bg: '#f5f3ff', border: '#7c3aed', text: '#5b21b6' } },
+  { pattern: /jud[oô]/i,               c: { bg: '#f0fdf4', border: '#16a34a', text: '#14532d' } },
+  { pattern: /kick/i,                   c: { bg: '#fff7ed', border: '#ea580c', text: '#9a3412' } },
+  { pattern: /luta.?livre|wrestling/i,  c: { bg: '#fdf4ff', border: '#9333ea', text: '#6b21a8' } },
+  { pattern: /taekwondo|tkd/i,          c: { bg: '#fff7ed', border: '#f97316', text: '#c2410c' } },
+  { pattern: /kung.?fu|wushu/i,         c: { bg: '#ecfdf5', border: '#059669', text: '#065f46' } },
 ];
 
 const FALLBACK: ColorScheme[] = [
-  { bg: '#0c1a2e', border: '#38bdf8', text: '#7dd3fc' },
-  { bg: '#1a0a2e', border: '#c084fc', text: '#e9d5ff' },
-  { bg: '#052e16', border: '#4ade80', text: '#bbf7d0' },
-  { bg: '#3b0a0a', border: '#f87171', text: '#fecaca' },
-  { bg: '#1c1917', border: '#a8a29e', text: '#d6d3d1' },
-  { bg: '#1a1a03', border: '#facc15', text: '#fef08a' },
+  { bg: '#f0f9ff', border: '#0284c7', text: '#075985' },
+  { bg: '#fdf4ff', border: '#a21caf', text: '#701a75' },
+  { bg: '#f0fdf4', border: '#15803d', text: '#14532d' },
+  { bg: '#fff1f2', border: '#e11d48', text: '#9f1239' },
+  { bg: '#f8fafc', border: '#475569', text: '#1e293b' },
+  { bg: '#fefce8', border: '#ca8a04', text: '#713f12' },
 ];
 
 function classColor(name: string): ColorScheme {
@@ -115,12 +115,12 @@ function buildHtml(academyName: string, classes: ClassWithRefs[]): string {
 <head>
 <meta charset="UTF-8">
 <style>
-@page { size: A4 landscape; margin: 10mm 12mm; background: #09090b; }
+@page { size: A4 landscape; margin: 12mm 14mm; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  font-family: 'Segoe UI', Helvetica Neue, Arial, sans-serif;
-  color: #f4f4f5;
-  background: #09090b;
+  font-family: 'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  color: #1e293b;
+  background: #ffffff;
   font-size: 11px;
 }
 
@@ -129,60 +129,66 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #3f3f46;
-  padding-bottom: 12px;
-  margin-bottom: 14px;
+  background: #0f172a;
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
 }
-.h-left   { display: flex; align-items: center; gap: 12px; }
-.logo     { font-size: 30px; line-height: 1; }
+.h-left   { display: flex; align-items: center; gap: 14px; }
+.logo     { font-size: 28px; line-height: 1; }
 .title    {
-  font-size: 20px;
-  font-weight: 900;
+  font-size: 18px;
+  font-weight: 800;
   color: #ffffff;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
 }
 .subtitle {
-  font-size: 9px;
-  color: #71717a;
+  font-size: 8.5px;
+  color: #94a3b8;
   margin-top: 3px;
   letter-spacing: 2px;
   text-transform: uppercase;
 }
-.meta { text-align: right; font-size: 9px; color: #52525b; line-height: 1.8; }
+.meta { text-align: right; font-size: 8.5px; color: #94a3b8; line-height: 2; }
+.meta-highlight { color: #cbd5e1; font-weight: 600; }
 
 /* ── Table ──────────────────────────────────── */
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 
-thead tr { background: #18181b; border-bottom: 1px solid #3f3f46; }
+thead tr {
+  background: #f1f5f9;
+  border-top: 2px solid #1e40af;
+  border-bottom: 1px solid #e2e8f0;
+}
 thead th {
-  color: #a1a1aa;
-  padding: 9px 5px;
-  font-size: 9px;
+  color: #475569;
+  padding: 9px 6px;
+  font-size: 8.5px;
   font-weight: 700;
   text-align: center;
   letter-spacing: 1.5px;
   text-transform: uppercase;
 }
-thead th:first-child { text-align: left; padding-left: 10px; width: 108px; color: #71717a; }
+thead th:first-child { text-align: left; padding-left: 12px; width: 110px; color: #64748b; }
 
-tbody tr { border-bottom: 1px solid #27272a; }
-tbody tr:nth-child(even) { background: #111113; }
+tbody tr { border-bottom: 1px solid #f1f5f9; }
+tbody tr:nth-child(even) { background: #fafafa; }
 
-td { padding: 6px 4px; vertical-align: middle; }
+td { padding: 7px 5px; vertical-align: top; }
 td.time {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  color: #a1a1aa;
-  padding-left: 10px;
+  color: #334155;
+  padding-left: 12px;
   white-space: nowrap;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  padding-top: 10px;
 }
 td.empty {
   text-align: center;
-  color: #3f3f46;
-  font-size: 16px;
-  letter-spacing: 2px;
+  color: #cbd5e1;
+  font-size: 14px;
 }
 
 /* ── Cards ──────────────────────────────────── */
@@ -190,47 +196,50 @@ td.empty {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  border-radius: 3px;
-  padding: 5px 8px;
-  margin-bottom: 3px;
-  min-height: 34px;
+  border-radius: 4px;
+  border-left: 3px solid;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  min-height: 36px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
 }
 .card:last-child { margin-bottom: 0; }
 .card-name {
   display: block;
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 9.5px;
+  font-weight: 700;
   line-height: 1.3;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
 }
 .card-inst {
   display: block;
-  font-size: 8.5px;
-  opacity: 0.6;
+  font-size: 8px;
+  opacity: 0.7;
   margin-top: 2px;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
 }
 
 /* ── Misc ───────────────────────────────────── */
 .footer {
-  margin-top: 12px;
-  font-size: 8px;
-  color: #3f3f46;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 7.5px;
+  color: #94a3b8;
   text-align: center;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
 .no-data {
-  padding: 40px;
+  padding: 48px;
   text-align: center;
-  color: #3f3f46;
+  color: #cbd5e1;
   font-size: 13px;
 }
 
 @media print {
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  @page { background: #09090b; }
 }
 </style>
 </head>
@@ -245,7 +254,7 @@ td.empty {
     </div>
     <div class="meta">
       <div>${dateStr}</div>
-      <div>${slots.length} horário${slots.length !== 1 ? 's' : ''} &nbsp;·&nbsp; ${activeDays.length} dia${activeDays.length !== 1 ? 's' : ''} ativo${activeDays.length !== 1 ? 's' : ''}</div>
+      <div><span class="meta-highlight">${slots.length}</span> horário${slots.length !== 1 ? 's' : ''} &nbsp;·&nbsp; <span class="meta-highlight">${activeDays.length}</span> dia${activeDays.length !== 1 ? 's' : ''} ativo${activeDays.length !== 1 ? 's' : ''}</div>
     </div>
   </div>
 
