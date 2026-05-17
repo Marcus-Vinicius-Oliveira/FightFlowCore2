@@ -809,9 +809,23 @@ function ModalidadesTab() {
               >
                 <option value="">— Geral (sem modalidade) —</option>
                 {classTypes.filter(ct => ct.active).map(ct => (
-                  <option key={ct.id} value={ct.id}>{ct.name}</option>
+                  <option key={ct.id} value={ct.id}>
+                    {ct.name}{systemByClassType[ct.id] ? ' (já tem sistema)' : ''}
+                  </option>
                 ))}
               </select>
+
+              {/* Warning when selected modality already has a system */}
+              {newSystemClassTypeId && systemByClassType[newSystemClassTypeId] && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800 space-y-1">
+                  <p className="font-medium">Esta modalidade já possui um sistema de graduação.</p>
+                  <p className="text-amber-700">
+                    Para usar um template diferente (ex: adultos e kids), adicione uma variante em{' '}
+                    <strong>Modalidades da Academia → + Personalizada</strong>{' '}
+                    com nome distinto (ex: &quot;BJJ Kids&quot;) e crie um sistema para ela.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Template cards — only shown when matching templates exist */}
@@ -874,7 +888,7 @@ function ModalidadesTab() {
 
             <div className="flex justify-end gap-2 shrink-0">
               <Button type="button" variant="outline" onClick={closeCreateDialog}>Cancelar</Button>
-              <Button type="submit" disabled={!newSystemName.trim() || createMutation.isPending}>
+              <Button type="submit" disabled={!newSystemName.trim() || createMutation.isPending || !!(newSystemClassTypeId && systemByClassType[newSystemClassTypeId])}>
                 {createMutation.isPending
                   ? 'Criando...'
                   : selectedTemplate
