@@ -6,7 +6,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from 'ws';
 import bcrypt from 'bcryptjs';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import {
   academies, users, membershipPlans, classTypes, classes,
   payments, attendance, beltHistory,
@@ -40,22 +40,55 @@ function daysAgo(n: number): Date {
 
 // ─── Demo data ───────────────────────────────────────────────────────────────
 
-const OVERDUE_EMAILS = new Set(['carlos.mendes@demo.com', 'rafael.oliveira@demo.com']);
+const OVERDUE_EMAILS = new Set([
+  'carlos.mendes@demo.com',
+  'rafael.oliveira@demo.com',
+  'diego.martins@demo.com',
+]);
 
-const DEMO_STUDENTS = [
-  { name: 'Ana Souza',           email: 'ana.souza@demo.com',          belt: 'cinza',   joined: { months: 5, day: 5  } },
-  { name: 'Carlos Mendes',       email: 'carlos.mendes@demo.com',      belt: 'branca',  joined: { months: 5, day: 12 } },
-  { name: 'Fernanda Lima',       email: 'fernanda.lima@demo.com',      belt: 'amarela', joined: { months: 4, day: 8  } },
-  { name: 'Rafael Oliveira',     email: 'rafael.oliveira@demo.com',    belt: 'branca',  joined: { months: 4, day: 20 } },
-  { name: 'Juliana Costa',       email: 'juliana.costa@demo.com',      belt: 'verde',   joined: { months: 3, day: 3  } },
-  { name: 'Bruno Santos',        email: 'bruno.santos@demo.com',       belt: 'branca',  joined: { months: 3, day: 15 } },
-  { name: 'Mariana Reis',        email: 'mariana.reis@demo.com',       belt: 'azul',    joined: { months: 3, day: 25 } },
-  { name: 'Lucas Ferreira',      email: 'lucas.ferreira@demo.com',     belt: 'branca',  joined: { months: 2, day: 6  } },
-  { name: 'Patricia Alves',      email: 'patricia.alves@demo.com',     belt: 'amarela', joined: { months: 2, day: 18 } },
-  { name: 'Rodrigo Nascimento',  email: 'rodrigo.nascimento@demo.com', belt: 'branca',  joined: { months: 1, day: 4  } },
-  { name: 'Camila Moreira',      email: 'camila.moreira@demo.com',     belt: 'roxa',    joined: { months: 1, day: 22 } },
-  { name: 'Thiago Ribeiro',      email: 'thiago.ribeiro@demo.com',     belt: 'branca',  joined: { months: 0, day: 3  } },
-  { name: 'Isabela Carvalho',    email: 'isabela.carvalho@demo.com',   belt: 'branca',  joined: { months: 0, day: 10 } },
+type Modality = 'bjj' | 'karate';
+
+interface DemoStudent {
+  name: string;
+  email: string;
+  belt: string;
+  joined: { months: number; day: number };
+  modality: Modality;
+}
+
+const DEMO_STUDENTS: DemoStudent[] = [
+  // ── BJJ ──────────────────────────────────────────────────────────────────
+  { name: 'Ana Souza',           email: 'ana.souza@demo.com',            belt: 'cinza',   joined: { months: 5,  day: 5  }, modality: 'bjj' },
+  { name: 'Carlos Mendes',       email: 'carlos.mendes@demo.com',        belt: 'branca',  joined: { months: 5,  day: 12 }, modality: 'bjj' },
+  { name: 'Fernanda Lima',       email: 'fernanda.lima@demo.com',        belt: 'amarela', joined: { months: 4,  day: 8  }, modality: 'bjj' },
+  { name: 'Rafael Oliveira',     email: 'rafael.oliveira@demo.com',      belt: 'branca',  joined: { months: 4,  day: 20 }, modality: 'bjj' },
+  { name: 'Juliana Costa',       email: 'juliana.costa@demo.com',        belt: 'verde',   joined: { months: 3,  day: 3  }, modality: 'bjj' },
+  { name: 'Bruno Santos',        email: 'bruno.santos@demo.com',         belt: 'branca',  joined: { months: 3,  day: 15 }, modality: 'bjj' },
+  { name: 'Mariana Reis',        email: 'mariana.reis@demo.com',         belt: 'azul',    joined: { months: 3,  day: 25 }, modality: 'bjj' },
+  { name: 'Lucas Ferreira',      email: 'lucas.ferreira@demo.com',       belt: 'branca',  joined: { months: 2,  day: 6  }, modality: 'bjj' },
+  { name: 'Patricia Alves',      email: 'patricia.alves@demo.com',       belt: 'amarela', joined: { months: 2,  day: 18 }, modality: 'bjj' },
+  { name: 'Rodrigo Nascimento',  email: 'rodrigo.nascimento@demo.com',   belt: 'branca',  joined: { months: 1,  day: 4  }, modality: 'bjj' },
+  { name: 'Camila Moreira',      email: 'camila.moreira@demo.com',       belt: 'roxa',    joined: { months: 1,  day: 22 }, modality: 'bjj' },
+  { name: 'Thiago Ribeiro',      email: 'thiago.ribeiro@demo.com',       belt: 'branca',  joined: { months: 0,  day: 3  }, modality: 'bjj' },
+  { name: 'Isabela Carvalho',    email: 'isabela.carvalho@demo.com',     belt: 'branca',  joined: { months: 0,  day: 10 }, modality: 'bjj' },
+  // novos BJJ
+  { name: 'Pedro Gomes',         email: 'pedro.gomes@demo.com',          belt: 'preta',   joined: { months: 12, day: 3  }, modality: 'bjj' },
+  { name: 'Larissa Teixeira',    email: 'larissa.teixeira@demo.com',     belt: 'amarela', joined: { months: 5,  day: 14 }, modality: 'bjj' },
+  { name: 'Felipe Barros',       email: 'felipe.barros@demo.com',        belt: 'branca',  joined: { months: 2,  day: 22 }, modality: 'bjj' },
+  { name: 'Natalia Pereira',     email: 'natalia.pereira@demo.com',      belt: 'verde',   joined: { months: 7,  day: 9  }, modality: 'bjj' },
+  { name: 'Diego Martins',       email: 'diego.martins@demo.com',        belt: 'branca',  joined: { months: 1,  day: 17 }, modality: 'bjj' },
+
+  // ── Karatê ───────────────────────────────────────────────────────────────
+  { name: 'Sofia Yamamoto',      email: 'sofia.yamamoto@demo.com',       belt: 'amarela', joined: { months: 5,  day: 7  }, modality: 'karate' },
+  { name: 'Eduardo Costa',       email: 'eduardo.costa@demo.com',        belt: 'branca',  joined: { months: 3,  day: 11 }, modality: 'karate' },
+  { name: 'Amanda Ferreira',     email: 'amanda.ferreira@demo.com',      belt: 'verde',   joined: { months: 6,  day: 2  }, modality: 'karate' },
+  { name: 'Gustavo Lima',        email: 'gustavo.lima@demo.com',         belt: 'azul',    joined: { months: 8,  day: 19 }, modality: 'karate' },
+  { name: 'Letícia Santos',      email: 'leticia.santos@demo.com',       belt: 'branca',  joined: { months: 1,  day: 28 }, modality: 'karate' },
+  { name: 'Paulo Machado',       email: 'paulo.machado@demo.com',        belt: 'amarela', joined: { months: 4,  day: 6  }, modality: 'karate' },
+  { name: 'Rebeca Alves',        email: 'rebeca.alves@demo.com',         belt: 'branca',  joined: { months: 0,  day: 8  }, modality: 'karate' },
+  { name: 'Roberto Azevedo',     email: 'roberto.azevedo@demo.com',      belt: 'marrom',  joined: { months: 10, day: 14 }, modality: 'karate' },
+  { name: 'Vanessa Correia',     email: 'vanessa.correia@demo.com',      belt: 'amarela', joined: { months: 3,  day: 23 }, modality: 'karate' },
+  { name: 'Henrique Duarte',     email: 'henrique.duarte@demo.com',      belt: 'branca',  joined: { months: 2,  day: 5  }, modality: 'karate' },
 ];
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -118,11 +151,15 @@ async function main() {
     console.log(`⚠️  Plano já existe: ${plan.name}`);
   }
 
-  // 5. Class type
-  let classType = (await db.select().from(classTypes)
-    .where(eq(classTypes.academyId, academy.id)))[0];
-  if (!classType) {
-    [classType] = await db.insert(classTypes).values({
+  // 5a. BJJ class type + class
+  let bjjClassType = (await db.select().from(classTypes)
+    .where(and(
+      eq(classTypes.academyId, academy.id),
+      eq(classTypes.active, true),
+      sql`LOWER(${classTypes.name}) LIKE '%bjj%'`,
+    )))[0];
+  if (!bjjClassType) {
+    [bjjClassType] = await db.insert(classTypes).values({
       academyId: academy.id,
       name: 'BJJ',
       description: 'Brazilian Jiu-Jitsu',
@@ -132,31 +169,86 @@ async function main() {
     }).returning();
     console.log('✅ Modalidade criada: BJJ');
   } else {
-    console.log(`⚠️  Modalidade já existe: ${classType.name}`);
+    console.log(`⚠️  Modalidade BJJ já existe: ${bjjClassType.name}`);
   }
 
-  // 6. Class schedule (Monday 19h)
   let bjjClass = (await db.select().from(classes)
-    .where(and(eq(classes.academyId, academy.id), eq(classes.active, true))))[0];
+    .where(and(
+      eq(classes.academyId, academy.id),
+      eq(classes.active, true),
+      eq(classes.classTypeId, bjjClassType.id),
+    )))[0];
   if (!bjjClass) {
     [bjjClass] = await db.insert(classes).values({
       academyId: academy.id,
-      classTypeId: classType.id,
+      classTypeId: bjjClassType.id,
       instructorId: professor.id,
       dayOfWeek: 1,
       startTime: '19:00',
       endTime: '20:30',
       active: true,
     }).returning();
-    console.log('✅ Turma criada: BJJ — segunda-feira 19h\n');
+    console.log('✅ Turma criada: BJJ — segunda-feira 19h');
   } else {
-    console.log(`⚠️  Turma já existe\n`);
+    console.log(`⚠️  Turma BJJ já existe`);
   }
 
-  // 7. Students, payments, belt history, attendance
+  // 5b. Karatê class type + class
+  let karateClassType = (await db.select().from(classTypes)
+    .where(and(
+      eq(classTypes.academyId, academy.id),
+      eq(classTypes.active, true),
+      sql`LOWER(${classTypes.name}) LIKE '%karat%'`,
+    )))[0];
+  if (!karateClassType) {
+    [karateClassType] = await db.insert(classTypes).values({
+      academyId: academy.id,
+      name: 'Karatê',
+      description: 'Karatê Shotokan',
+      duration: 60,
+      maxCapacity: 25,
+      active: true,
+    }).returning();
+    console.log('✅ Modalidade criada: Karatê');
+  } else {
+    console.log(`⚠️  Modalidade Karatê já existe: ${karateClassType.name}`);
+  }
+
+  let karateClass = (await db.select().from(classes)
+    .where(and(
+      eq(classes.academyId, academy.id),
+      eq(classes.active, true),
+      eq(classes.classTypeId, karateClassType.id),
+    )))[0];
+  if (!karateClass) {
+    [karateClass] = await db.insert(classes).values({
+      academyId: academy.id,
+      classTypeId: karateClassType.id,
+      instructorId: professor.id,
+      dayOfWeek: 2,
+      startTime: '18:00',
+      endTime: '19:00',
+      active: true,
+    }).returning();
+    console.log('✅ Turma criada: Karatê — terça-feira 18h');
+  } else {
+    console.log(`⚠️  Turma Karatê já existe`);
+  }
+
+  console.log('');
+
+  // Dias de treino por modalidade
+  const CLASS_DAYS: Record<Modality, Set<number>> = {
+    bjj:    new Set([1, 3, 5]), // Seg/Qua/Sex
+    karate: new Set([2, 4, 6]), // Ter/Qui/Sáb
+  };
+  const modalityClass: Record<Modality, typeof bjjClass> = {
+    bjj:    bjjClass,
+    karate: karateClass,
+  };
+
+  // 6. Students, payments, belt history, attendance
   const password = await bcrypt.hash('Senha@123', 10);
-  const now = new Date();
-  const CLASS_DAYS = new Set([1, 3, 5]); // Mon, Wed, Fri
 
   for (const s of DEMO_STUDENTS) {
     const existing = (await db.select({ id: users.id }).from(users)
@@ -232,16 +324,19 @@ async function main() {
       });
     }
 
-    // Attendance — last 30 days on Mon/Wed/Fri, ~75% presence
+    // Attendance — last 30 days on modality's training days, ~75% presence
+    const classDays = CLASS_DAYS[s.modality];
+    const targetClass = modalityClass[s.modality];
     const attendanceRows = [];
+
     for (let d = 29; d >= 0; d--) {
       const date = daysAgo(d);
-      if (!CLASS_DAYS.has(date.getDay())) continue;
+      if (!classDays.has(date.getDay())) continue;
       if (date < joinDate) continue;
       const present = Math.random() < 0.75;
       attendanceRows.push({
         studentId: student.id,
-        classId: bjjClass.id,
+        classId: targetClass.id,
         academyId: academy.id,
         date,
         present,
@@ -254,7 +349,8 @@ async function main() {
 
     const months = s.joined.months + 1;
     const tag = isOverdue ? ' ⚠️  inadimplente' : '';
-    console.log(`✅ ${s.name.padEnd(22)} faixa ${s.belt.padEnd(7)} ${months} mês(es)${tag}`);
+    const mod = s.modality === 'karate' ? '🥋 Karatê' : '🟦 BJJ   ';
+    console.log(`✅ ${s.name.padEnd(22)} ${mod}  faixa ${s.belt.padEnd(7)} ${months} mês(es)${tag}`);
   }
 
   console.log('\n🎉 Seed demo concluído!');
