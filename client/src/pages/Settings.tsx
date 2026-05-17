@@ -587,9 +587,19 @@ function ModalidadesTab() {
     setAddModalityDialog(false);
   }
 
+  // Map: classTypeId → array of system names already created for that modality
+  const systemNamesByClassType: Record<string, string[]> = {};
+  for (const sys of systems) {
+    if (sys.classTypeId) {
+      if (!systemNamesByClassType[sys.classTypeId]) systemNamesByClassType[sys.classTypeId] = [];
+      systemNamesByClassType[sys.classTypeId].push(sys.name);
+    }
+  }
+
+  // Legacy single-system lookup (used in "Modalidades sem sistema" section)
   const systemByClassType: Record<string, GraduationSystem> = {};
   for (const sys of systems) {
-    if (sys.classTypeId) systemByClassType[sys.classTypeId] = sys;
+    if (sys.classTypeId && !systemByClassType[sys.classTypeId]) systemByClassType[sys.classTypeId] = sys;
   }
 
   const activeClassTypes = classTypes.filter(ct => ct.active);
@@ -809,21 +819,15 @@ function ModalidadesTab() {
               >
                 <option value="">— Geral (sem modalidade) —</option>
                 {classTypes.filter(ct => ct.active).map(ct => (
-                  <option key={ct.id} value={ct.id}>
-                    {ct.name}{systemByClassType[ct.id] ? ' (já tem sistema)' : ''}
-                  </option>
+                  <option key={ct.id} value={ct.id}>{ct.name}</option>
                 ))}
               </select>
 
-              {/* Warning when selected modality already has a system */}
-              {newSystemClassTypeId && systemByClassType[newSystemClassTypeId] && (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800 space-y-1">
-                  <p className="font-medium">Esta modalidade já possui um sistema de graduação.</p>
-                  <p className="text-amber-700">
-                    Para usar um template diferente (ex: adultos e kids), adicione uma variante em{' '}
-                    <strong>Modalidades da Academia → + Personalizada</strong>{' '}
-                    com nome distinto (ex: &quot;BJJ Kids&quot;) e crie um sistema para ela.
-                  </p>
+              {/* Info when selected modality already has systems */}
+              {newSystemClassTypeId && (systemNamesByClassType[newSystemClassTypeId]?.length ?? 0) > 0 && (
+                <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm text-blue-800">
+                  Esta modalidade já tem {systemNamesByClassType[newSystemClassTypeId].length} sistema(s).
+                  Escolha um template diferente dos já adicionados para criar um segundo sistema.
                 </div>
               )}
             </div>
@@ -833,11 +837,17 @@ function ModalidadesTab() {
               <div className="space-y-2">
                 <Label>Template de graduação (opcional)</Label>
                 <div className="space-y-2">
-                  {matchingTemplates.map(tmpl => (
+                  {matchingTemplates.map(tmpl => {
+                    const alreadyUsed = newSystemClassTypeId
+                      ? (systemNamesByClassType[newSystemClassTypeId] ?? []).includes(tmpl.name)
+                      : false;
+                    return (
                     <button
                       key={tmpl.id}
                       type="button"
+                      disabled={alreadyUsed}
                       onClick={() => {
+                        if (alreadyUsed) return;
                         if (selectedTemplate?.id === tmpl.id) {
                           setSelectedTemplate(null);
                         } else {
@@ -846,9 +856,11 @@ function ModalidadesTab() {
                         }
                       }}
                       className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                        selectedTemplate?.id === tmpl.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-muted-foreground'
+                        alreadyUsed
+                          ? 'border-border opacity-50 cursor-not-allowed bg-muted/40'
+                          : selectedTemplate?.id === tmpl.id
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-muted-foreground'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -858,12 +870,13 @@ function ModalidadesTab() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <Badge variant="secondary">{tmpl.ranks.length} graus</Badge>
-                          {selectedTemplate?.id === tmpl.id && (
-                            <CheckCircle2 className="h-4 w-4 text-primary" />
-                          )}
+                          {alreadyUsed
+                            ? <Badge variant="outline" className="text-xs">já adicionado</Badge>
+                            : selectedTemplate?.id === tmpl.id && <CheckCircle2 className="h-4 w-4 text-primary" />
+                          }
                         </div>
                       </div>
-                      {selectedTemplate?.id === tmpl.id && (
+                      {selectedTemplate?.id === tmpl.id && !alreadyUsed && (
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           {tmpl.ranks.map(r => (
                             <BeltBar key={r.name} color={r.colorClass} name={r.name} width={44} height={12} />
@@ -871,7 +884,7 @@ function ModalidadesTab() {
                         </div>
                       )}
                     </button>
-                  ))}
+                  );})}
                 </div>
               </div>
             )}
@@ -888,7 +901,11 @@ function ModalidadesTab() {
 
             <div className="flex justify-end gap-2 shrink-0">
               <Button type="button" variant="outline" onClick={closeCreateDialog}>Cancelar</Button>
-              <Button type="submit" disabled={!newSystemName.trim() || createMutation.isPending || !!(newSystemClassTypeId && systemByClassType[newSystemClassTypeId])}>
+              <Button type="submit" disabled={
+                !newSystemName.trim() ||
+                createMutation.isPending ||
+                !!(newSystemClassTypeId && (systemNamesByClassType[newSystemClassTypeId] ?? []).includes(newSystemName.trim()))
+              }>
                 {createMutation.isPending
                   ? 'Criando...'
                   : selectedTemplate

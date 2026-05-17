@@ -172,7 +172,7 @@ export const graduationSystems = pgTable("graduation_systems", {
   updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
 }, (t) => ({
   academyIdIdx: index("graduation_systems_academy_id_idx").on(t.academyId),
-  uniqueAcademyClassType: unique("graduation_systems_academy_class_type_unique").on(t.academyId, t.classTypeId),
+  uniqueAcademyClassTypeName: unique("graduation_systems_academy_class_type_name_unique").on(t.academyId, t.classTypeId, t.name),
 }));
 
 export const graduationRanks = pgTable("graduation_ranks", {
