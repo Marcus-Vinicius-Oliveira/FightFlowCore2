@@ -16,16 +16,7 @@ router.get('/systems',
       const academyId = req.user!.academyId;
       if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório' });
 
-      const systems = await storage.getGraduationSystemsByAcademy(academyId);
-
-      // Enrich each system with its ranks
-      const withRanks = await Promise.all(
-        systems.map(async (sys) => ({
-          ...sys,
-          ranks: await storage.getGraduationRanksBySystem(sys.id),
-        }))
-      );
-
+      const withRanks = await storage.getGraduationSystemsWithRanks(academyId);
       res.json(withRanks);
     } catch (error) {
       console.error('Get graduation systems error:', error);
@@ -149,6 +140,12 @@ router.patch('/ranks/:id',
   requireRole(['ADMIN_ACADEMIA']),
   async (req: AuthenticatedRequest, res) => {
     try {
+      // Prioridade 1: verificar que o rank pertence à academia do usuário
+      const rank = await storage.getGraduationRank(req.params.id);
+      if (!rank) return res.status(404).json({ error: 'Graduação não encontrada' });
+      const sys = await storage.getGraduationSystem(rank.systemId);
+      if (!sys || sys.academyId !== req.user!.academyId) return res.status(404).json({ error: 'Graduação não encontrada' });
+
       const schema = z.object({
         name: z.string().min(1).optional(),
         displayOrder: z.number().int().optional(),
@@ -156,7 +153,6 @@ router.patch('/ranks/:id',
       });
       const data = schema.parse(req.body);
       const updated = await storage.updateGraduationRank(req.params.id, data);
-      if (!updated) return res.status(404).json({ error: 'Graduação não encontrada' });
       res.json(updated);
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: 'Validação', details: error.errors });
@@ -172,8 +168,13 @@ router.delete('/ranks/:id',
   requireRole(['ADMIN_ACADEMIA']),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const deleted = await storage.deleteGraduationRank(req.params.id);
-      if (!deleted) return res.status(404).json({ error: 'Graduação não encontrada' });
+      // Prioridade 1: verificar que o rank pertence à academia do usuário
+      const rank = await storage.getGraduationRank(req.params.id);
+      if (!rank) return res.status(404).json({ error: 'Graduação não encontrada' });
+      const sys = await storage.getGraduationSystem(rank.systemId);
+      if (!sys || sys.academyId !== req.user!.academyId) return res.status(404).json({ error: 'Graduação não encontrada' });
+
+      await storage.deleteGraduationRank(req.params.id);
       res.json({ message: 'Graduação removida' });
     } catch (error) {
       console.error('Delete rank error:', error);
@@ -193,26 +194,8 @@ router.get('/modality-ranks',
       const academyId = req.user!.academyId;
       if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório' });
 
-      const rows = await storage.getAcademyModalityRanks(academyId);
-
-      // Enrich with rank and classType names for display
-      const systems = await storage.getGraduationSystemsByAcademy(academyId);
-      const allRanks: Record<string, { name: string; colorClass: string }> = {};
-      for (const sys of systems) {
-        const ranks = await storage.getGraduationRanksBySystem(sys.id);
-        for (const r of ranks) {
-          allRanks[r.id] = { name: r.name, colorClass: r.colorClass };
-        }
-      }
-
-      res.json(rows.map(r => ({
-        studentId: r.studentId,
-        classTypeId: r.classTypeId,
-        rankId: r.rankId,
-        rankName: allRanks[r.rankId]?.name ?? '—',
-        colorClass: allRanks[r.rankId]?.colorClass ?? 'bg-gray-400 text-white',
-        promotedAt: r.promotedAt,
-      })));
+      const rows = await storage.getAcademyModalityRanksEnriched(academyId);
+      res.json(rows);
     } catch (error) {
       console.error('Get modality ranks error:', error);
       res.status(500).json({ error: 'Internal server error' });

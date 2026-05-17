@@ -17,10 +17,10 @@ router.get('/info',
       const academyId = req.user!.academyId;
       if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório para este recurso' });
 
-      const [academy, students, instructors, classTypesList] = await Promise.all([
+      const [academy, totalStudents, totalInstructors, classTypesList] = await Promise.all([
         storage.getAcademy(academyId),
-        storage.getUsersByAcademy(academyId, 'ALUNO'),
-        storage.getUsersByAcademy(academyId, 'PROFESSOR'),
+        storage.countUsersByAcademy(academyId, 'ALUNO'),
+        storage.countUsersByAcademy(academyId, 'PROFESSOR'),
         storage.getClassTypesByAcademy(academyId),
       ]);
 
@@ -35,8 +35,8 @@ router.get('/info',
           createdAt: academy.createdAt,
         },
         statistics: {
-          totalStudents: students.length,
-          totalInstructors: instructors.length,
+          totalStudents,
+          totalInstructors,
           totalClassTypes: classTypesList.length,
         },
         message: `Bem-vindo ao painel da ${academy.name}`,

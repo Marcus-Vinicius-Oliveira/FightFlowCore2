@@ -52,7 +52,7 @@ import {
   type InsertStudentModalityEnrollment,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, inArray, gte, lt, count } from "drizzle-orm";
+import { eq, and, desc, inArray, gte, lt, count, asc } from "drizzle-orm";
 
 export interface PaginationParams {
   limit?: number;
@@ -146,10 +146,13 @@ export interface IStorage {
   deleteGraduationSystem(id: string): Promise<boolean>;
 
   // Graduation rank operations
+  getGraduationRank(id: string): Promise<GraduationRank | undefined>;
   getGraduationRanksBySystem(systemId: string): Promise<GraduationRank[]>;
   createGraduationRank(data: InsertGraduationRank): Promise<GraduationRank>;
   updateGraduationRank(id: string, updates: Partial<InsertGraduationRank>): Promise<GraduationRank | undefined>;
   deleteGraduationRank(id: string): Promise<boolean>;
+  getGraduationSystemsWithRanks(academyId: string): Promise<(GraduationSystem & { ranks: GraduationRank[] })[]>;
+  getAcademyModalityRanksEnriched(academyId: string): Promise<{ studentId: string; classTypeId: string; rankId: string; rankName: string; colorClass: string; promotedAt: Date }[]>;
 
   // Student modality rank operations
   getStudentModalityRanks(studentId: string): Promise<StudentModalityRank[]>;
@@ -584,10 +587,38 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount || 0) > 0;
   }
 
+  async getGraduationRank(id: string): Promise<GraduationRank | undefined> {
+    const [rank] = await db.select().from(graduationRanks).where(eq(graduationRanks.id, id));
+    return rank;
+  }
+
   async getGraduationRanksBySystem(systemId: string): Promise<GraduationRank[]> {
     return db.select().from(graduationRanks)
       .where(eq(graduationRanks.systemId, systemId))
       .orderBy(graduationRanks.displayOrder);
+  }
+
+  async getGraduationSystemsWithRanks(academyId: string): Promise<(GraduationSystem & { ranks: GraduationRank[] })[]> {
+    return db.query.graduationSystems.findMany({
+      where: eq(graduationSystems.academyId, academyId),
+      with: { ranks: { orderBy: asc(graduationRanks.displayOrder) } },
+    }) as Promise<(GraduationSystem & { ranks: GraduationRank[] })[]>;
+  }
+
+  async getAcademyModalityRanksEnriched(academyId: string): Promise<{ studentId: string; classTypeId: string; rankId: string; rankName: string; colorClass: string; promotedAt: Date }[]> {
+    const rows = await db
+      .select({
+        studentId: studentModalityRanks.studentId,
+        classTypeId: studentModalityRanks.classTypeId,
+        rankId: studentModalityRanks.rankId,
+        promotedAt: studentModalityRanks.promotedAt,
+        rankName: graduationRanks.name,
+        colorClass: graduationRanks.colorClass,
+      })
+      .from(studentModalityRanks)
+      .innerJoin(graduationRanks, eq(studentModalityRanks.rankId, graduationRanks.id))
+      .where(eq(studentModalityRanks.academyId, academyId));
+    return rows;
   }
 
   async createGraduationRank(data: InsertGraduationRank): Promise<GraduationRank> {
