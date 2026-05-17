@@ -56,10 +56,10 @@ import { db } from "./db";
 import { eq, and, desc, inArray, gte, lt, count, asc, sql } from "drizzle-orm";
 
 export interface ClassFilters {
-  search?: string;
   classTypeId?: string;
   instructorId?: string;
   daysOfWeek?: number[];
+  startTime?: string;
 }
 
 export interface PaginationParams {
@@ -379,18 +379,16 @@ export class DatabaseStorage implements IStorage {
       where: and(
         eq(classes.academyId, academyId),
         eq(classes.active, true),
-        ...(filters?.classTypeId ? [eq(classes.classTypeId, filters.classTypeId)] : []),
-        ...(filters?.instructorId ? [eq(classes.instructorId, filters.instructorId)] : []),
-        ...(filters?.daysOfWeek?.length ? [inArray(classes.dayOfWeek, filters.daysOfWeek)] : []),
+        ...(filters?.classTypeId  ? [eq(classes.classTypeId,  filters.classTypeId)]            : []),
+        ...(filters?.instructorId ? [eq(classes.instructorId, filters.instructorId)]            : []),
+        ...(filters?.startTime    ? [eq(classes.startTime,    filters.startTime)]               : []),
+        ...(filters?.daysOfWeek?.length ? [inArray(classes.dayOfWeek, filters.daysOfWeek)]     : []),
       ),
       with: { classType: true, instructor: true },
       orderBy: asc(classes.dayOfWeek),
     }) as ClassWithRefs[];
 
-    // Filtro textual sobre nome da modalidade — antes do agrupamento
-    const filtered = filters?.search
-      ? rows.filter(r => r.classType?.name.toLowerCase().includes(filters.search!.toLowerCase()))
-      : rows;
+    const filtered = rows;
 
     const groupMap = new Map<string, ClassGrouped>();
 

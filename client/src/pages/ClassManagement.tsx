@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Edit, MoreHorizontal, Trash2, Eye, Clock, Calendar, FileDown, ChevronDown, X } from "lucide-react";
+import { Plus, Edit, MoreHorizontal, Trash2, Eye, Clock, Calendar, FileDown, ChevronDown, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
@@ -397,16 +397,15 @@ function ClassDetails({ classData, onClose }: ClassDetailsProps) {
 }
 
 interface FilterState {
-  search: string;
   classTypeId: string;
   instructorId: string;
   daysOfWeek: number[];
+  startTime: string;
 }
 
-const EMPTY_FILTERS: FilterState = { search: "", classTypeId: "", instructorId: "", daysOfWeek: [] };
+const EMPTY_FILTERS: FilterState = { classTypeId: "", instructorId: "", daysOfWeek: [], startTime: "" };
 
 export default function ClassManagement() {
-  const [searchInput, setSearchInput] = useState("");
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [selectedClass, setSelectedClass] = useState<ClassData | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -416,21 +415,10 @@ export default function ClassManagement() {
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
-  // Debounce: propaga searchInput → filters.search com 350ms de delay
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setFilters(prev => ({ ...prev, search: searchInput }));
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
-
   const hasActiveFilters =
-    !!searchInput || !!filters.classTypeId || !!filters.instructorId || filters.daysOfWeek.length > 0;
+    !!filters.classTypeId || !!filters.instructorId || filters.daysOfWeek.length > 0 || !!filters.startTime;
 
-  const clearFilters = () => {
-    setSearchInput("");
-    setFilters(EMPTY_FILTERS);
-  };
+  const clearFilters = () => setFilters(EMPTY_FILTERS);
 
   const toggleFilterDay = (day: number) => {
     setFilters(prev => {
@@ -476,15 +464,28 @@ export default function ClassManagement() {
     queryKey: ['/api/classes', filters],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (filters.search)       params.set('search', filters.search);
       if (filters.classTypeId)  params.set('classTypeId', filters.classTypeId);
       if (filters.instructorId) params.set('instructorId', filters.instructorId);
+      if (filters.startTime)    params.set('startTime', filters.startTime);
       filters.daysOfWeek.forEach(d => params.append('days', String(d)));
       const qs = params.toString();
       const res = await apiRequest('GET', `/api/classes${qs ? '?' + qs : ''}`);
       return res.json();
     },
   });
+
+  // Slots de horário derivados dos dados sem filtro de horário (cascading filters)
+  const timeSlotOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const opts: { startTime: string; label: string }[] = [];
+    for (const cls of classes) {
+      if (!seen.has(cls.startTime)) {
+        seen.add(cls.startTime);
+        opts.push({ startTime: cls.startTime, label: `${cls.startTime} – ${cls.endTime}` });
+      }
+    }
+    return opts.sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }, [classes]);
 
   const deleteMutation = useMutation({
     mutationFn: (classData: ClassData) =>
@@ -596,18 +597,6 @@ export default function ClassManagement() {
         <CardContent>
           {/* ── Toolbar de Filtros Avançados ── */}
           <div className="flex flex-wrap items-center gap-2 mb-4">
-            {/* Busca textual com debounce */}
-            <div className="relative flex-1 min-w-[180px]">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por modalidade..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="pl-8"
-                data-testid="input-search"
-              />
-            </div>
-
             {/* Filtro por Modalidade */}
             <Select
               value={filters.classTypeId || "_all"}
@@ -674,6 +663,22 @@ export default function ClassManagement() {
                 ))}
               </PopoverContent>
             </Popover>
+
+            {/* Filtro por Horário */}
+            <Select
+              value={filters.startTime || "_all"}
+              onValueChange={(v) => setFilters(prev => ({ ...prev, startTime: v === "_all" ? "" : v }))}
+            >
+              <SelectTrigger className="w-[160px]" data-testid="select-filter-time">
+                <SelectValue placeholder="Horário" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">Todos os horários</SelectItem>
+                {timeSlotOptions.map(opt => (
+                  <SelectItem key={opt.startTime} value={opt.startTime}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             {/* Botão limpar filtros */}
             {hasActiveFilters && (

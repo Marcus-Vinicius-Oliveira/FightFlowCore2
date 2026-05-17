@@ -108,9 +108,9 @@ router.get('/',
 
       const daysRaw = req.query.days;
       const filters: ClassFilters = {
-        search:       (req.query.search as string) || undefined,
-        classTypeId:  (req.query.classTypeId as string) || undefined,
+        classTypeId:  (req.query.classTypeId  as string) || undefined,
         instructorId: (req.query.instructorId as string) || undefined,
+        startTime:    (req.query.startTime    as string) || undefined,
         daysOfWeek:   daysRaw
           ? (Array.isArray(daysRaw) ? daysRaw : [daysRaw])
               .map(Number)
