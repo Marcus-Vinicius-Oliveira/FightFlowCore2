@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -46,7 +47,7 @@ interface ClassData {
 const classFormSchema = z.object({
   classTypeId: z.string().min(1, "Tipo de aula é obrigatório"),
   instructorId: z.string().min(1, "Professor é obrigatório"),
-  dayOfWeek: z.number().min(0).max(6),
+  daysOfWeek: z.array(z.number().min(0).max(6)).min(1, "Selecione pelo menos um dia"),
   startTime: z.string().min(1, "Horário de início é obrigatório"),
   endTime: z.string().min(1, "Horário de fim é obrigatório"),
 }).refine(data => data.startTime < data.endTime, {
@@ -57,13 +58,13 @@ const classFormSchema = z.object({
 type ClassFormData = z.infer<typeof classFormSchema>;
 
 const DAYS_OF_WEEK = [
-  { value: 0, label: "Domingo" },
-  { value: 1, label: "Segunda-feira" },
-  { value: 2, label: "Terça-feira" },
-  { value: 3, label: "Quarta-feira" },
-  { value: 4, label: "Quinta-feira" },
-  { value: 5, label: "Sexta-feira" },
-  { value: 6, label: "Sábado" },
+  { value: 0, label: "Domingo",      short: "Dom" },
+  { value: 1, label: "Segunda-feira", short: "Seg" },
+  { value: 2, label: "Terça-feira",  short: "Ter" },
+  { value: 3, label: "Quarta-feira", short: "Qua" },
+  { value: 4, label: "Quinta-feira", short: "Qui" },
+  { value: 5, label: "Sexta-feira",  short: "Sex" },
+  { value: 6, label: "Sábado",       short: "Sáb" },
 ];
 
 interface ClassFormProps {
@@ -72,71 +73,78 @@ interface ClassFormProps {
 }
 
 function ClassForm({ classData, onClose }: ClassFormProps) {
+  const isEdit = !!classData;
   const [formData, setFormData] = useState<ClassFormData>({
     classTypeId: classData?.classTypeId || "",
     instructorId: classData?.instructorId || "",
-    dayOfWeek: classData?.dayOfWeek ?? 1,
+    daysOfWeek: classData ? [classData.dayOfWeek] : [],
     startTime: classData?.startTime || "",
     endTime: classData?.endTime || "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
-  // Get class types
   const { data: classTypes = [] } = useQuery<ClassType[]>({
     queryKey: ['/api/classes/class-types']
   });
 
-  // Get instructors (professors)  
   const { data: instructors = [] } = useQuery<Instructor[]>({
     queryKey: ['/api/instructors']
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: ClassFormData) => apiRequest('POST', '/api/classes', data),
-    onSuccess: () => {
+    mutationFn: async (data: ClassFormData) => {
+      await Promise.all(
+        data.daysOfWeek.map(day =>
+          apiRequest('POST', '/api/classes', {
+            classTypeId: data.classTypeId,
+            instructorId: data.instructorId,
+            dayOfWeek: day,
+            startTime: data.startTime,
+            endTime: data.endTime,
+          })
+        )
+      );
+    },
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/classes'] });
+      const n = variables.daysOfWeek.length;
       toast({
-        title: "Aula criada com sucesso!",
-        description: "A nova aula foi adicionada à grade horária.",
+        title: n > 1 ? `${n} aulas criadas com sucesso!` : "Aula criada com sucesso!",
+        description: "As aulas foram adicionadas à grade horária.",
       });
       onClose();
     },
     onError: (error: any) => {
-      toast({
-        title: "Erro ao criar aula",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Erro ao criar aula", description: error.message, variant: "destructive" });
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: ClassFormData) => apiRequest('PATCH', `/api/classes/${classData!.id}`, data),
+    mutationFn: (data: ClassFormData) =>
+      apiRequest('PATCH', `/api/classes/${classData!.id}`, {
+        classTypeId: data.classTypeId,
+        instructorId: data.instructorId,
+        dayOfWeek: data.daysOfWeek[0],
+        startTime: data.startTime,
+        endTime: data.endTime,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/classes'] });
-      toast({
-        title: "Aula atualizada com sucesso!",
-        description: "Os dados da aula foram atualizados.",
-      });
+      toast({ title: "Aula atualizada com sucesso!", description: "Os dados da aula foram atualizados." });
       onClose();
     },
     onError: (error: any) => {
-      toast({
-        title: "Erro ao atualizar aula",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Erro ao atualizar aula", description: error.message, variant: "destructive" });
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
-
     try {
       const validatedData = classFormSchema.parse(formData);
-      if (classData) {
+      if (isEdit) {
         updateMutation.mutate(validatedData);
       } else {
         createMutation.mutate(validatedData);
@@ -145,20 +153,31 @@ function ClassForm({ classData, onClose }: ClassFormProps) {
       if (error instanceof z.ZodError) {
         const errorMap: Record<string, string> = {};
         error.errors.forEach(err => {
-          if (err.path) {
-            errorMap[err.path[0] as string] = err.message;
-          }
+          if (err.path) errorMap[err.path[0] as string] = err.message;
         });
         setErrors(errorMap);
       }
     }
   };
 
-  const handleChange = (field: keyof ClassFormData, value: string | number) => {
+  const handleChange = (field: keyof Omit<ClassFormData, 'daysOfWeek'>, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: "" }));
-    }
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: "" }));
+  };
+
+  const toggleDay = (day: number) => {
+    setFormData(prev => {
+      if (isEdit) {
+        // Edição: seleção única
+        return { ...prev, daysOfWeek: [day] };
+      }
+      // Criação: seleção múltipla
+      const next = prev.daysOfWeek.includes(day)
+        ? prev.daysOfWeek.filter(d => d !== day)
+        : [...prev.daysOfWeek, day];
+      return { ...prev, daysOfWeek: next };
+    });
+    if (errors.daysOfWeek) setErrors(prev => ({ ...prev, daysOfWeek: "" }));
   };
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
@@ -212,24 +231,30 @@ function ClassForm({ classData, onClose }: ClassFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="dayOfWeek">Dia da Semana</Label>
-        <Select
-          value={formData.dayOfWeek.toString()}
-          onValueChange={(value) => handleChange("dayOfWeek", parseInt(value))}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione o dia da semana" />
-          </SelectTrigger>
-          <SelectContent>
-            {DAYS_OF_WEEK.map((day) => (
-              <SelectItem key={day.value} value={day.value.toString()}>
-                {day.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {errors.dayOfWeek && (
-          <p className="text-sm text-destructive">{errors.dayOfWeek}</p>
+        <Label>{isEdit ? "Dia da Semana" : "Dias da Semana"}</Label>
+        <div className="flex gap-1.5">
+          {DAYS_OF_WEEK.map((day) => {
+            const selected = formData.daysOfWeek.includes(day.value);
+            return (
+              <button
+                key={day.value}
+                type="button"
+                onClick={() => toggleDay(day.value)}
+                title={day.label}
+                className={cn(
+                  "flex-1 h-9 rounded-md text-xs font-semibold border transition-colors",
+                  selected
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-input hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                {day.short}
+              </button>
+            );
+          })}
+        </div>
+        {errors.daysOfWeek && (
+          <p className="text-sm text-destructive">{errors.daysOfWeek}</p>
         )}
       </div>
 
@@ -278,7 +303,13 @@ function ClassForm({ classData, onClose }: ClassFormProps) {
           disabled={isLoading}
           data-testid="button-submit"
         >
-          {isLoading ? "Salvando..." : classData ? "Atualizar" : "Criar"}
+          {isLoading
+            ? "Salvando..."
+            : isEdit
+              ? "Atualizar"
+              : formData.daysOfWeek.length > 1
+                ? `Criar ${formData.daysOfWeek.length} aulas`
+                : "Criar"}
         </Button>
       </div>
     </form>
