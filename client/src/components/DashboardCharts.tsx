@@ -1,12 +1,14 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BarChart, Bar, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from "recharts";
 import { TrendingUp, DollarSign, Award } from "lucide-react";
-import { BELT_HEX } from "@/components/BeltBadge";
+import { BELT_HEX, isLightHex } from "@/components/BeltBadge";
 
 interface ModalityRankEntry {
   modality: string;
@@ -38,7 +40,11 @@ function beltColor(belt: string) {
   return BELT_HEX[belt.toLowerCase()] ?? '#6b7280';
 }
 
+type RankBar = { rank: string; count: number; color: string; displayOrder: number };
+
 export function DashboardCharts() {
+  const [activeModality, setActiveModality] = useState('');
+
   const { data, isLoading } = useQuery<ChartsData>({
     queryKey: ['/api/dashboard/charts'],
   });
@@ -48,24 +54,26 @@ export function DashboardCharts() {
   const belts = data?.beltDistribution ?? [];
   const modalityRaw = data?.modalityRankDistribution ?? [];
 
-  // Build per-modality bar chart data: [{modality, rank1count, rank2count...}, ...]
-  const modalityNames = Array.from(new Set(modalityRaw.map(r => r.modality)));
-  const allRankNames = Array.from(new Set(modalityRaw.map(r => r.rank)));
-  const modalityChartData = modalityNames.map(mod => {
-    const row: Record<string, string | number> = { modality: mod };
-    for (const entry of modalityRaw.filter(r => r.modality === mod)) {
-      row[entry.rank] = entry.count;
-    }
-    return row;
-  });
-  // Color map: rank name → hex. colorClass stores "#hex" or "#hex1|#hex2"; take first.
-  const rankColorMap: Record<string, string> = {};
+  // Agrupa por modalidade e ordena por displayOrder
+  const modalityData: Record<string, RankBar[]> = {};
   for (const entry of modalityRaw) {
-    if (!rankColorMap[entry.rank]) {
-      const first = entry.colorClass?.split('|')[0];
-      rankColorMap[entry.rank] = first?.startsWith('#') ? first : beltColor(entry.rank.toLowerCase());
-    }
+    if (!modalityData[entry.modality]) modalityData[entry.modality] = [];
+    const raw = entry.colorClass?.split('|')[0] ?? '';
+    modalityData[entry.modality].push({
+      rank: entry.rank,
+      count: entry.count,
+      color: raw.startsWith('#') ? raw : beltColor(entry.rank.toLowerCase()),
+      displayOrder: entry.displayOrder,
+    });
   }
+  for (const mod of Object.keys(modalityData)) {
+    modalityData[mod].sort((a, b) => a.displayOrder - b.displayOrder);
+  }
+  const modalityNames = Object.keys(modalityData);
+  const currentModality = (activeModality && modalityData[activeModality])
+    ? activeModality
+    : (modalityNames[0] ?? '');
+  const activeData = modalityData[currentModality] ?? [];
 
   const hasGrowth = growth.length > 0;
   const hasRevenue = revenue.length > 0;
@@ -211,38 +219,75 @@ export function DashboardCharts() {
         </CardContent>
       </Card>
 
-      {/* Graduações por Modalidade */}
+      {/* Graduações por Modalidade — abas por modalidade + barras horizontais com cores reais */}
       {hasModality && (
         <Card className="lg:col-span-3 md:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Award className="h-4 w-4 text-purple-500" />
-              Graduações por Modalidade
-            </CardTitle>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Award className="h-4 w-4 text-purple-500" />
+                Graduações por Modalidade
+              </CardTitle>
+              <Tabs value={currentModality} onValueChange={setActiveModality}>
+                <TabsList className="h-7">
+                  {modalityNames.map(mod => (
+                    <TabsTrigger key={mod} value={mod} className="px-3 text-xs h-5">
+                      {mod}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            </div>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={modalityChartData} margin={{ top: 4, right: 16, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
-                <XAxis dataKey="modality" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  formatter={(v: number, name: string) => [v, name]}
-                  contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                {allRankNames.map(rankName => (
-                  <Bar
-                    key={rankName}
-                    dataKey={rankName}
-                    stackId="modality"
-                    fill={rankColorMap[rankName] ?? '#6b7280'}
-                    radius={allRankNames.indexOf(rankName) === allRankNames.length - 1 ? [4, 4, 0, 0] : undefined}
-                    maxBarSize={48}
+            {activeData.length > 0 ? (
+              <ResponsiveContainer
+                width="100%"
+                height={Math.max(160, activeData.length * 38)}
+              >
+                <BarChart
+                  layout="vertical"
+                  data={activeData}
+                  margin={{ top: 2, right: 32, left: 8, bottom: 2 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-muted" />
+                  <XAxis
+                    type="number"
+                    allowDecimals={false}
+                    tick={{ fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
                   />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
+                  <YAxis
+                    type="category"
+                    dataKey="rank"
+                    tick={{ fontSize: 12, fontWeight: 500 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={72}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }}
+                    formatter={(v: number) => [v, 'Alunos']}
+                    contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                  />
+                  <Bar dataKey="count" radius={[0, 5, 5, 0]} maxBarSize={28}>
+                    {activeData.map(entry => (
+                      <Cell
+                        key={entry.rank}
+                        fill={entry.color}
+                        stroke={isLightHex(entry.color) ? '#d1d5db' : 'none'}
+                        strokeWidth={isLightHex(entry.color) ? 1 : 0}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[160px] flex items-center justify-center text-sm text-muted-foreground">
+                Nenhum aluno graduado em {currentModality}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
