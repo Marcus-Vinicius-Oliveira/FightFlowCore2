@@ -78,7 +78,7 @@ export function DashboardCharts() {
   const hasGrowth = growth.length > 0;
   const hasRevenue = revenue.length > 0;
   const hasBelts = belts.length > 0;
-  const hasModality = modalityChartData.length > 0;
+  const hasModality = modalityNames.length > 0;
   const hasAny = hasGrowth || hasRevenue || hasBelts || hasModality;
 
   if (isLoading) {
