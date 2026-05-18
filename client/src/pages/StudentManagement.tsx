@@ -121,23 +121,33 @@ function StudentForm({ student, onClose }: StudentFormProps) {
     enabled: !!student,
   });
 
-  const { data: currentModalityRanks = [], isSuccess: ranksLoaded } = useQuery<{ classTypeId: string; rankId: string }[]>({
+  const { data: currentModalityRanks = [] } = useQuery<{ classTypeId: string; rankId: string }[]>({
     queryKey: ['/api/students', student?.id, 'modality-ranks'],
     queryFn: () => apiRequest('GET', `/api/students/${student!.id}/modality-ranks`).then(r => r.json()),
     enabled: !!student,
   });
 
+  // Fonte de verdade de matrículas: inclui modalidades sem rank (ex: Capoeira sem graduação)
+  const { data: currentEnrollments = [], isSuccess: enrollmentsLoaded } = useQuery<{ classTypeId: string; active: boolean }[]>({
+    queryKey: ['/api/students', student?.id, 'modality-enrollments'],
+    queryFn: () => apiRequest('GET', `/api/students/${student!.id}/modality-enrollments`).then(r => r.json()),
+    enabled: !!student,
+  });
+
   useEffect(() => {
-    if (!student || hasInitialized.current || !ranksLoaded) return;
+    if (!student || hasInitialized.current || !enrollmentsLoaded) return;
     hasInitialized.current = true;
+    const rankByClassType = new Map(currentModalityRanks.map(r => [r.classTypeId, r.rankId]));
     setModalidadesForm(
-      currentModalityRanks.map(r => ({
-        _key: Math.random().toString(36).slice(2) + Date.now().toString(36),
-        classTypeId: r.classTypeId,
-        rankId: r.rankId,
-      }))
+      currentEnrollments
+        .filter(e => e.active)
+        .map(e => ({
+          _key: Math.random().toString(36).slice(2) + Date.now().toString(36),
+          classTypeId: e.classTypeId,
+          rankId: rankByClassType.get(e.classTypeId) ?? '',
+        }))
     );
-  }, [ranksLoaded, currentModalityRanks, student]);
+  }, [enrollmentsLoaded, currentEnrollments, currentModalityRanks, student]);
 
   const usedClassTypeIds = new Set(modalidadesForm.map(r => r.classTypeId).filter(Boolean));
   const canAddMore = formClassTypes.length > usedClassTypeIds.size;
@@ -171,13 +181,24 @@ function StudentForm({ student, onClose }: StudentFormProps) {
         dateOfBirth: data.dateOfBirth || undefined,
       });
 
-      const validRows = modalidadesForm.filter(r => r.classTypeId && r.rankId);
+      // Linha válida: classTypeId preenchido; rankId obrigatório apenas se existem
+      // faixas reais para essa modalidade (usa a mesma lógica do Select da UI)
+      const validRows = modalidadesForm.filter(r => {
+        if (!r.classTypeId) return false;
+        const ranks = getRanksForClassType(r.classTypeId);
+        return ranks.length === 0 || !!r.rankId;
+      });
       const formIds = validRows.map(r => r.classTypeId);
-      const initialIds = currentModalityRanks.map(r => r.classTypeId);
-      const toRemove = initialIds.filter(id => !formIds.includes(id));
+      // Usa enrollments (não ranks) como fonte de verdade para remoções
+      const enrolledIds = currentEnrollments.filter(e => e.active).map(e => e.classTypeId);
+      const toRemove = enrolledIds.filter(id => !formIds.includes(id));
+      const rankByClassType = new Map(currentModalityRanks.map(r => [r.classTypeId, r.rankId]));
       const toUpsert = validRows.filter(row => {
-        const initial = currentModalityRanks.find(r => r.classTypeId === row.classTypeId);
-        return !initial || initial.rankId !== row.rankId;
+        const isEnrolled = enrolledIds.includes(row.classTypeId);
+        if (!isEnrolled) return true; // nova modalidade
+        const currentRankId = rankByClassType.get(row.classTypeId);
+        if (row.rankId && currentRankId !== row.rankId) return true; // faixa alterada
+        return false;
       });
 
       await Promise.all([
@@ -185,10 +206,14 @@ function StudentForm({ student, onClose }: StudentFormProps) {
           apiRequest('DELETE', `/api/students/${student!.id}/modality-enrollments/${classTypeId}`)
         ),
         ...toUpsert.map(row =>
-          apiRequest('POST', `/api/students/${student!.id}/graduate-modality`, {
-            classTypeId: row.classTypeId,
-            rankId: row.rankId,
-          })
+          row.rankId
+            ? apiRequest('POST', `/api/students/${student!.id}/graduate-modality`, {
+                classTypeId: row.classTypeId,
+                rankId: row.rankId,
+              })
+            : apiRequest('POST', `/api/students/${student!.id}/modality-enrollments`, {
+                classTypeId: row.classTypeId,
+              })
         ),
       ]);
     },
@@ -197,6 +222,7 @@ function StudentForm({ student, onClose }: StudentFormProps) {
       queryClient.invalidateQueries({ queryKey: ['/api/graduation/modality-ranks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/students/academy-modality-enrollments'] });
       queryClient.invalidateQueries({ queryKey: ['/api/students', student?.id, 'modality-ranks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/students', student?.id, 'modality-enrollments'] });
       toast({
         title: "Aluno atualizado com sucesso!",
         description: `Dados de ${formData.name} foram atualizados.`,
@@ -322,7 +348,7 @@ function StudentForm({ student, onClose }: StudentFormProps) {
                     disabled={!row.classTypeId || ranks.length === 0}
                   >
                     <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Faixa" />
+                      <SelectValue placeholder={ranks.length === 0 && row.classTypeId ? "Sem graduação" : "Faixa"} />
                     </SelectTrigger>
                     <SelectContent>
                       {ranks.map(rank => {
