@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,13 +9,15 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Edit, Mail, Phone, Calendar, MoreHorizontal, Trash2, Eye, UserX, UserCheck, Award } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Edit, Mail, Phone, Calendar, MoreHorizontal, Trash2, Eye, UserX, UserCheck, Award, GraduationCap } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
 import { AdvancedFilters, FilterOptions, applyFilters } from "@/components/AdvancedFilters";
 import { AddStudentDialog } from "@/components/AddStudentDialog";
-import { BeltBadge } from "@/components/BeltBadge";
+import { BeltBadge, BeltBar, isLightHex } from "@/components/BeltBadge";
 import { GraduationDialog } from "@/components/GraduationDialog";
 import { invalidateAfterStudentChange } from "@/lib/cache-helpers";
 
@@ -31,12 +33,61 @@ interface Student {
   createdAt: string;
 }
 
+interface GraduationRank {
+  id: string;
+  name: string;
+  displayOrder: number;
+  colorClass: string;
+}
+interface GraduationSystem {
+  id: string;
+  classTypeId: string | null;
+  name: string;
+  ranks: GraduationRank[];
+}
+interface ModalidadeFormRow {
+  _key: string;
+  classTypeId: string;
+  rankId: string;
+}
+
+// Paleta para modalidades criadas pelo usuário (cores distintas e vividas)
+const MODALITY_COLOR_PALETTE = [
+  '#0ea5e9', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6',
+  '#06b6d4', '#84cc16', '#f97316', '#14b8a6', '#a855f7',
+];
+
+function hashModalityColor(classTypeId: string): string {
+  let h = 0;
+  for (let i = 0; i < classTypeId.length; i++) {
+    h = Math.imul(31, h) + classTypeId.charCodeAt(i) | 0;
+  }
+  return MODALITY_COLOR_PALETTE[Math.abs(h) % MODALITY_COLOR_PALETTE.length];
+}
+
+// Cores fixas para modalidades conhecidas (case-insensitive, sem acentos alternativos)
+const KNOWN_MODALITY_COLORS: Record<string, string> = {
+  'bjj':            '#3b82f6',
+  'jiu-jitsu':      '#3b82f6',
+  'jiu jitsu':      '#3b82f6',
+  'muay thai':      '#ef4444',
+  'muay-thai':      '#ef4444',
+  'muaythai':       '#ef4444',
+  'judô':           '#f97316',
+  'judo':           '#f97316',
+  'judô brasileiro':'#f97316',
+};
+
+function getModalityColor(classTypeId: string, name: string): string {
+  const key = name.toLowerCase().trim();
+  return KNOWN_MODALITY_COLORS[key] ?? hashModalityColor(classTypeId);
+}
+
 const studentFormSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   email: z.string().email("Email inválido"),
   phone: z.string().optional(),
   dateOfBirth: z.string().optional(),
-  belt: z.string().optional(),
 });
 
 type StudentFormData = z.infer<typeof studentFormSchema>;
@@ -52,44 +103,100 @@ function StudentForm({ student, onClose }: StudentFormProps) {
     email: student?.email || "",
     phone: student?.phone || "",
     dateOfBirth: student?.dateOfBirth ? student.dateOfBirth.split('T')[0] : "",
-    belt: student?.belt || "",
   });
+  const [modalidadesForm, setModalidadesForm] = useState<ModalidadeFormRow[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const hasInitialized = useRef(false);
   const { toast } = useToast();
 
-  const createMutation = useMutation({
-    mutationFn: (data: StudentFormData) => apiRequest('POST', '/api/students', data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/students'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/charts'] });
-      toast({
-        title: "Aluno cadastrado com sucesso!",
-        description: `${formData.name} foi adicionado à academia.`,
-      });
-      onClose();
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro ao cadastrar aluno",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+  const { data: formClassTypes = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['/api/classes/class-types'],
+    queryFn: () => apiRequest('GET', '/api/classes/class-types').then(r => r.json()),
+    enabled: !!student,
   });
 
+  const { data: formGraduationSystems = [] } = useQuery<GraduationSystem[]>({
+    queryKey: ['/api/graduation/systems'],
+    queryFn: () => apiRequest('GET', '/api/graduation/systems').then(r => r.json()),
+    enabled: !!student,
+  });
+
+  const { data: currentModalityRanks = [], isSuccess: ranksLoaded } = useQuery<{ classTypeId: string; rankId: string }[]>({
+    queryKey: ['/api/students', student?.id, 'modality-ranks'],
+    queryFn: () => apiRequest('GET', `/api/students/${student!.id}/modality-ranks`).then(r => r.json()),
+    enabled: !!student,
+  });
+
+  useEffect(() => {
+    if (!student || hasInitialized.current || !ranksLoaded) return;
+    hasInitialized.current = true;
+    setModalidadesForm(
+      currentModalityRanks.map(r => ({
+        _key: Math.random().toString(36).slice(2) + Date.now().toString(36),
+        classTypeId: r.classTypeId,
+        rankId: r.rankId,
+      }))
+    );
+  }, [ranksLoaded, currentModalityRanks, student]);
+
+  const usedClassTypeIds = new Set(modalidadesForm.map(r => r.classTypeId).filter(Boolean));
+  const canAddMore = formClassTypes.length > usedClassTypeIds.size;
+
+  const getRanksForClassType = (classTypeId: string) => {
+    const sys = formGraduationSystems.find(s => s.classTypeId === classTypeId);
+    return (sys?.ranks ?? []).slice().sort((a, b) => a.displayOrder - b.displayOrder);
+  };
+
+  const addModalidade = () =>
+    setModalidadesForm(prev => [...prev, { _key: Math.random().toString(36).slice(2) + Date.now().toString(36), classTypeId: '', rankId: '' }]);
+
+  const removeModalidade = (_key: string) =>
+    setModalidadesForm(prev => prev.filter(r => r._key !== _key));
+
+  const updateModalidade = (_key: string, field: 'classTypeId' | 'rankId', value: string) =>
+    setModalidadesForm(prev =>
+      prev.map(r => {
+        if (r._key !== _key) return r;
+        if (field === 'classTypeId') return { ...r, classTypeId: value, rankId: '' };
+        return { ...r, [field]: value };
+      })
+    );
+
   const updateMutation = useMutation({
-    mutationFn: (data: StudentFormData) => apiRequest('PATCH', `/api/students/${student!.id}`, data),
+    mutationFn: async (data: StudentFormData) => {
+      await apiRequest('PATCH', `/api/students/${student!.id}`, {
+        name: data.name,
+        email: data.email,
+        phone: data.phone || undefined,
+        dateOfBirth: data.dateOfBirth || undefined,
+      });
+
+      const validRows = modalidadesForm.filter(r => r.classTypeId && r.rankId);
+      const formIds = validRows.map(r => r.classTypeId);
+      const initialIds = currentModalityRanks.map(r => r.classTypeId);
+      const toRemove = initialIds.filter(id => !formIds.includes(id));
+      const toUpsert = validRows.filter(row => {
+        const initial = currentModalityRanks.find(r => r.classTypeId === row.classTypeId);
+        return !initial || initial.rankId !== row.rankId;
+      });
+
+      await Promise.all([
+        ...toRemove.map(classTypeId =>
+          apiRequest('DELETE', `/api/students/${student!.id}/modality-enrollments/${classTypeId}`)
+        ),
+        ...toUpsert.map(row =>
+          apiRequest('POST', `/api/students/${student!.id}/graduate-modality`, {
+            classTypeId: row.classTypeId,
+            rankId: row.rankId,
+          })
+        ),
+      ]);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/students'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/charts'] });
+      invalidateAfterStudentChange(queryClient);
+      queryClient.invalidateQueries({ queryKey: ['/api/graduation/modality-ranks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/students/academy-modality-enrollments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/students', student?.id, 'modality-ranks'] });
       toast({
         title: "Aluno atualizado com sucesso!",
         description: `Dados de ${formData.name} foram atualizados.`,
@@ -108,21 +215,14 @@ function StudentForm({ student, onClose }: StudentFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
-
     try {
       const validatedData = studentFormSchema.parse(formData);
-      if (student) {
-        updateMutation.mutate(validatedData);
-      } else {
-        createMutation.mutate(validatedData);
-      }
+      updateMutation.mutate(validatedData);
     } catch (error) {
       if (error instanceof z.ZodError) {
         const errorMap: Record<string, string> = {};
         error.errors.forEach(err => {
-          if (err.path) {
-            errorMap[err.path[0] as string] = err.message;
-          }
+          if (err.path) errorMap[err.path[0] as string] = err.message;
         });
         setErrors(errorMap);
       }
@@ -131,12 +231,8 @@ function StudentForm({ student, onClose }: StudentFormProps) {
 
   const handleChange = (field: keyof StudentFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: "" }));
-    }
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: "" }));
   };
-
-  const isLoading = createMutation.isPending || updateMutation.isPending;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -179,42 +275,121 @@ function StudentForm({ student, onClose }: StudentFormProps) {
 
         <div className="space-y-2">
           <Label htmlFor="dateOfBirth">Data de Nascimento</Label>
-          <Input
+          <input
             id="dateOfBirth"
             type="date"
+            title="Data de Nascimento"
             value={formData.dateOfBirth}
             onChange={(e) => handleChange("dateOfBirth", e.target.value)}
+            className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground"
             data-testid="input-student-birthdate"
           />
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="belt">Graduação/Faixa</Label>
-        <Input
-          id="belt"
-          value={formData.belt}
-          onChange={(e) => handleChange("belt", e.target.value)}
-          placeholder="Faixa Branca, 1º Kyu, etc."
-          data-testid="input-student-belt"
-        />
-      </div>
+      {/* Modalidades e Graduações — somente no modo de edição */}
+      {!!student && (
+        <div className="space-y-2">
+          <Label>Modalidades e Graduações</Label>
+          <div className="space-y-2">
+            {modalidadesForm.map((row) => {
+              const ranks = getRanksForClassType(row.classTypeId);
+              return (
+                <div key={row._key} className="flex items-center gap-2">
+                  <Select
+                    value={row.classTypeId}
+                    onValueChange={(v) => updateModalidade(row._key, 'classTypeId', v)}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Modalidade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {formClassTypes.map(ct => (
+                        <SelectItem
+                          key={ct.id}
+                          value={ct.id}
+                          disabled={usedClassTypeIds.has(ct.id) && ct.id !== row.classTypeId}
+                        >
+                          {ct.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={row.rankId}
+                    onValueChange={(v) => updateModalidade(row._key, 'rankId', v)}
+                    disabled={!row.classTypeId || ranks.length === 0}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Faixa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ranks.map(rank => {
+                        const c1 = rank.colorClass.split('|')[0];
+                        return (
+                          <SelectItem key={rank.id} value={rank.id}>
+                            <span className="flex items-center gap-2">
+                              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="shrink-0 inline-block">
+                                <circle cx="6" cy="6" r="6" fill={c1} />
+                                {isLightHex(c1) && <circle cx="6" cy="6" r="5.5" fill="none" stroke="#d1d5db" strokeWidth="1" />}
+                              </svg>
+                              {rank.name}
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-9 w-9 shrink-0 text-destructive hover:text-destructive"
+                    onClick={() => removeModalidade(row._key)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              );
+            })}
+
+            {canAddMore && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={addModalidade}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Modalidade
+              </Button>
+            )}
+
+            {formClassTypes.length === 0 && (
+              <p className="text-xs text-muted-foreground">Nenhuma modalidade cadastrada ainda.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-end space-x-2">
         <Button
           type="button"
           variant="outline"
           onClick={onClose}
-          disabled={isLoading}
+          disabled={updateMutation.isPending}
         >
           Cancelar
         </Button>
-        <Button 
+        <Button
           type="submit"
-          disabled={isLoading}
+          disabled={updateMutation.isPending}
           data-testid="button-save-student"
         >
-          {isLoading ? "Salvando..." : (student ? "Atualizar" : "Cadastrar")}
+          {updateMutation.isPending ? "Salvando..." : "Atualizar"}
         </Button>
       </div>
     </form>
@@ -255,6 +430,16 @@ export default function StudentManagement() {
   const { data: modalityRanks = [] } = useQuery<{ studentId: string; classTypeId: string; rankId: string }[]>({
     queryKey: ['/api/graduation/modality-ranks'],
     queryFn: () => apiRequest('GET', '/api/graduation/modality-ranks').then(r => r.json()),
+  });
+
+  const { data: classTypes = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['/api/classes/class-types'],
+    queryFn: () => apiRequest('GET', '/api/classes/class-types').then(r => r.json()),
+  });
+
+  const { data: graduationSystems = [] } = useQuery<GraduationSystem[]>({
+    queryKey: ['/api/graduation/systems'],
+    queryFn: () => apiRequest('GET', '/api/graduation/systems').then(r => r.json()),
   });
 
   // Fix 2: pré-computa Sets por modalidade para lookups O(1) no filter
@@ -298,6 +483,48 @@ export default function StudentManagement() {
     }
     return result;
   }, [baseFiltered, filters.classTypeId, filters.rankId, enrolledByModality, enrolledByModalityAndRank]);
+
+  // rankId → colorClass (hex ou hex|hex)
+  const rankById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const sys of graduationSystems) {
+      for (const rank of sys.ranks) map.set(rank.id, rank.colorClass);
+    }
+    return map;
+  }, [graduationSystems]);
+
+  // classTypeId → nome legível
+  const classTypeById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const ct of classTypes) map.set(ct.id, ct.name);
+    return map;
+  }, [classTypes]);
+
+  // studentId → [{ classTypeId, name, colorClass, modalityColor }]
+  // colorClass = cor da faixa/rank (usada no anel do avatar ao filtrar)
+  // modalityColor = cor fixa por modalidade (usada nos badges de chip)
+  const studentModalityData = useMemo(() => {
+    const rankKey = new Map<string, string>();
+    for (const r of modalityRanks) {
+      rankKey.set(`${r.studentId}:${r.classTypeId}`, r.rankId);
+    }
+    const map = new Map<string, { classTypeId: string; name: string; colorClass: string; modalityColor: string }[]>();
+    for (const e of modalityEnrollments) {
+      if (!map.has(e.studentId)) map.set(e.studentId, []);
+      const rankId = rankKey.get(`${e.studentId}:${e.classTypeId}`);
+      const colorClass = rankId ? (rankById.get(rankId) ?? '#6b7280') : '#6b7280';
+      const name = classTypeById.get(e.classTypeId) ?? '—';
+      map.get(e.studentId)!.push({
+        classTypeId: e.classTypeId,
+        name,
+        colorClass,
+        modalityColor: getModalityColor(e.classTypeId, name),
+      });
+    }
+    return map;
+  }, [modalityEnrollments, modalityRanks, rankById, classTypeById]);
+
+  const hasModalityFilter = !!filters.classTypeId;
 
   const handleEdit = (student: Student) => {
     setSelectedStudent(student);
@@ -408,12 +635,15 @@ export default function StudentManagement() {
     return phone.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
   };
 
+  const getInitials = (name: string) =>
+    name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
+
   if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Gerenciamento de Alunos</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">Gerenciamento de Alunos</h1>
             <p className="text-muted-foreground mt-2">Carregando dados dos alunos...</p>
           </div>
         </div>
@@ -426,9 +656,9 @@ export default function StudentManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap gap-4 items-start sm:items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Gerenciamento de Alunos</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Gerenciamento de Alunos</h1>
           <p className="text-muted-foreground mt-2">
             Gerencie todos os alunos da sua academia
           </p>
@@ -445,7 +675,7 @@ export default function StudentManagement() {
         
         {/* Dialog apenas para edição de alunos existentes */}
         <Dialog open={showForm} onOpenChange={setShowForm}>
-          <DialogContent className="sm:max-w-[600px]" key={selectedStudent?.id}>
+          <DialogContent className="sm:max-w-[600px]" key={selectedStudent?.id} onCloseAutoFocus={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>Editar Aluno</DialogTitle>
               <DialogDescription>
@@ -457,7 +687,7 @@ export default function StudentManagement() {
         </Dialog>
 
         <AlertDialog open={!!deleteStudent} onOpenChange={(open) => !open && setDeleteStudent(undefined)}>
-          <AlertDialogContent>
+          <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar Desativação</AlertDialogTitle>
               <AlertDialogDescription>
@@ -482,7 +712,7 @@ export default function StudentManagement() {
         </AlertDialog>
 
         <AlertDialog open={!!activateStudent} onOpenChange={(open) => !open && setActivateStudent(undefined)}>
-          <AlertDialogContent>
+          <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar Ativação</AlertDialogTitle>
               <AlertDialogDescription>
@@ -506,7 +736,7 @@ export default function StudentManagement() {
         </AlertDialog>
 
         <AlertDialog open={!!permanentDeleteStudent} onOpenChange={(open) => !open && setPermanentDeleteStudent(undefined)}>
-          <AlertDialogContent>
+          <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar Exclusão Permanente</AlertDialogTitle>
               <AlertDialogDescription className="space-y-2">
@@ -534,7 +764,7 @@ export default function StudentManagement() {
         </AlertDialog>
 
         <Dialog open={!!viewStudent} onOpenChange={(open) => !open && setViewStudent(undefined)}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md" onCloseAutoFocus={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>Detalhes do Aluno</DialogTitle>
               <DialogDescription>
@@ -607,28 +837,23 @@ export default function StudentManagement() {
         </Dialog>
       </div>
 
-      {/* Advanced Filters */}
+      {/* Search + Filters (mobile-first: search on top, filter bar below) */}
       <AdvancedFilters
         filters={filters}
         onFiltersChange={setFilters}
+        searchTerm={searchTerm}
+        onSearch={setSearchTerm}
         availableClassTypeIds={availableClassTypeIds}
-        className="mb-4"
       />
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Lista de Alunos ({filteredStudents.length} de {students.length})</span>
-            <div className="relative w-72">
-              <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar alunos..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
-                data-testid="input-search-students"
-              />
-            </div>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Lista de Alunos —{" "}
+            <span className="text-foreground font-semibold">
+              {filteredStudents.length}
+            </span>{" "}
+            de {students.length}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -641,7 +866,7 @@ export default function StudentManagement() {
                 <Button
                   variant="outline"
                   className="mt-4"
-                  onClick={() => setShowForm(true)}
+                  onClick={() => setShowAddStudentDialog(true)}
                   data-testid="button-add-first-student"
                 >
                   <Plus className="mr-2 h-4 w-4" />
@@ -650,141 +875,255 @@ export default function StudentManagement() {
               )}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Graduação</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Data de Cadastro</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredStudents.map((student) => (
-                  <TableRow key={student.id} data-testid={`row-student-${student.id}`}>
-                    <TableCell className="font-medium">{student.name}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <span>{student.email}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        <span>{formatPhone(student.phone)}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <BeltBadge belt={student.belt} />
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={student.active ? "default" : "secondary"}>
-                        {student.active ? "Ativo" : "Inativo"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span>{formatDate(student.createdAt)}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            data-testid={`button-student-actions-${student.id}`}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem 
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleViewDetails(student);
-                            }}
-                            data-testid={`button-view-student-${student.id}`}
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            Ver Detalhes
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleEdit(student);
-                            }}
-                            data-testid={`button-edit-student-${student.id}`}
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setGraduateStudent(student);
-                            }}
-                            data-testid={`button-graduate-student-${student.id}`}
-                          >
-                            <Award className="h-4 w-4 mr-2 text-yellow-500" />
-                            Registrar Graduação
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {student.active ? (
-                            <DropdownMenuItem 
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setDeleteStudent(student);
-                              }}
+            <>
+            {/* ── MOBILE: cards (< md) ─────────────────────────────────── */}
+            <div className="md:hidden space-y-1.5">
+              {filteredStudents.map((student) => {
+                const modalities = studentModalityData.get(student.id) ?? [];
+
+                // Quando há filtro de modalidade: mostra a cor da faixa naquela luta
+                // como anel colorido no Avatar em vez de chips
+                const activeModality = hasModalityFilter
+                  ? modalities.find(m => m.classTypeId === filters.classTypeId)
+                  : null;
+                const ringColor = activeModality?.colorClass.split('|')[0];
+                const ringNeedsBorder = ringColor ? isLightHex(ringColor) : false;
+
+                return (
+                  <div
+                    key={student.id}
+                    className="flex items-center gap-3 py-2.5 px-3 rounded-lg border bg-card"
+                    data-testid={`row-student-${student.id}`}
+                  >
+                    {/* Avatar — anel colorido pela faixa quando filtro de modalidade ativo */}
+                    <Avatar
+                      className="h-9 w-9 shrink-0"
+                      style={ringColor ? {
+                        outline: `3px solid ${ringColor}`,
+                        outlineOffset: '2px',
+                        boxShadow: ringNeedsBorder ? '0 0 0 4px #d1d5db' : 'none',
+                      } : {}}
+                    >
+                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                        {getInitials(student.name)}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    <div className="flex-1 min-w-0">
+                      {/* Linha 1: Nome + ponto de status + menu */}
+                      <div className="flex items-center justify-between gap-1">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className="font-semibold text-sm leading-none truncate">{student.name}</p>
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full shrink-0 ${student.active ? 'bg-green-500' : 'bg-red-400'}`}
+                          />
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 shrink-0"
+                              data-testid={`button-student-actions-${student.id}`}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleViewDetails(student); }}
+                              data-testid={`button-view-student-${student.id}`}
+                            >
+                              <Eye className="h-4 w-4 mr-2" />Ver Detalhes
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEdit(student); }}
+                              data-testid={`button-edit-student-${student.id}`}
+                            >
+                              <Edit className="h-4 w-4 mr-2" />Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setGraduateStudent(student); }}
+                              data-testid={`button-graduate-student-${student.id}`}
+                            >
+                              <Award className="h-4 w-4 mr-2 text-yellow-500" />Registrar Graduação
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {student.active ? (
+                              <DropdownMenuItem
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteStudent(student); }}
+                                className="text-destructive focus:text-destructive"
+                                data-testid={`button-deactivate-student-${student.id}`}
+                              >
+                                <UserX className="h-4 w-4 mr-2" />Desativar
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActivateStudent(student); }}
+                                className="text-green-600 focus:text-green-600"
+                                data-testid={`button-activate-student-${student.id}`}
+                              >
+                                <UserCheck className="h-4 w-4 mr-2" />Reativar
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPermanentDeleteStudent(student); }}
                               className="text-destructive focus:text-destructive"
-                              data-testid={`button-deactivate-student-${student.id}`}
+                              data-testid={`button-permanent-delete-student-${student.id}`}
                             >
-                              <UserX className="h-4 w-4 mr-2" />
-                              Desativar
+                              <Trash2 className="h-4 w-4 mr-2" />Excluir
                             </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem 
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setActivateStudent(student);
-                              }}
-                              className="text-green-600 focus:text-green-600"
-                              data-testid={`button-activate-student-${student.id}`}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
+                      {/* Linha 2: Telefone + Data de matrícula */}
+                      <div className="flex items-center gap-3 mt-0.5">
+                        {student.phone && (
+                          <span className="text-xs text-muted-foreground">{formatPhone(student.phone)}</span>
+                        )}
+                        <span className="text-xs text-muted-foreground">{formatDate(student.createdAt)}</span>
+                      </div>
+
+                      {/* Linha 3: chips de modalidade — apenas sem filtro de modalidade ativo */}
+                      {!hasModalityFilter && modalities.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {modalities.map(m => (
+                            <span
+                              key={m.classTypeId}
+                              className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded-full"
                             >
-                              <UserCheck className="h-4 w-4 mr-2" />
-                              Reativar
-                            </DropdownMenuItem>
-                          )}
-                          
-                          <DropdownMenuItem 
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setPermanentDeleteStudent(student);
-                            }}
-                            className="text-destructive focus:text-destructive"
-                            data-testid={`button-permanent-delete-student-${student.id}`}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                              <svg width="8" height="8" viewBox="0 0 8 8" className="shrink-0" aria-hidden="true">
+                                <circle cx="4" cy="4" r="4" fill={m.modalityColor} />
+                              </svg>
+                              {m.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── DESKTOP: tabela (≥ md) ───────────────────────────────── */}
+            <div className="hidden md:block w-full overflow-x-auto border rounded-md">
+              <div className="min-w-[700px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Telefone</TableHead>
+                      <TableHead>Modalidades</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Data de Cadastro</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredStudents.map((student) => (
+                      <TableRow key={student.id} data-testid={`row-student-${student.id}`}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className={`h-2 w-2 rounded-full shrink-0 ${student.active ? 'bg-green-500' : 'bg-red-400'}`} />
+                            <span className="font-medium">{student.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatPhone(student.phone)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {(studentModalityData.get(student.id) ?? []).map(m => (
+                              <span
+                                key={m.classTypeId}
+                                className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded-full"
+                              >
+                                <svg width="8" height="8" viewBox="0 0 8 8" className="shrink-0" aria-hidden="true">
+                                  <circle cx="4" cy="4" r="4" fill={m.modalityColor} />
+                                </svg>
+                                {m.name}
+                              </span>
+                            ))}
+                            {(studentModalityData.get(student.id) ?? []).length === 0 && (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={student.active ? "default" : "secondary"}>
+                            {student.active ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDate(student.createdAt)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                data-testid={`button-student-actions-${student.id}`}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleViewDetails(student); }}
+                                data-testid={`button-view-student-${student.id}`}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />Ver Detalhes
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEdit(student); }}
+                                data-testid={`button-edit-student-${student.id}`}
+                              >
+                                <Edit className="h-4 w-4 mr-2" />Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setGraduateStudent(student); }}
+                                data-testid={`button-graduate-student-${student.id}`}
+                              >
+                                <Award className="h-4 w-4 mr-2 text-yellow-500" />Registrar Graduação
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {student.active ? (
+                                <DropdownMenuItem
+                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteStudent(student); }}
+                                  className="text-destructive focus:text-destructive"
+                                  data-testid={`button-deactivate-student-${student.id}`}
+                                >
+                                  <UserX className="h-4 w-4 mr-2" />Desativar
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActivateStudent(student); }}
+                                  className="text-green-600 focus:text-green-600"
+                                  data-testid={`button-activate-student-${student.id}`}
+                                >
+                                  <UserCheck className="h-4 w-4 mr-2" />Reativar
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPermanentDeleteStudent(student); }}
+                                className="text-destructive focus:text-destructive"
+                                data-testid={`button-permanent-delete-student-${student.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+            </>
           )}
         </CardContent>
       </Card>

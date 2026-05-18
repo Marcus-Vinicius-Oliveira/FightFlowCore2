@@ -775,6 +775,17 @@ export class DatabaseStorage implements IStorage {
         eq(studentModalityEnrollments.studentId, studentId),
         eq(studentModalityEnrollments.classTypeId, classTypeId),
       ));
+
+    // Remove o rank atual da modalidade — o endpoint /academy-modality-enrollments
+    // combina enrollments ativos + ranks (fallback legado), então sem essa deleção
+    // a modalidade reaparece no card do aluno via o registro de rank órfão.
+    // O histórico de graduações permanece intacto em student_rank_history.
+    await db.delete(studentModalityRanks)
+      .where(and(
+        eq(studentModalityRanks.studentId, studentId),
+        eq(studentModalityRanks.classTypeId, classTypeId),
+      ));
+
     return (result.rowCount || 0) > 0;
   }
 }
