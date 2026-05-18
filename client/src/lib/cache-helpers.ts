@@ -6,6 +6,7 @@ import { QueryClient } from "@tanstack/react-query";
  */
 export function invalidateAfterStudentChange(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+  queryClient.invalidateQueries({ queryKey: ['/api/students/academy-modality-enrollments'] });
   queryClient.invalidateQueries({ queryKey: ['/api/users'] });
   queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
   queryClient.invalidateQueries({ queryKey: ['/api/dashboard/info'] });

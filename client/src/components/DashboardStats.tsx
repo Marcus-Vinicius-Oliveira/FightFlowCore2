@@ -1,3 +1,4 @@
+import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Calendar, DollarSign, TrendingUp, UserCheck, Clock, AlertCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -49,28 +50,36 @@ interface StatCardProps {
   };
   href?: string;
   alert?: boolean;
+  compact?: boolean;
 }
 
-function StatCard({ title, value, description, icon, trend, href, alert }: StatCardProps) {
+function StatCard({ title, value, description, icon, trend, href, alert, compact }: StatCardProps) {
+  const headerCls = compact
+    ? "flex flex-row items-center justify-between space-y-0 px-4 pt-3 pb-2"
+    : "flex flex-row items-center justify-between space-y-0 pb-2";
+  const contentCls = compact ? "px-4 pb-3" : "";
+  const valueCls = `font-bold ${compact ? "text-xl lg:text-2xl" : "text-2xl"} ${alert ? "text-destructive" : ""}`;
+  const titleCls = `font-medium text-muted-foreground leading-tight ${compact ? "text-xs" : "text-sm"}`;
+
   const cardContent = (
     <>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+      <CardHeader className={headerCls}>
+        <CardTitle className={titleCls}>
           {title}
         </CardTitle>
-        <div className={alert ? "text-destructive" : "text-muted-foreground"}>
+        <div className={`shrink-0 ml-1 ${alert ? "text-destructive" : "text-muted-foreground"}`}>
           {icon}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className={contentCls}>
         <div
-          className={`text-2xl font-bold ${alert ? "text-destructive" : ""}`}
+          className={valueCls}
           data-testid={`stat-${title.toLowerCase().replace(/\s+/g, '-')}`}
         >
           {value}
         </div>
         {description && (
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-1 leading-tight">
             {description}
           </p>
         )}
@@ -86,16 +95,16 @@ function StatCard({ title, value, description, icon, trend, href, alert }: StatC
 
   if (href) {
     return (
-      <Card className="hover-elevate">
-        <a href={href} className="block no-underline text-inherit"
+      <Card className="cursor-pointer hover:bg-muted/40 transition-all active:scale-[0.98]">
+        <Link to={href} className="block no-underline text-inherit"
           data-testid={`card-link-${title.toLowerCase().replace(/\s+/g, '-')}`}>
           {cardContent}
-        </a>
+        </Link>
       </Card>
     );
   }
 
-  return <Card className="hover-elevate">{cardContent}</Card>;
+  return <Card>{cardContent}</Card>;
 }
 
 function formatCurrency(cents: number) {
@@ -125,36 +134,45 @@ export function DashboardStats() {
   const attendanceTotalRecords = stats?.attendance.totalRecords ?? 0;
   const activeClasses = stats?.classes.activeTotal ?? 0;
 
-  const statCards: StatCardProps[] = [
+  // 4 cards compactos: ficam em linha única a partir de md
+  const topCards: StatCardProps[] = [
     {
       title: "Alunos Ativos",
       value: loading ? "..." : activeStudents,
-      description: newThisMonth > 0 ? `+${newThisMonth} novos este mês` : "Matriculados",
+      description: newThisMonth > 0 ? `+${newThisMonth} este mês` : "Matriculados",
       icon: <Users className="h-4 w-4" />,
       trend: newThisMonth > 0 ? { value: `${newThisMonth} novos este mês`, isPositive: true } : undefined,
       href: "/dashboard/alunos",
+      compact: true,
     },
     {
       title: "Instrutores",
       value: loading ? "..." : totalInstructors,
-      description: "Instrutores cadastrados",
+      description: "Cadastrados",
       icon: <UserCheck className="h-4 w-4" />,
       href: "/dashboard/instrutores",
+      compact: true,
     },
     {
       title: "Modalidades",
       value: loading ? "..." : totalClassTypes,
-      description: "Tipos de aula disponíveis",
+      description: "Tipos de aula",
       icon: <TrendingUp className="h-4 w-4" />,
       href: "/dashboard/aulas",
+      compact: true,
     },
     {
       title: "Aulas Ativas",
       value: loading ? "..." : activeClasses,
-      description: "Turmas recorrentes na grade",
+      description: "Turmas na grade",
       icon: <Calendar className="h-4 w-4" />,
       href: "/dashboard/aulas",
+      compact: true,
     },
+  ];
+
+  // 2 cards largos: financeiro e presença
+  const bottomCards: StatCardProps[] = [
     {
       title: "Receita do Mês",
       value: loading ? "..." : formatCurrency(revenueThisMonth),
@@ -183,10 +201,20 @@ export function DashboardStats() {
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {statCards.map((stat, index) => (
-        <StatCard key={index} {...stat} />
-      ))}
+    <div className="space-y-3">
+      {/* 4 cards em linha: 2×2 no mobile, 4 colunas a partir de md */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {topCards.map((stat, i) => (
+          <StatCard key={i} {...stat} />
+        ))}
+      </div>
+
+      {/* 2 cards largos: empilhados no mobile, lado a lado a partir de sm */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {bottomCards.map((stat, i) => (
+          <StatCard key={i} {...stat} />
+        ))}
+      </div>
     </div>
   );
 }

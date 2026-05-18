@@ -85,7 +85,7 @@ export function DashboardInfo() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Academia: {data.academy.name}</p>
               <p className="text-sm text-muted-foreground">Email: {data.academy.email}</p>

@@ -487,7 +487,8 @@ export function StudentManagement({ mode = 'full' }: { mode?: 'dashboard' | 'ful
             </CardDescription>
           </div>
 
-          <Button 
+          <Button
+            className="w-full sm:w-auto"
             onClick={() => setIsAddDialogOpen(true)}
             data-testid="button-add-student"
           >
@@ -579,13 +580,13 @@ export function StudentManagement({ mode = 'full' }: { mode?: 'dashboard' | 'ful
 
         {/* Students Table - Custom Implementation with Sticky Header */}
         {!isLoading && (
-          <div className="rounded-md border" data-testid="students-table-container">
-            <div 
-              className="h-[400px] overflow-y-auto"
+          <div className="rounded-md border overflow-x-auto" data-testid="students-table-container">
+            <div
+              className="h-[400px] overflow-y-auto min-w-[580px]"
               data-testid="scroll-area-students"
             >
               {/* Fixed Header */}
-              <div 
+              <div
                 className="sticky top-0 z-20 bg-background border-b grid gap-4 p-4 font-semibold text-sm text-muted-foreground"
                 style={{
                   gridTemplateColumns: STUDENTS_GRID_COLUMNS

@@ -8,7 +8,7 @@ import {
   ResponsiveContainer, Cell,
 } from "recharts";
 import { TrendingUp, DollarSign, Award } from "lucide-react";
-import { BELT_HEX, isLightHex } from "@/components/BeltBadge";
+import { BeltBar, BELT_HEX, isLightHex } from "@/components/BeltBadge";
 
 interface ModalityRankEntry {
   modality: string;
@@ -21,7 +21,6 @@ interface ModalityRankEntry {
 interface ChartsData {
   studentGrowth: { month: string; count: number }[];
   monthlyRevenue: { month: string; total: number }[];
-  beltDistribution: { belt: string; count: number }[];
   modalityRankDistribution: ModalityRankEntry[];
 }
 
@@ -40,7 +39,77 @@ function beltColor(belt: string) {
   return BELT_HEX[belt.toLowerCase()] ?? '#6b7280';
 }
 
-type RankBar = { rank: string; count: number; color: string; displayOrder: number };
+// colorClass pode ser "#hex" (monocolor) ou "#hex|#hex" (bicolor)
+type RankBar = {
+  rank: string;
+  count: number;
+  color: string;      // primeira cor — usada no Recharts Cell (SVG não suporta bicolor nativo)
+  colorClass: string; // string completa, ex: "#dc2626|#dbeafe" — usada no BeltBar e na barra mobile
+  displayOrder: number;
+};
+
+// ─── Barra de progresso mobile ─────────────────────────────────────────────
+// Substitui o eixo Y do Recharts em telas pequenas.
+// Suporta bicolor (colorClass com '|').
+function ProgressBarList({
+  items,
+}: {
+  items: { label: string; count: number; color: string; colorClass?: string }[];
+}) {
+  const max = Math.max(...items.map(i => i.count), 1);
+
+  return (
+    <div className="space-y-3">
+      {items.map(item => {
+        const cls = item.colorClass ?? item.color;
+        const parts = cls.split('|');
+        const c1 = parts[0];
+        const c2 = parts[1] ?? null;
+        const isBicolor = !!c2;
+        const pct = `${Math.max((item.count / max) * 100, 4)}%`;
+        const needsBorder = isLightHex(c1) || (c2 ? isLightHex(c2) : false);
+
+        return (
+          <div key={item.label}>
+            <div className="flex items-center justify-between text-xs mb-1">
+              <div className="flex items-center gap-2">
+                {/* BeltBar já suporta bicolor nativamente via string com '|' */}
+                <BeltBar color={cls} name={item.label} width={22} height={9} />
+                <span className="font-medium leading-none">{item.label}</span>
+              </div>
+              <span className="tabular-nums font-semibold ml-2 shrink-0">{item.count}</span>
+            </div>
+
+            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+              {isBicolor ? (
+                // Bicolor: dois spans lado a lado dentro do wrapper proporcional
+                <div
+                  className="h-full flex rounded-full overflow-hidden"
+                  style={{
+                    width: pct,
+                    boxShadow: needsBorder ? 'inset 0 0 0 1px #d1d5db' : 'none',
+                  }}
+                >
+                  <span style={{ flex: 1, backgroundColor: c1 }} />
+                  <span style={{ flex: 1, backgroundColor: c2! }} />
+                </div>
+              ) : (
+                <div
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: pct,
+                    backgroundColor: c1,
+                    boxShadow: needsBorder ? 'inset 0 0 0 1px #d1d5db' : 'none',
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function DashboardCharts() {
   const [activeModality, setActiveModality] = useState('');
@@ -51,18 +120,19 @@ export function DashboardCharts() {
 
   const growth = (data?.studentGrowth ?? []).map(d => ({ ...d, month: formatMonth(d.month) }));
   const revenue = (data?.monthlyRevenue ?? []).map(d => ({ ...d, month: formatMonth(d.month) }));
-  const belts = data?.beltDistribution ?? [];
   const modalityRaw = data?.modalityRankDistribution ?? [];
 
-  // Agrupa por modalidade e ordena por displayOrder
+  // Agrupa por modalidade, preserva colorClass completa (incluindo bicolor)
   const modalityData: Record<string, RankBar[]> = {};
   for (const entry of modalityRaw) {
     if (!modalityData[entry.modality]) modalityData[entry.modality] = [];
-    const raw = entry.colorClass?.split('|')[0] ?? '';
+    const colorClass = entry.colorClass ?? '';
+    const firstColor = colorClass.split('|')[0];
     modalityData[entry.modality].push({
       rank: entry.rank,
       count: entry.count,
-      color: raw.startsWith('#') ? raw : beltColor(entry.rank.toLowerCase()),
+      color: firstColor.startsWith('#') ? firstColor : beltColor(entry.rank.toLowerCase()),
+      colorClass,
       displayOrder: entry.displayOrder,
     });
   }
@@ -77,14 +147,13 @@ export function DashboardCharts() {
 
   const hasGrowth = growth.length > 0;
   const hasRevenue = revenue.length > 0;
-  const hasBelts = belts.length > 0;
   const hasModality = modalityNames.length > 0;
-  const hasAny = hasGrowth || hasRevenue || hasBelts || hasModality;
+  const hasAny = hasGrowth || hasRevenue || hasModality;
 
   if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {[1, 2, 3].map(i => (
+      <div className="grid gap-4 md:grid-cols-2">
+        {[1, 2].map(i => (
           <Card key={i}>
             <CardContent className="h-64 flex items-center justify-center">
               <div className="animate-pulse w-full h-40 bg-muted rounded" />
@@ -106,10 +175,10 @@ export function DashboardCharts() {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full min-w-0">
 
       {/* Crescimento de Alunos */}
-      <Card className="lg:col-span-1 md:col-span-1">
+      <Card className="min-w-0">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-blue-500" />
@@ -118,18 +187,20 @@ export function DashboardCharts() {
         </CardHeader>
         <CardContent>
           {hasGrowth ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={growth} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  formatter={(v: number) => [v, 'Novos alunos']}
-                  contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                />
-                <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="w-full min-w-0">
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={growth} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    formatter={(v: number) => [v, 'Novos alunos']}
+                    contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                  />
+                  <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
             <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
               Sem novos alunos nos últimos 6 meses
@@ -139,7 +210,7 @@ export function DashboardCharts() {
       </Card>
 
       {/* Receita Mensal */}
-      <Card className="lg:col-span-1">
+      <Card className="min-w-0">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <DollarSign className="h-4 w-4 text-green-500" />
@@ -148,35 +219,37 @@ export function DashboardCharts() {
         </CardHeader>
         <CardContent>
           {hasRevenue ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={revenue} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#16a34a" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#16a34a" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis
-                  tick={{ fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={v => `R$${(v / 100).toFixed(0)}`}
-                />
-                <Tooltip
-                  formatter={(v: number) => [formatBRL(v), 'Receita']}
-                  contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="total"
-                  stroke="#16a34a"
-                  strokeWidth={2}
-                  fill="url(#revenueGradient)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <div className="w-full min-w-0">
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={revenue} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#16a34a" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#16a34a" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={v => `R$${(v / 100).toFixed(0)}`}
+                  />
+                  <Tooltip
+                    formatter={(v: number) => [formatBRL(v), 'Receita']}
+                    contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="total"
+                    stroke="#16a34a"
+                    strokeWidth={2}
+                    fill="url(#revenueGradient)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
             <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
               Sem pagamentos registrados nos últimos 6 meses
@@ -185,43 +258,9 @@ export function DashboardCharts() {
         </CardContent>
       </Card>
 
-      {/* Distribuição de Faixas */}
-      <Card className="lg:col-span-1">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Award className="h-4 w-4 text-yellow-500" />
-            Distribuição de Faixas
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {hasBelts ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={belts} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-muted" />
-                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="belt" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={52} />
-                <Tooltip
-                  formatter={(v: number) => [v, 'Alunos']}
-                  contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                />
-                <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={24}>
-                  {belts.map(entry => (
-                    <Cell key={entry.belt} fill={beltColor(entry.belt)} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
-              Nenhum aluno com faixa cadastrada
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Graduações por Modalidade — abas por modalidade + barras horizontais com cores reais */}
+      {/* Graduações por Modalidade */}
       {hasModality && (
-        <Card className="lg:col-span-3 md:col-span-2">
+        <Card className="col-span-1 md:col-span-2 min-w-0">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -241,48 +280,65 @@ export function DashboardCharts() {
           </CardHeader>
           <CardContent>
             {activeData.length > 0 ? (
-              <ResponsiveContainer
-                width="100%"
-                height={Math.max(160, activeData.length * 38)}
-              >
-                <BarChart
-                  layout="vertical"
-                  data={activeData}
-                  margin={{ top: 2, right: 32, left: 8, bottom: 2 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-muted" />
-                  <XAxis
-                    type="number"
-                    allowDecimals={false}
-                    tick={{ fontSize: 11 }}
-                    axisLine={false}
-                    tickLine={false}
+              <>
+                {/* Mobile: lista com barras de progresso — suporte bicolor */}
+                <div className="block md:hidden">
+                  <ProgressBarList
+                    items={activeData.map(e => ({
+                      label: e.rank,
+                      count: e.count,
+                      color: e.color,
+                      colorClass: e.colorClass, // preserva string completa ex: "#dc2626|#dbeafe"
+                    }))}
                   />
-                  <YAxis
-                    type="category"
-                    dataKey="rank"
-                    tick={{ fontSize: 12, fontWeight: 500 }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={72}
-                  />
-                  <Tooltip
-                    cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }}
-                    formatter={(v: number) => [v, 'Alunos']}
-                    contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                  />
-                  <Bar dataKey="count" radius={[0, 5, 5, 0]} maxBarSize={28}>
-                    {activeData.map(entry => (
-                      <Cell
-                        key={entry.rank}
-                        fill={entry.color}
-                        stroke={isLightHex(entry.color) ? '#d1d5db' : 'none'}
-                        strokeWidth={isLightHex(entry.color) ? 1 : 0}
+                </div>
+
+                {/* Desktop: gráfico Recharts */}
+                <div className="hidden md:block w-full min-w-0">
+                  <ResponsiveContainer
+                    width="100%"
+                    height={Math.max(160, activeData.length * 38)}
+                  >
+                    <BarChart
+                      layout="vertical"
+                      data={activeData}
+                      margin={{ top: 2, right: 32, left: 8, bottom: 2 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-muted" />
+                      <XAxis
+                        type="number"
+                        allowDecimals={false}
+                        tick={{ fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
                       />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+                      <YAxis
+                        type="category"
+                        dataKey="rank"
+                        tick={{ fontSize: 12, fontWeight: 500 }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={72}
+                      />
+                      <Tooltip
+                        cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }}
+                        formatter={(v: number) => [v, 'Alunos']}
+                        contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                      />
+                      <Bar dataKey="count" radius={[0, 5, 5, 0]} maxBarSize={28}>
+                        {activeData.map(entry => (
+                          <Cell
+                            key={entry.rank}
+                            fill={entry.color}
+                            stroke={isLightHex(entry.color) ? '#d1d5db' : 'none'}
+                            strokeWidth={isLightHex(entry.color) ? 1 : 0}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </>
             ) : (
               <div className="h-[160px] flex items-center justify-center text-sm text-muted-foreground">
                 Nenhum aluno graduado em {currentModality}

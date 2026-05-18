@@ -1,16 +1,17 @@
-import { 
-  Home, 
-  Users, 
+import {
+  Home,
+  Users,
   UserCheck2,
-  Calendar, 
-  DollarSign, 
-  Settings, 
+  Calendar,
+  DollarSign,
+  Settings,
   BookOpen,
   BarChart3,
   UserCheck,
   GraduationCap,
   Building2,
-  CreditCard
+  CreditCard,
+  Target
 } from "lucide-react";
 import {
   Sidebar,
@@ -23,6 +24,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import logoIcon from "@assets/Design sem nome (15)_1758779065313.png";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -51,6 +53,11 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const { logout } = useAuth();
   const [, setLocation] = useLocation();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  const closeMobileMenu = () => {
+    if (isMobile) setOpenMobile(false);
+  };
   
   // Menu items based on user role
   const getMenuItems = () => {
@@ -117,6 +124,12 @@ export function AppSidebar({
         roles: ["ADMIN_ACADEMIA"]
       },
       {
+        title: "Pipeline",
+        url: "/dashboard/pipeline",
+        icon: Target,
+        roles: ["ADMIN_ACADEMIA"]
+      },
+      {
         title: "Relatórios",
         url: "/reports",
         icon: BarChart3,
@@ -180,7 +193,7 @@ export function AppSidebar({
   };
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center space-x-2 p-2">
           <img src={logoIcon} alt="Fight Club App" className="h-8 w-8" />
@@ -198,12 +211,13 @@ export function AppSidebar({
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
+                  <SidebarMenuButton
                     asChild
+                    tooltip={item.title}
                     data-testid={`sidebar-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                   >
-                    <Link href={item.url} className="w-full justify-start">
-                      <item.icon className="mr-2 h-4 w-4" />
+                    <Link href={item.url} className="w-full justify-start" onClick={closeMobileMenu}>
+                      <item.icon className="h-4 w-4 shrink-0" />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>

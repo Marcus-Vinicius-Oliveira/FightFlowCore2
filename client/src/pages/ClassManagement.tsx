@@ -744,7 +744,7 @@ export default function ClassManagement() {
               <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium">Nenhuma aula encontrada</h3>
               <p className="text-muted-foreground">
-                {searchTerm ? "Nenhuma aula corresponde aos filtros." : "Comece criando sua primeira aula."}
+                {hasActiveFilters ? "Nenhuma aula corresponde aos filtros." : "Comece criando sua primeira aula."}
               </p>
             </div>
           ) : (

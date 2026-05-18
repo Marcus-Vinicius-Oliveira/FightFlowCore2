@@ -231,7 +231,7 @@ export function ClassManagement() {
 
           {/* Class Schedule Tab */}
           <TabsContent value="schedule" className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap gap-3 justify-between items-start sm:items-center">
               <div>
                 <h3 className="text-lg font-semibold">Cronograma Semanal</h3>
                 <p className="text-sm text-muted-foreground">Agende múltiplas aulas por dia para diferentes horários e níveis de alunos</p>

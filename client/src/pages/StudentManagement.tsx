@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -918,7 +919,7 @@ export default function StudentManagement() {
                 return (
                   <div
                     key={student.id}
-                    className="flex items-center gap-3 py-2.5 px-3 rounded-lg border bg-card"
+                    className={`flex items-center gap-3 py-2.5 px-3 rounded-lg border bg-card transition-opacity ${!student.active ? 'opacity-60 shadow-none' : ''}`}
                     data-testid={`row-student-${student.id}`}
                   >
                     {/* Avatar — anel colorido pela faixa quando filtro de modalidade ativo */}
@@ -939,7 +940,10 @@ export default function StudentManagement() {
                       {/* Linha 1: Nome + ponto de status + menu */}
                       <div className="flex items-center justify-between gap-1">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <p className="font-semibold text-sm leading-none truncate">{student.name}</p>
+                          <Link
+                            to={`/dashboard/alunos/${student.id}`}
+                            className={`font-semibold text-sm leading-none truncate hover:underline underline-offset-2 ${!student.active ? 'text-muted-foreground' : ''}`}
+                          >{student.name}</Link>
                           <span
                             className={`h-1.5 w-1.5 rounded-full shrink-0 ${student.active ? 'bg-green-500' : 'bg-red-400'}`}
                           />
@@ -1017,10 +1021,10 @@ export default function StudentManagement() {
                           {modalities.map(m => (
                             <span
                               key={m.classTypeId}
-                              className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded-full"
+                              className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${student.active ? 'bg-muted' : 'bg-muted/40 text-muted-foreground'}`}
                             >
                               <svg width="8" height="8" viewBox="0 0 8 8" className="shrink-0" aria-hidden="true">
-                                <circle cx="4" cy="4" r="4" fill={m.modalityColor} />
+                                <circle cx="4" cy="4" r="4" fill={student.active ? m.modalityColor : '#9ca3af'} />
                               </svg>
                               {m.name}
                             </span>
@@ -1049,11 +1053,14 @@ export default function StudentManagement() {
                   </TableHeader>
                   <TableBody>
                     {filteredStudents.map((student) => (
-                      <TableRow key={student.id} data-testid={`row-student-${student.id}`}>
+                      <TableRow key={student.id} data-testid={`row-student-${student.id}`} className={!student.active ? 'opacity-60' : ''}>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <span className={`h-2 w-2 rounded-full shrink-0 ${student.active ? 'bg-green-500' : 'bg-red-400'}`} />
-                            <span className="font-medium">{student.name}</span>
+                            <Link
+                              to={`/dashboard/alunos/${student.id}`}
+                              className={`font-medium hover:underline underline-offset-2 ${!student.active ? 'text-muted-foreground' : ''}`}
+                            >{student.name}</Link>
                           </div>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
@@ -1064,10 +1071,10 @@ export default function StudentManagement() {
                             {(studentModalityData.get(student.id) ?? []).map(m => (
                               <span
                                 key={m.classTypeId}
-                                className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded-full"
+                                className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${student.active ? 'bg-muted' : 'bg-muted/40 text-muted-foreground'}`}
                               >
                                 <svg width="8" height="8" viewBox="0 0 8 8" className="shrink-0" aria-hidden="true">
-                                  <circle cx="4" cy="4" r="4" fill={m.modalityColor} />
+                                  <circle cx="4" cy="4" r="4" fill={student.active ? m.modalityColor : '#9ca3af'} />
                                 </svg>
                                 {m.name}
                               </span>

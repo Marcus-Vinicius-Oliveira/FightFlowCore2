@@ -1,13 +1,18 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Filter, X, ArrowDown, ArrowUp } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { BeltBadge } from "@/components/BeltBadge";
+import { Filter, X, ArrowDown, ArrowUp, Search } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { BeltBadge, BeltBar, BELT_HEX } from "@/components/BeltBadge";
 import { apiRequest } from "@/lib/queryClient";
 
 const BELT_OPTIONS = [
@@ -42,48 +47,81 @@ interface GraduationSystem {
 interface AdvancedFiltersProps {
   filters: FilterOptions;
   onFiltersChange: (filters: FilterOptions) => void;
-  /** IDs das modalidades que possuem ao menos um aluno matriculado */
+  searchTerm?: string;
+  onSearch?: (value: string) => void;
   availableClassTypeIds?: Set<string>;
   className?: string;
+}
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth < 768 : false
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return isMobile;
+}
+
+function ActiveFilterTag({
+  label,
+  onRemove,
+}: {
+  label: React.ReactNode;
+  onRemove: () => void;
+}) {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium pl-2.5 pr-1 py-1">
+      {label}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label="Remover filtro"
+        className="ml-0.5 inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full hover:bg-primary/20 active:bg-primary/30 transition-colors"
+      >
+        <X className="h-2.5 w-2.5" />
+      </button>
+    </span>
+  );
 }
 
 export function AdvancedFilters({
   filters,
   onFiltersChange,
+  searchTerm,
+  onSearch,
   availableClassTypeIds,
   className = "",
 }: AdvancedFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const { data: allClassTypes = [] } = useQuery<{ id: string; name: string }[]>({
-    queryKey: ['/api/classes/class-types'],
+    queryKey: ["/api/classes/class-types"],
   });
 
   const { data: graduationSystems = [] } = useQuery<GraduationSystem[]>({
-    queryKey: ['/api/graduation/systems'],
-    queryFn: () => apiRequest('GET', '/api/graduation/systems').then(r => r.json()),
+    queryKey: ["/api/graduation/systems"],
+    queryFn: () => apiRequest("GET", "/api/graduation/systems").then((r) => r.json()),
     enabled: !!filters.classTypeId,
   });
 
-  // Fix 6: só mostra modalidades com alunos matriculados (quando availableClassTypeIds é passado)
   const classTypes = useMemo(() => {
     if (!availableClassTypeIds) return allClassTypes;
-    return allClassTypes.filter(ct => availableClassTypeIds.has(ct.id));
+    return allClassTypes.filter((ct) => availableClassTypeIds.has(ct.id));
   }, [allClassTypes, availableClassTypeIds]);
 
-  // Ranks da modalidade selecionada, ordenados
   const ranksForSelectedModality = useMemo(() => {
     if (!filters.classTypeId) return [];
-    const system = graduationSystems.find(s => s.classTypeId === filters.classTypeId);
+    const system = graduationSystems.find((s) => s.classTypeId === filters.classTypeId);
     return (system?.ranks ?? []).slice().sort((a, b) => a.displayOrder - b.displayOrder);
   }, [graduationSystems, filters.classTypeId]);
 
-  const handleFilterChange = <K extends keyof FilterOptions>(
-    key: K,
-    value: FilterOptions[K]
-  ) => {
+  const handleFilterChange = <K extends keyof FilterOptions>(key: K, value: FilterOptions[K]) => {
     const next: FilterOptions = { ...filters, [key]: value };
-    // Reset rankId quando a modalidade muda
     if (key === "classTypeId") next.rankId = "";
     onFiltersChange(next);
   };
@@ -111,52 +149,132 @@ export function AdvancedFilters({
     filters.sortBy !== "name" ||
     filters.sortOrder !== "asc";
 
-  const getActiveFiltersCount = () => {
-    let count = 0;
-    if (filters.status !== "all") count++;
-    if (filters.belt) count++;
-    if (filters.classTypeId) count++;
-    if (filters.rankId) count++;
-    if (filters.dateFrom) count++;
-    if (filters.dateTo) count++;
-    if (filters.sortBy !== "name" || filters.sortOrder !== "asc") count++;
-    return count;
-  };
+  const activeCount = [
+    filters.status !== "all",
+    !!filters.belt,
+    !!filters.classTypeId,
+    !!filters.rankId,
+    !!filters.dateFrom,
+    !!filters.dateTo,
+    filters.sortBy !== "name" || filters.sortOrder !== "asc",
+  ].filter(Boolean).length;
 
-  const activeClassTypeName = allClassTypes.find(ct => ct.id === filters.classTypeId)?.name ?? "";
-  const activeRankName = ranksForSelectedModality.find(r => r.id === filters.rankId)?.name ?? "";
+  const activeClassTypeName = allClassTypes.find((ct) => ct.id === filters.classTypeId)?.name ?? "";
+  const activeRankName = ranksForSelectedModality.find((r) => r.id === filters.rankId)?.name ?? "";
 
-  const getSortIcon = () =>
-    filters.sortOrder === "asc"
-      ? <ArrowUp className="h-4 w-4" />
-      : <ArrowDown className="h-4 w-4" />;
+  const selectedRank = ranksForSelectedModality.find((r) => r.id === filters.rankId);
+
+  const activeTags = (
+    <>
+      {filters.status !== "all" && (
+        <ActiveFilterTag
+          label={`Status: ${filters.status === "active" ? "Ativo" : "Inativo"}`}
+          onRemove={() => handleFilterChange("status", "all")}
+        />
+      )}
+      {filters.classTypeId && activeClassTypeName && (
+        <ActiveFilterTag
+          label={activeClassTypeName}
+          onRemove={() => handleFilterChange("classTypeId", "")}
+        />
+      )}
+      {filters.rankId && activeRankName && (
+        <ActiveFilterTag
+          label={
+            <span className="flex items-center gap-1.5">
+              {selectedRank && (
+                <BeltBar color={selectedRank.colorClass ?? "#6b7280"} name={selectedRank.name} width={20} height={8} />
+              )}
+              {activeRankName}
+            </span>
+          }
+          onRemove={() => handleFilterChange("rankId", "")}
+        />
+      )}
+      {filters.belt && (
+        <ActiveFilterTag
+          label={
+            <span className="flex items-center gap-1.5">
+              <BeltBar color={BELT_HEX[filters.belt] ?? "#6b7280"} name={filters.belt} width={20} height={8} />
+              <span className="capitalize">{filters.belt}</span>
+            </span>
+          }
+          onRemove={() => handleFilterChange("belt", "")}
+        />
+      )}
+      {filters.dateFrom && (
+        <ActiveFilterTag
+          label={`De: ${new Date(filters.dateFrom).toLocaleDateString("pt-BR")}`}
+          onRemove={() => handleFilterChange("dateFrom", "")}
+        />
+      )}
+      {filters.dateTo && (
+        <ActiveFilterTag
+          label={`Até: ${new Date(filters.dateTo).toLocaleDateString("pt-BR")}`}
+          onRemove={() => handleFilterChange("dateTo", "")}
+        />
+      )}
+      {(filters.sortBy !== "name" || filters.sortOrder !== "asc") && (
+        <ActiveFilterTag
+          label={`${filters.sortBy === "name" ? "Nome" : "Data"} (${filters.sortOrder === "asc" ? "A-Z" : "Z-A"})`}
+          onRemove={() => onFiltersChange({ ...filters, sortBy: "name", sortOrder: "asc" })}
+        />
+      )}
+    </>
+  );
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      <div className="flex items-center justify-between">
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="gap-2" data-testid="button-open-filters">
+    <div className={`space-y-2 ${className}`}>
+      {/* Mobile: search full-width on top */}
+      {onSearch && (
+        <div className="relative md:hidden">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Buscar..."
+            value={searchTerm ?? ""}
+            onChange={(e) => onSearch(e.target.value)}
+            className="pl-9"
+            data-testid="input-search-students"
+          />
+        </div>
+      )}
+
+      {/* Filter bar: [trigger] [scrollable tags] [search — desktop only] */}
+      <div className="flex items-center gap-2 min-w-0">
+        <Sheet open={isOpen} onOpenChange={setIsOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant={hasActiveFilters ? "default" : "outline"}
+              size="sm"
+              className="shrink-0 gap-1.5 h-9"
+              data-testid="button-open-filters"
+            >
               <Filter className="h-4 w-4" />
-              Filtros
-              {hasActiveFilters && (
-                <Badge variant="secondary" className="ml-1">
-                  {getActiveFiltersCount()}
-                </Badge>
+              <span className="hidden sm:inline">Filtros</span>
+              {activeCount > 0 && (
+                <span className="inline-flex items-center justify-center h-[18px] w-[18px] rounded-full bg-background/30 text-[10px] font-bold leading-none">
+                  {activeCount}
+                </span>
               )}
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-96" align="start">
-            <div className="space-y-4">
+          </SheetTrigger>
+
+          <SheetContent
+            side={isMobile ? "bottom" : "right"}
+            className={[
+              "flex flex-col p-0",
+              isMobile ? "h-[88dvh] rounded-t-2xl" : "w-[380px]",
+            ].join(" ")}
+          >
+            <SheetHeader className="px-4 pt-5 pb-3 border-b shrink-0">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-medium">Filtros Avançados</h4>
+                <SheetTitle className="text-base">Filtros Avançados</SheetTitle>
                 {hasActiveFilters && (
                   <Button
-                    type="button"
                     variant="ghost"
                     size="sm"
                     onClick={clearAllFilters}
-                    className="text-muted-foreground hover:text-foreground gap-1"
+                    className="text-muted-foreground h-7 text-xs gap-1 -mr-1"
                     data-testid="button-clear-filters"
                   >
                     <X className="h-3 w-3" />
@@ -164,13 +282,16 @@ export function AdvancedFilters({
                   </Button>
                 )}
               </div>
+            </SheetHeader>
 
-              {/* Status Filter */}
+            {/* Scrollable filter form */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+              {/* Status */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Status</Label>
                 <Select
                   value={filters.status}
-                  onValueChange={(value) => handleFilterChange("status", value as FilterOptions["status"])}
+                  onValueChange={(v) => handleFilterChange("status", v as FilterOptions["status"])}
                 >
                   <SelectTrigger data-testid="select-status-filter">
                     <SelectValue placeholder="Selecione o status" />
@@ -183,43 +304,22 @@ export function AdvancedFilters({
                 </Select>
               </div>
 
-              {/* Modality Filter — Fix 6: só exibe modalidades com alunos */}
+              {/* Modalidade */}
               {classTypes.length > 0 && (
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Modalidade</Label>
                   <Select
                     value={filters.classTypeId || "all"}
-                    onValueChange={(value) => handleFilterChange("classTypeId", value === "all" ? "" : value)}
+                    onValueChange={(v) => handleFilterChange("classTypeId", v === "all" ? "" : v)}
                   >
                     <SelectTrigger data-testid="select-modality-filter">
                       <SelectValue placeholder="Todas as modalidades" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todas as modalidades</SelectItem>
-                      {classTypes.map(ct => (
-                        <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Fix 3: Rank filter — só exibe quando uma modalidade está selecionada e tem ranks */}
-              {filters.classTypeId && ranksForSelectedModality.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Graduação na Modalidade</Label>
-                  <Select
-                    value={filters.rankId || "all"}
-                    onValueChange={(value) => handleFilterChange("rankId", value === "all" ? "" : value)}
-                  >
-                    <SelectTrigger data-testid="select-rank-filter">
-                      <SelectValue placeholder="Todas as graduações" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as graduações</SelectItem>
-                      {ranksForSelectedModality.map(rank => (
-                        <SelectItem key={rank.id} value={rank.id}>
-                          {rank.name}
+                      {classTypes.map((ct) => (
+                        <SelectItem key={ct.id} value={ct.id}>
+                          {ct.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -227,34 +327,93 @@ export function AdvancedFilters({
                 </div>
               )}
 
-              {/* Belt Filter */}
+              {/* Graduação na Modalidade — com swatch de cor */}
+              {filters.classTypeId && ranksForSelectedModality.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Graduação na Modalidade</Label>
+                  <Select
+                    value={filters.rankId || "all"}
+                    onValueChange={(v) => handleFilterChange("rankId", v === "all" ? "" : v)}
+                  >
+                    <SelectTrigger data-testid="select-rank-filter">
+                      {selectedRank ? (
+                        <div className="flex items-center gap-2">
+                          <BeltBar
+                            color={selectedRank.colorClass ?? "#6b7280"}
+                            name={selectedRank.name}
+                            width={28}
+                            height={10}
+                          />
+                          <span>{selectedRank.name}</span>
+                        </div>
+                      ) : (
+                        <SelectValue placeholder="Todas as graduações" />
+                      )}
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as graduações</SelectItem>
+                      {ranksForSelectedModality.map((rank) => (
+                        <SelectItem key={rank.id} value={rank.id}>
+                          <div className="flex items-center gap-2">
+                            <BeltBar
+                              color={rank.colorClass ?? "#6b7280"}
+                              name={rank.name}
+                              width={28}
+                              height={10}
+                            />
+                            <span>{rank.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Faixa — com swatch de cor */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Graduação / Faixa</Label>
+                <Label className="text-sm font-medium">Faixa</Label>
                 <Select
                   value={filters.belt || "all"}
-                  onValueChange={(value) => handleFilterChange("belt", value === "all" ? "" : value)}
+                  onValueChange={(v) => handleFilterChange("belt", v === "all" ? "" : v)}
                 >
                   <SelectTrigger data-testid="select-belt-filter">
-                    <SelectValue>
-                      {filters.belt
-                        ? <BeltBadge belt={filters.belt} />
-                        : <span className="text-muted-foreground">Todas as faixas</span>}
-                    </SelectValue>
+                    {filters.belt ? (
+                      <div className="flex items-center gap-2">
+                        <BeltBar
+                          color={BELT_HEX[filters.belt] ?? "#6b7280"}
+                          name={filters.belt}
+                          width={28}
+                          height={10}
+                        />
+                        <span className="capitalize">{filters.belt}</span>
+                      </div>
+                    ) : (
+                      <SelectValue placeholder="Todas as faixas" />
+                    )}
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">
                       <span className="text-muted-foreground text-sm">Todas as faixas</span>
                     </SelectItem>
-                    {BELT_OPTIONS.map(belt => (
+                    {BELT_OPTIONS.map((belt) => (
                       <SelectItem key={belt} value={belt}>
-                        <BeltBadge belt={belt} />
+                        <div className="flex items-center gap-2">
+                          <BeltBar
+                            color={BELT_HEX[belt] ?? "#6b7280"}
+                            name={belt}
+                            width={28}
+                            height={10}
+                          />
+                          <span className="capitalize">{belt}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Date Range Filter */}
+              {/* Data de Cadastro */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Data de Cadastro</Label>
                 <div className="grid grid-cols-2 gap-2">
@@ -279,13 +438,13 @@ export function AdvancedFilters({
                 </div>
               </div>
 
-              {/* Sort Options */}
+              {/* Ordenação */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Ordenação</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <Select
                     value={filters.sortBy}
-                    onValueChange={(value) => handleFilterChange("sortBy", value as FilterOptions["sortBy"])}
+                    onValueChange={(v) => handleFilterChange("sortBy", v as FilterOptions["sortBy"])}
                   >
                     <SelectTrigger data-testid="select-sort-by">
                       <SelectValue />
@@ -304,128 +463,61 @@ export function AdvancedFilters({
                     className="gap-2"
                     data-testid="button-sort-order"
                   >
-                    {getSortIcon()}
+                    {filters.sortOrder === "asc" ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )}
                     {filters.sortOrder === "asc" ? "Crescente" : "Decrescente"}
                   </Button>
                 </div>
               </div>
-
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  variant="default"
-                  size="sm"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsOpen(false);
-                  }}
-                  data-testid="button-apply-filters"
-                >
-                  Aplicar
-                </Button>
-              </div>
             </div>
-          </PopoverContent>
-        </Popover>
 
-        {/* Active Filters Display */}
+            {/* Sticky footer — Apply button always visible */}
+            <div className="shrink-0 border-t bg-background px-4 py-3 flex gap-2">
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  onClick={clearAllFilters}
+                  className="flex-1 gap-1.5 text-muted-foreground"
+                  data-testid="button-clear-filters-footer"
+                >
+                  <X className="h-4 w-4" />
+                  Limpar filtros
+                </Button>
+              )}
+              <Button
+                className="flex-1"
+                onClick={() => setIsOpen(false)}
+                data-testid="button-apply-filters"
+              >
+                Aplicar
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        {/* Tags de filtros ativos — scroll horizontal no mobile */}
         {hasActiveFilters && (
-          <div className="flex flex-wrap gap-2">
-            {filters.status !== "all" && (
-              <Badge variant="secondary" className="gap-1">
-                Status: {filters.status === "active" ? "Ativo" : "Inativo"}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 hover:bg-transparent"
-                  onClick={() => handleFilterChange("status", "all")}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            )}
-            {filters.classTypeId && activeClassTypeName && (
-              <Badge variant="secondary" className="gap-1">
-                {activeClassTypeName}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 hover:bg-transparent"
-                  onClick={() => handleFilterChange("classTypeId", "")}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            )}
-            {filters.rankId && activeRankName && (
-              <Badge variant="secondary" className="gap-1">
-                {activeRankName}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 hover:bg-transparent"
-                  onClick={() => handleFilterChange("rankId", "")}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            )}
-            {filters.belt && (
-              <Badge variant="secondary" className="gap-1 items-center">
-                <BeltBadge belt={filters.belt} />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 hover:bg-transparent ml-1"
-                  onClick={() => handleFilterChange("belt", "")}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            )}
-            {filters.dateFrom && (
-              <Badge variant="secondary" className="gap-1">
-                De: {new Date(filters.dateFrom).toLocaleDateString('pt-BR')}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 hover:bg-transparent"
-                  onClick={() => handleFilterChange("dateFrom", "")}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            )}
-            {filters.dateTo && (
-              <Badge variant="secondary" className="gap-1">
-                Até: {new Date(filters.dateTo).toLocaleDateString('pt-BR')}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 hover:bg-transparent"
-                  onClick={() => handleFilterChange("dateTo", "")}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            )}
-            {(filters.sortBy !== "name" || filters.sortOrder !== "asc") && (
-              <Badge variant="secondary" className="gap-1">
-                {filters.sortBy === "name" ? "Nome" : "Data"} ({filters.sortOrder === "asc" ? "A-Z" : "Z-A"})
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 hover:bg-transparent"
-                  onClick={() => {
-                    const next = { ...filters, sortBy: "name" as const, sortOrder: "asc" as const };
-                    onFiltersChange(next);
-                  }}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            )}
+          <div className="flex-1 min-w-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="flex items-center gap-1.5 whitespace-nowrap pb-0.5">
+              {activeTags}
+            </div>
+          </div>
+        )}
+
+        {/* Search — apenas desktop, alinhado à direita */}
+        {onSearch && (
+          <div className="relative hidden md:block w-64 shrink-0 ml-auto">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Buscar..."
+              value={searchTerm ?? ""}
+              onChange={(e) => onSearch(e.target.value)}
+              className="pl-9 h-9"
+              data-testid="input-search-students"
+            />
           </div>
         )}
       </div>
@@ -433,48 +525,46 @@ export function AdvancedFilters({
   );
 }
 
-// Utility function to apply filters to an array of items
-export function applyFilters<T extends { active: boolean; createdAt: string; name: string; email?: string; belt?: string | null }>(
-  items: T[],
-  filters: FilterOptions,
-  searchTerm: string = ""
-): T[] {
+export function applyFilters<
+  T extends { active: boolean; createdAt: string; name: string; email?: string; belt?: string | null }
+>(items: T[], filters: FilterOptions, searchTerm: string = ""): T[] {
   let result = [...items];
 
   if (searchTerm.trim()) {
     const term = searchTerm.toLowerCase();
-    result = result.filter(item =>
-      item.name.toLowerCase().includes(term) ||
-      (item.email != null && item.email.toLowerCase().includes(term))
+    result = result.filter(
+      (item) =>
+        item.name.toLowerCase().includes(term) ||
+        (item.email != null && item.email.toLowerCase().includes(term))
     );
   }
 
   if (filters.status !== "all") {
-    result = result.filter(item =>
+    result = result.filter((item) =>
       filters.status === "active" ? item.active : !item.active
     );
   }
 
   if (filters.belt) {
     const beltLower = filters.belt.toLowerCase();
-    result = result.filter(item => item.belt?.toLowerCase() === beltLower);
+    result = result.filter((item) => item.belt?.toLowerCase() === beltLower);
   }
 
   if (filters.dateFrom) {
     const fromDate = new Date(filters.dateFrom);
-    result = result.filter(item => new Date(item.createdAt) >= fromDate);
+    result = result.filter((item) => new Date(item.createdAt) >= fromDate);
   }
 
   if (filters.dateTo) {
     const toDate = new Date(filters.dateTo);
     toDate.setHours(23, 59, 59, 999);
-    result = result.filter(item => new Date(item.createdAt) <= toDate);
+    result = result.filter((item) => new Date(item.createdAt) <= toDate);
   }
 
   result.sort((a, b) => {
     let comparison = 0;
     if (filters.sortBy === "name") {
-      comparison = a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base', numeric: true });
+      comparison = a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base", numeric: true });
     } else {
       comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     }

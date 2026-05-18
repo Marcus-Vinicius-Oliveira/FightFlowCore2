@@ -19,6 +19,7 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import StudentDashboard from "@/pages/StudentDashboard";
 import StudentManagement from "@/pages/StudentManagement";
+import StudentDetail from "@/pages/StudentDetail";
 import InstructorManagement from "@/pages/InstructorManagement";
 import ClassManagement from "@/pages/ClassManagement";
 import WeeklySchedule from "@/pages/WeeklySchedule";
@@ -33,6 +34,7 @@ import SuperAdminDashboard from "@/pages/SuperAdminDashboard";
 import SuperAdminAcademias from "@/pages/SuperAdminAcademias";
 import SuperAdminPlanos from "@/pages/SuperAdminPlanos";
 import SettingsPage from "@/pages/Settings";
+import SalesPipeline from "@/pages/SalesPipeline";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
@@ -66,6 +68,11 @@ function Router() {
           <Dashboard />
         </ProtectedRoute>
       </Route>
+      <Route path="/dashboard/alunos/:id">
+        <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
+          <StudentDetail />
+        </ProtectedRoute>
+      </Route>
       <Route path="/dashboard/alunos">
         <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
           <StudentManagement />
@@ -94,6 +101,11 @@ function Router() {
       <Route path="/dashboard/financeiro">
         <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
           <FinancialControl />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/dashboard/pipeline">
+        <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
+          <SalesPipeline />
         </ProtectedRoute>
       </Route>
       <Route path="/dashboard/grade">
@@ -169,8 +181,8 @@ function AppWithAuthentication() {
   }
 
   return (
-    <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full">
+    <SidebarProvider defaultOpen={true} style={style as React.CSSProperties}>
+      <div className="flex h-dvh w-full">
         <AppSidebar 
           userRole={user?.role as any}
           userInfo={{
@@ -179,17 +191,17 @@ function AppWithAuthentication() {
             academy: user?.role === 'SUPER_ADMIN' ? 'Fight Club App Platform' : (user?.academy?.name || "")
           }}
         />
-        <div className="flex flex-col flex-1">
+        <div className="flex flex-col flex-1 min-w-0 w-full overflow-x-hidden">
           <header className="flex items-center justify-between p-4 border-b bg-background">
             <div className="flex items-center space-x-4">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground hidden sm:block truncate max-w-[200px] lg:max-w-none">
                 Bem-vindo, {user?.name}
               </div>
             </div>
             <ThemeToggle />
           </header>
-          <main className="flex-1 overflow-auto p-8">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 p-4 md:p-8">
             <Router />
           </main>
         </div>

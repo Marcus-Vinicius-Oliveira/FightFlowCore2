@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Settings2, Plus, Pencil, Trash2, MoreHorizontal, Award, CheckCircle2, X, Users } from "lucide-react";
@@ -448,6 +449,7 @@ function ModalidadesTab() {
   const [selectedTemplate, setSelectedTemplate] = useState<GraduationTemplate | null>(null);
   const [deleteSystem, setDeleteSystem] = useState<GraduationSystem | undefined>();
   const [deleteBlockedInfo, setDeleteBlockedInfo] = useState<{ system: GraduationSystem; count: number; message: string } | undefined>();
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -465,6 +467,7 @@ function ModalidadesTab() {
     setNewSystemName('');
     setNewSystemClassTypeId('');
     setSelectedTemplate(null);
+    setSubmitAttempted(false);
   }
 
   const selectedClassType = classTypes.find(ct => ct.id === newSystemClassTypeId);
@@ -519,6 +522,17 @@ function ModalidadesTab() {
           : 'Sistema de graduação criado!',
       });
       closeCreateDialog();
+      setTimeout(() => {
+        const el = document.getElementById(`system-${createdSystem.id}`);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.transition = 'box-shadow 0.4s';
+        el.style.boxShadow = '0 0 0 2px hsl(var(--primary))';
+        setTimeout(() => {
+          el.style.boxShadow = '';
+          setTimeout(() => { el.style.transition = ''; }, 400);
+        }, 2000);
+      }, 300);
     },
     onError: (err: any) => toast({ title: err.message || 'Erro ao criar sistema', variant: 'destructive' }),
   });
@@ -727,12 +741,13 @@ function ModalidadesTab() {
 
       <div className="space-y-4">
         {systems.map(sys => (
-          <SystemPanel
-            key={sys.id}
-            system={sys}
-            classTypeName={sys.classType?.name ?? classTypes.find(c => c.id === sys.classTypeId)?.name ?? (sys.classTypeId ? '' : 'Geral')}
-            onDeleteSystem={setDeleteSystem}
-          />
+          <div key={sys.id} id={`system-${sys.id}`} className="rounded-lg">
+            <SystemPanel
+              system={sys}
+              classTypeName={sys.classType?.name ?? classTypes.find(c => c.id === sys.classTypeId)?.name ?? (sys.classTypeId ? '' : 'Geral')}
+              onDeleteSystem={setDeleteSystem}
+            />
+          </div>
         ))}
       </div>
 
@@ -802,26 +817,28 @@ function ModalidadesTab() {
             <DialogDescription>Configure as faixas/graus de uma modalidade.</DialogDescription>
           </DialogHeader>
           <form
-            onSubmit={(e) => { e.preventDefault(); if (newSystemName.trim()) createMutation.mutate(); }}
+            onSubmit={(e) => { e.preventDefault(); setSubmitAttempted(true); if (newSystemName.trim()) createMutation.mutate(); }}
             className="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0 pr-1"
           >
             <div className="space-y-2">
-              <Label htmlFor="new-sys-modality">Modalidade (opcional)</Label>
-              <select
-                id="new-sys-modality"
-                aria-label="Modalidade do sistema de graduação"
-                value={newSystemClassTypeId}
-                onChange={e => {
-                  setNewSystemClassTypeId(e.target.value);
+              <Label htmlFor="new-sys-modality">Vincular a uma Modalidade</Label>
+              <Select
+                value={newSystemClassTypeId || '__geral__'}
+                onValueChange={val => {
+                  setNewSystemClassTypeId(val === '__geral__' ? '' : val);
                   setSelectedTemplate(null);
                 }}
-                className="w-full border rounded-md px-3 py-2 text-sm bg-background"
               >
-                <option value="">— Geral (sem modalidade) —</option>
-                {classTypes.filter(ct => ct.active).map(ct => (
-                  <option key={ct.id} value={ct.id}>{ct.name}</option>
-                ))}
-              </select>
+                <SelectTrigger id="new-sys-modality" aria-label="Modalidade do sistema de graduação">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__geral__">— Geral (sem modalidade) —</SelectItem>
+                  {classTypes.filter(ct => ct.active).map(ct => (
+                    <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
               {/* Info when selected modality already has systems */}
               {newSystemClassTypeId && (systemNamesByClassType[newSystemClassTypeId]?.length ?? 0) > 0 && (
@@ -899,6 +916,12 @@ function ModalidadesTab() {
               />
             </div>
 
+            {submitAttempted && newSystemClassTypeId && (systemNamesByClassType[newSystemClassTypeId] ?? []).includes(newSystemName.trim()) && (
+              <p className="text-xs text-destructive -mt-2">
+                Já existe um sistema com este nome nesta modalidade.
+              </p>
+            )}
+
             <div className="flex justify-end gap-2 shrink-0">
               <Button type="button" variant="outline" onClick={closeCreateDialog}>Cancelar</Button>
               <Button type="submit" disabled={
@@ -906,11 +929,7 @@ function ModalidadesTab() {
                 createMutation.isPending ||
                 !!(newSystemClassTypeId && (systemNamesByClassType[newSystemClassTypeId] ?? []).includes(newSystemName.trim()))
               }>
-                {createMutation.isPending
-                  ? 'Criando...'
-                  : selectedTemplate
-                    ? `Criar com ${selectedTemplate.ranks.length} graduações`
-                    : 'Criar'}
+                {createMutation.isPending ? 'Criando...' : 'Criar Sistema'}
               </Button>
             </div>
           </form>

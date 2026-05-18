@@ -109,7 +109,8 @@ interface WeeklyGridProps {
 
 function WeeklyGrid({ schedule, onAttendance }: WeeklyGridProps) {
   return (
-    <div className="border rounded-lg overflow-hidden bg-background">
+    <div className="overflow-x-auto">
+    <div className="border rounded-lg overflow-hidden bg-background min-w-[600px]">
       {/* Header com dias da semana */}
       <div className="grid grid-cols-8 border-b bg-muted/30">
         <div className="p-3 border-r font-medium text-sm">Horário</div>
@@ -161,6 +162,7 @@ function WeeklyGrid({ schedule, onAttendance }: WeeklyGridProps) {
         ))}
       </div>
     </div>
+    </div>
   );
 }
 
@@ -208,10 +210,10 @@ export default function WeeklySchedule() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-4 justify-between items-start sm:items-center">
         <div>
-          <h1 className="text-3xl font-bold">Grade de Aulas</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Grade de Aulas</h1>
           <p className="text-muted-foreground">
             Visualize a grade semanal de aulas e horários
           </p>
@@ -300,7 +302,7 @@ export default function WeeklySchedule() {
       {/* Legenda */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex flex-wrap gap-3 items-start sm:items-center justify-between text-sm">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-primary rounded"></div>

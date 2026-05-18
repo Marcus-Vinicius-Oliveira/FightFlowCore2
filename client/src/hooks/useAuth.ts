@@ -28,6 +28,8 @@ export function useAuth() {
       if (apiClient.isAuthenticated()) {
         const userData = apiClient.getCurrentUserFromStorage();
         setUser(userData);
+      } else {
+        setUser(null);
       }
       setIsLoading(false);
     };
@@ -42,13 +44,17 @@ export function useAuth() {
       });
     };
 
+    // Sync all hook instances when login/signup happens in another instance
+    const handleAuthLogin = () => checkAuth();
+
     checkAuth();
-    
-    // Listen for unauthorized events
+
     window.addEventListener('auth:unauthorized', handleUnauthorized as EventListener);
-    
+    window.addEventListener('auth:login', handleAuthLogin);
+
     return () => {
       window.removeEventListener('auth:unauthorized', handleUnauthorized as EventListener);
+      window.removeEventListener('auth:login', handleAuthLogin);
     };
   }, [toast]);
 
@@ -56,6 +62,7 @@ export function useAuth() {
     mutationFn: (credentials: LoginData) => apiClient.login(credentials),
     onSuccess: (response) => {
       setUser(response.user);
+      window.dispatchEvent(new CustomEvent('auth:login'));
       toast({
         title: 'Bem-vindo de volta!',
         description: `Logado como ${response.user.name}`,
@@ -74,6 +81,7 @@ export function useAuth() {
     mutationFn: (userData: SignupData) => apiClient.signup(userData),
     onSuccess: (response) => {
       setUser(response.user);
+      window.dispatchEvent(new CustomEvent('auth:login'));
       toast({
         title: 'Conta Criada!',
         description: `Bem-vindo ao Fight Club App, ${response.user.name}`,

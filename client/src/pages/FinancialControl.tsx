@@ -208,7 +208,7 @@ export default function FinancialControl() {
     <div className="max-w-none w-full space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Controle Financeiro</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Controle Financeiro</h1>
         <p className="text-muted-foreground mt-2">
           Gerencie pagamentos, mensalidades e acompanhe a saúde financeira da academia
         </p>
@@ -318,6 +318,8 @@ export default function FinancialControl() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="overflow-x-auto">
+            <div className="min-w-[640px]">
           <Table>
             <TableHeader>
               <TableRow>
@@ -386,6 +388,8 @@ export default function FinancialControl() {
               )}
             </TableBody>
           </Table>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
