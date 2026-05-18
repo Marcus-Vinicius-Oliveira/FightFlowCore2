@@ -37,6 +37,7 @@ import SettingsPage from "@/pages/Settings";
 import SalesPipeline from "@/pages/SalesPipeline";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { BottomNav } from "@/components/BottomNav";
 
 function Router() {
   return (
@@ -180,10 +181,12 @@ function AppWithAuthentication() {
     return <AuthenticatedRedirect />;
   }
 
+  const isAdminRole = user?.role === 'ADMIN_ACADEMIA' || user?.role === 'PROFESSOR';
+
   return (
     <SidebarProvider defaultOpen={true} style={style as React.CSSProperties}>
       <div className="flex h-dvh w-full">
-        <AppSidebar 
+        <AppSidebar
           userRole={user?.role as any}
           userInfo={{
             name: user?.name || "",
@@ -194,18 +197,25 @@ function AppWithAuthentication() {
         <div className="flex flex-col flex-1 min-w-0 w-full overflow-x-hidden">
           <header className="flex items-center justify-between p-4 border-b bg-background">
             <div className="flex items-center space-x-4">
-              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              {/* Sidebar trigger: hidden on mobile when bottom nav takes over primary navigation */}
+              <SidebarTrigger
+                data-testid="button-sidebar-toggle"
+                className={isAdminRole ? "hidden md:flex" : ""}
+              />
               <div className="text-sm text-muted-foreground hidden sm:block truncate max-w-[200px] lg:max-w-none">
                 Bem-vindo, {user?.name}
               </div>
             </div>
             <ThemeToggle />
           </header>
-          <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 p-4 md:p-8">
+          {/* pb-16 on mobile leaves room above the fixed bottom nav; none on md+ */}
+          <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 p-4 md:p-8 pb-20 md:pb-8">
             <Router />
           </main>
         </div>
       </div>
+      {/* Bottom navigation — renders only on mobile for admin/professor roles */}
+      {isAdminRole && <BottomNav />}
     </SidebarProvider>
   );
 }
