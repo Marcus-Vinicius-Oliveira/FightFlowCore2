@@ -442,7 +442,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
                   className="h-8 text-sm"
                 />
               ) : (
-                <p className="text-sm font-medium break-all">{student?.email ?? '—'}</p>
+                <p className="text-sm font-semibold text-foreground break-all">{student?.email ?? '—'}</p>
               )}
             </div>
 
@@ -459,7 +459,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
                   className="h-8 text-sm"
                 />
               ) : (
-                <p className="text-sm font-medium">{formatPhone(student?.phone) ?? '—'}</p>
+                <p className="text-sm font-semibold text-foreground">{formatPhone(student?.phone) ?? '—'}</p>
               )}
             </div>
 
@@ -477,7 +477,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
                   className="w-full border border-input rounded-md px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground h-8"
                 />
               ) : (
-                <p className="text-sm font-medium">
+                <p className="text-sm font-semibold text-foreground">
                   {formatDate(student?.dateOfBirth) ?? '—'}
                 </p>
               )}
@@ -488,7 +488,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
               <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5" /> Data de Matrícula
               </Label>
-              <p className="text-sm font-medium">{formatDate(student?.createdAt) ?? '—'}</p>
+              <p className="text-sm font-semibold text-foreground">{formatDate(student?.createdAt) ?? '—'}</p>
             </div>
           </div>
 
@@ -535,7 +535,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
                         <SelectTrigger className="flex-1 h-8 text-sm">
                           <SelectValue
                             placeholder={
-                              ranks.length === 0 && row.classTypeId ? 'Sem graduação' : 'Faixa'
+                              ranks.length === 0 && row.classTypeId ? 'Sem graduação' : 'Graduação'
                             }
                           />
                         </SelectTrigger>
@@ -604,7 +604,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
                           width="5" height="28" viewBox="0 0 5 28"
                           className="shrink-0" aria-hidden="true"
                         >
-                          <rect width="5" height="28" rx="2.5" fill={m.modalityColor} />
+                          <rect width="5" height="28" rx="2.5" fill={c1 ?? '#cbd5e1'} />
                         </svg>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold leading-tight">{m.name}</p>
