@@ -530,64 +530,85 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
                 {modalidadesForm.map(row => {
                   const ranks = getRanksForClassType(row.classTypeId);
                   return (
-                    <div key={row._key} className="flex items-center gap-2">
-                      <Select
-                        value={row.classTypeId}
-                        onValueChange={v => updateModalidade(row._key, 'classTypeId', v)}
-                      >
-                        <SelectTrigger className="flex-1 h-8 text-sm">
-                          <SelectValue placeholder="Modalidade" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {classTypes.map(ct => (
-                            <SelectItem
-                              key={ct.id}
-                              value={ct.id}
-                              disabled={usedClassTypeIds.has(ct.id) && ct.id !== row.classTypeId}
-                            >
-                              {ct.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    /*
+                      Layout mobile-first:
+                      - Outer flex: lixeira sempre à direita, alinhada ao topo
+                      - Inner grid: 1 col em mobile (selects empilhados, 100% de
+                        largura cada), 2 cols a partir de sm (lado a lado)
+                    */
+                    <div key={row._key} className="flex items-start gap-2">
 
-                      <Select
-                        value={row.rankId}
-                        onValueChange={v => updateModalidade(row._key, 'rankId', v)}
-                        disabled={!row.classTypeId || ranks.length === 0}
-                      >
-                        <SelectTrigger className="flex-1 h-8 text-sm">
-                          <SelectValue
-                            placeholder={
-                              ranks.length === 0 && row.classTypeId ? 'Sem graduação' : 'Graduação'
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ranks.map(rank => {
-                            const c1 = rank.colorClass.split('|')[0];
-                            return (
-                              <SelectItem key={rank.id} value={rank.id}>
-                                <span className="flex items-center gap-2">
-                                  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="shrink-0">
-                                    <circle cx="6" cy="6" r="6" fill={c1} />
-                                    {isLightHex(c1) && (
-                                      <circle cx="6" cy="6" r="5.5" fill="none" stroke="#d1d5db" strokeWidth="1" />
-                                    )}
-                                  </svg>
-                                  {rank.name}
-                                </span>
+                      {/* Grid responsivo para os dois selects */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 min-w-0">
+
+                        {/* Select de Modalidade */}
+                        <Select
+                          value={row.classTypeId}
+                          onValueChange={v => updateModalidade(row._key, 'classTypeId', v)}
+                        >
+                          <SelectTrigger className="h-9 text-sm w-full">
+                            <SelectValue placeholder="Modalidade" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {classTypes.map(ct => (
+                              <SelectItem
+                                key={ct.id}
+                                value={ct.id}
+                                disabled={usedClassTypeIds.has(ct.id) && ct.id !== row.classTypeId}
+                              >
+                                {ct.name}
                               </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
+                            ))}
+                          </SelectContent>
+                        </Select>
 
+                        {/*
+                          Select de Graduação
+                          [&>span]:min-w-0  → permite o span encolher abaixo
+                            do seu conteúdo (padrão flex min-width: auto
+                            impede o truncate de funcionar)
+                          [&>span]:truncate → corta com "…" antes de colidir
+                            com o ChevronDown
+                        */}
+                        <Select
+                          value={row.rankId}
+                          onValueChange={v => updateModalidade(row._key, 'rankId', v)}
+                          disabled={!row.classTypeId || ranks.length === 0}
+                        >
+                          <SelectTrigger className="h-9 text-sm w-full [&>span]:min-w-0 [&>span]:truncate">
+                            <SelectValue
+                              placeholder={
+                                ranks.length === 0 && row.classTypeId ? 'Sem graduação' : 'Graduação'
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ranks.map(rank => {
+                              const c1 = rank.colorClass.split('|')[0];
+                              return (
+                                <SelectItem key={rank.id} value={rank.id}>
+                                  <span className="flex items-center gap-2">
+                                    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="shrink-0">
+                                      <circle cx="6" cy="6" r="6" fill={c1} />
+                                      {isLightHex(c1) && (
+                                        <circle cx="6" cy="6" r="5.5" fill="none" stroke="#d1d5db" strokeWidth="1" />
+                                      )}
+                                    </svg>
+                                    {rank.name}
+                                  </span>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Lixeira: shrink-0 + self-start (topo da linha) */}
                       <Button
                         type="button"
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
+                        className="h-9 w-9 shrink-0 self-start text-destructive hover:text-destructive"
                         onClick={() => removeModalidade(row._key)}
                         title="Remover modalidade"
                       >
