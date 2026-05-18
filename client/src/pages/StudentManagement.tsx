@@ -85,6 +85,34 @@ function getModalityColor(classTypeId: string, name: string): string {
   return KNOWN_MODALITY_COLORS[key] ?? hashModalityColor(classTypeId);
 }
 
+// ─── Quick Chips ─────────────────────────────────────────────────────────────
+
+type QuickChip = "todos" | "ativos" | "inativos" | "inadimplentes";
+
+const QUICK_CHIPS: { value: QuickChip; label: string }[] = [
+  { value: "todos",          label: "Todos" },
+  { value: "ativos",         label: "Ativos" },
+  { value: "inativos",       label: "Inativos" },
+  { value: "inadimplentes",  label: "Inadimplentes" },
+];
+
+const EMPTY_ID_SET = new Set<string>();
+
+function highlightText(text: string, term: string): React.ReactNode {
+  if (!term.trim()) return text;
+  const idx = text.toLowerCase().indexOf(term.toLowerCase());
+  if (idx === -1) return text;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-yellow-200/70 dark:bg-yellow-700/40 text-current rounded-[2px] not-italic">
+        {text.slice(idx, idx + term.length)}
+      </mark>
+      {text.slice(idx + term.length)}
+    </>
+  );
+}
+
 const studentFormSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   email: z.string().email("Email inválido"),
@@ -445,6 +473,8 @@ export default function StudentManagement() {
     sortBy: "name",
     sortOrder: "asc",
   });
+  const [inadimplentesActive, setInadimplentesActive] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const { data: students = [], isLoading } = useQuery<Student[]>({
     queryKey: ['/api/students'],
@@ -468,6 +498,16 @@ export default function StudentManagement() {
   const { data: graduationSystems = [] } = useQuery<GraduationSystem[]>({
     queryKey: ['/api/graduation/systems'],
     queryFn: () => apiRequest('GET', '/api/graduation/systems').then(r => r.json()),
+  });
+
+  // Lazy: only fires when the "Inadimplentes" chip is selected
+  const { data: delinquentIds = EMPTY_ID_SET } = useQuery<Set<string>>({
+    queryKey: ['/api/payments'],
+    queryFn: () => apiRequest('GET', '/api/payments').then(r => r.json()),
+    select: (data: { studentId: string; status: string }[]) =>
+      new Set(data.filter(p => p.status === 'overdue').map(p => p.studentId)),
+    enabled: inadimplentesActive,
+    staleTime: 2 * 60 * 1000,
   });
 
   // Fix 2: pré-computa Sets por modalidade para lookups O(1) no filter
@@ -509,8 +549,11 @@ export default function StudentManagement() {
       const ranked = enrolledByModalityAndRank.get(`${filters.classTypeId}:${filters.rankId}`);
       result = result.filter(s => ranked?.has(s.id) ?? false);
     }
+    if (inadimplentesActive) {
+      result = result.filter(s => delinquentIds.has(s.id));
+    }
     return result;
-  }, [baseFiltered, filters.classTypeId, filters.rankId, enrolledByModality, enrolledByModalityAndRank]);
+  }, [baseFiltered, filters.classTypeId, filters.rankId, enrolledByModality, enrolledByModalityAndRank, inadimplentesActive, delinquentIds]);
 
   // rankId → colorClass (hex ou hex|hex)
   const rankById = useMemo(() => {
@@ -554,12 +597,34 @@ export default function StudentManagement() {
 
   const hasModalityFilter = !!filters.classTypeId;
 
+  // Derived — no separate state needed; stays in sync with the advanced filter panel
+  const activeChip: QuickChip = inadimplentesActive
+    ? "inadimplentes"
+    : filters.status === "active"   ? "ativos"
+    : filters.status === "inactive" ? "inativos"
+    : "todos";
+
+  function handleChipClick(chip: QuickChip) {
+    if (chip === "inadimplentes") {
+      setInadimplentesActive(true);
+      setFilters(f => ({ ...f, status: "all" }));
+    } else {
+      setInadimplentesActive(false);
+      setFilters(f => ({
+        ...f,
+        status: chip === "ativos" ? "active" : chip === "inativos" ? "inactive" : "all",
+      }));
+    }
+  }
+
   const handleEdit = (student: Student) => {
+    setOpenMenuId(null);
     setSelectedStudent(student);
     setShowForm(true);
   };
 
   const handleViewDetails = (student: Student) => {
+    setOpenMenuId(null);
     setViewStudent(student);
   };
 
@@ -807,6 +872,24 @@ export default function StudentManagement() {
         availableClassTypeIds={availableClassTypeIds}
       />
 
+      {/* Quick Chips */}
+      <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pb-0.5">
+        {QUICK_CHIPS.map(chip => (
+          <button
+            key={chip.value}
+            type="button"
+            onClick={() => handleChipClick(chip.value)}
+            className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium whitespace-nowrap border transition-all duration-150 ${
+              activeChip === chip.value
+                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                : "bg-background text-muted-foreground border-border hover:bg-accent hover:text-accent-foreground"
+            }`}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -877,12 +960,15 @@ export default function StudentManagement() {
                           <Link
                             to={`/dashboard/alunos/${student.id}`}
                             className={`font-semibold text-sm leading-none truncate hover:underline underline-offset-2 ${!student.active ? 'text-muted-foreground' : ''}`}
-                          >{student.name}</Link>
+                          >{highlightText(student.name, searchTerm)}</Link>
                           <span
                             className={`h-1.5 w-1.5 rounded-full shrink-0 ${student.active ? 'bg-green-500' : 'bg-red-400'}`}
                           />
                         </div>
-                        <DropdownMenu>
+                        <DropdownMenu
+                          open={openMenuId === `m:${student.id}`}
+                          onOpenChange={(open) => setOpenMenuId(open ? `m:${student.id}` : null)}
+                        >
                           <DropdownMenuTrigger asChild>
                             <Button
                               size="sm"
@@ -895,19 +981,19 @@ export default function StudentManagement() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleViewDetails(student); }}
+                              onClick={() => handleViewDetails(student)}
                               data-testid={`button-view-student-${student.id}`}
                             >
                               <Eye className="h-4 w-4 mr-2" />Ver Detalhes
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEdit(student); }}
+                              onClick={() => handleEdit(student)}
                               data-testid={`button-edit-student-${student.id}`}
                             >
                               <Edit className="h-4 w-4 mr-2" />Editar
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setGraduateStudent(student); }}
+                              onClick={() => { setOpenMenuId(null); setGraduateStudent(student); }}
                               data-testid={`button-graduate-student-${student.id}`}
                             >
                               <Award className="h-4 w-4 mr-2 text-yellow-500" />Registrar Graduação
@@ -915,7 +1001,7 @@ export default function StudentManagement() {
                             <DropdownMenuSeparator />
                             {student.active ? (
                               <DropdownMenuItem
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteStudent(student); }}
+                                onClick={() => { setOpenMenuId(null); setDeleteStudent(student); }}
                                 className="text-destructive focus:text-destructive"
                                 data-testid={`button-deactivate-student-${student.id}`}
                               >
@@ -923,7 +1009,7 @@ export default function StudentManagement() {
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActivateStudent(student); }}
+                                onClick={() => { setOpenMenuId(null); setActivateStudent(student); }}
                                 className="text-green-600 focus:text-green-600"
                                 data-testid={`button-activate-student-${student.id}`}
                               >
@@ -931,7 +1017,7 @@ export default function StudentManagement() {
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPermanentDeleteStudent(student); }}
+                              onClick={() => { setOpenMenuId(null); setPermanentDeleteStudent(student); }}
                               className="text-destructive focus:text-destructive"
                               data-testid={`button-permanent-delete-student-${student.id}`}
                             >
@@ -994,7 +1080,7 @@ export default function StudentManagement() {
                             <Link
                               to={`/dashboard/alunos/${student.id}`}
                               className={`font-medium hover:underline underline-offset-2 ${!student.active ? 'text-muted-foreground' : ''}`}
-                            >{student.name}</Link>
+                            >{highlightText(student.name, searchTerm)}</Link>
                           </div>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
@@ -1027,7 +1113,10 @@ export default function StudentManagement() {
                           {formatDate(student.createdAt)}
                         </TableCell>
                         <TableCell className="text-right">
-                          <DropdownMenu>
+                          <DropdownMenu
+                            open={openMenuId === `d:${student.id}`}
+                            onOpenChange={(open) => setOpenMenuId(open ? `d:${student.id}` : null)}
+                          >
                             <DropdownMenuTrigger asChild>
                               <Button
                                 size="sm"
@@ -1039,19 +1128,19 @@ export default function StudentManagement() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleViewDetails(student); }}
+                                onClick={() => handleViewDetails(student)}
                                 data-testid={`button-view-student-${student.id}`}
                               >
                                 <Eye className="h-4 w-4 mr-2" />Ver Detalhes
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEdit(student); }}
+                                onClick={() => handleEdit(student)}
                                 data-testid={`button-edit-student-${student.id}`}
                               >
                                 <Edit className="h-4 w-4 mr-2" />Editar
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setGraduateStudent(student); }}
+                                onClick={() => { setOpenMenuId(null); setGraduateStudent(student); }}
                                 data-testid={`button-graduate-student-${student.id}`}
                               >
                                 <Award className="h-4 w-4 mr-2 text-yellow-500" />Registrar Graduação
@@ -1059,7 +1148,7 @@ export default function StudentManagement() {
                               <DropdownMenuSeparator />
                               {student.active ? (
                                 <DropdownMenuItem
-                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteStudent(student); }}
+                                  onClick={() => { setOpenMenuId(null); setDeleteStudent(student); }}
                                   className="text-destructive focus:text-destructive"
                                   data-testid={`button-deactivate-student-${student.id}`}
                                 >
@@ -1067,7 +1156,7 @@ export default function StudentManagement() {
                                 </DropdownMenuItem>
                               ) : (
                                 <DropdownMenuItem
-                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActivateStudent(student); }}
+                                  onClick={() => { setOpenMenuId(null); setActivateStudent(student); }}
                                   className="text-green-600 focus:text-green-600"
                                   data-testid={`button-activate-student-${student.id}`}
                                 >
@@ -1075,7 +1164,7 @@ export default function StudentManagement() {
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPermanentDeleteStudent(student); }}
+                                onClick={() => { setOpenMenuId(null); setPermanentDeleteStudent(student); }}
                                 className="text-destructive focus:text-destructive"
                                 data-testid={`button-permanent-delete-student-${student.id}`}
                               >

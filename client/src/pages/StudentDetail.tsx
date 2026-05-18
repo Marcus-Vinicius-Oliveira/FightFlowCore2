@@ -596,7 +596,7 @@ export default function StudentDetail() {
                       onValueChange={v => updateModalidade(row._key, 'rankId', v)}
                       disabled={!row.classTypeId || ranks.length === 0}
                     >
-                      <SelectTrigger className="flex-1 h-8 text-sm">
+                      <SelectTrigger className="flex-1 h-8 text-sm [&>span]:min-w-0 [&>span]:truncate">
                         <SelectValue
                           placeholder={ranks.length === 0 && row.classTypeId ? 'Sem graduação' : 'Faixa'}
                         />

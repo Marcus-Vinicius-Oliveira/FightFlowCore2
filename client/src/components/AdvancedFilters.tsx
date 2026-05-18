@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Filter, X, ArrowDown, ArrowUp, Search } from "lucide-react";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
-  SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
@@ -98,6 +98,8 @@ export function AdvancedFilters({
 }: AdvancedFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
   const isMobile = useIsMobile();
+  const mobileSearchRef = useRef<HTMLInputElement>(null);
+  const desktopSearchRef = useRef<HTMLInputElement>(null);
 
   const { data: allClassTypes = [] } = useQuery<{ id: string; name: string }[]>({
     queryKey: ["/api/classes/class-types"],
@@ -230,12 +232,23 @@ export function AdvancedFilters({
         <div className="relative md:hidden">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
+            ref={mobileSearchRef}
             placeholder="Buscar..."
             value={searchTerm ?? ""}
             onChange={(e) => onSearch(e.target.value)}
-            className="pl-9"
+            className={`pl-9 ${searchTerm ? "pr-8" : ""}`}
             data-testid="input-search-students"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              aria-label="Limpar busca"
+              onClick={() => { onSearch(""); mobileSearchRef.current?.focus(); }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       )}
 
@@ -262,27 +275,33 @@ export function AdvancedFilters({
           <SheetContent
             side={isMobile ? "bottom" : "right"}
             className={[
-              "flex flex-col p-0",
+              "flex flex-col p-0 gap-0 overflow-hidden [&>button:last-child]:hidden",
               isMobile ? "h-[88dvh] rounded-t-2xl" : "w-[380px]",
             ].join(" ")}
           >
-            <SheetHeader className="px-4 pt-5 pb-3 border-b shrink-0">
-              <div className="flex items-center justify-between">
-                <SheetTitle className="text-base">Filtros Avançados</SheetTitle>
-                {hasActiveFilters && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearAllFilters}
-                    className="text-muted-foreground h-7 text-xs gap-1 -mr-1"
-                    data-testid="button-clear-filters"
-                  >
-                    <X className="h-3 w-3" />
-                    Limpar
-                  </Button>
-                )}
-              </div>
-            </SheetHeader>
+            <div className="px-4 pt-4 pb-3 border-b shrink-0 flex items-center gap-2">
+              <SheetClose asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Fechar</span>
+                </Button>
+              </SheetClose>
+              <SheetTitle className="flex-1 text-base text-center">Filtros Avançados</SheetTitle>
+              {hasActiveFilters ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearAllFilters}
+                  className="text-muted-foreground h-7 text-xs gap-1 shrink-0"
+                  data-testid="button-clear-filters"
+                >
+                  <X className="h-3 w-3" />
+                  Limpar
+                </Button>
+              ) : (
+                <div className="h-8 w-8 shrink-0" />
+              )}
+            </div>
 
             {/* Scrollable filter form */}
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
@@ -370,8 +389,8 @@ export function AdvancedFilters({
                 </div>
               )}
 
-              {/* Faixa — com swatch de cor */}
-              <div className="space-y-2">
+              {/* Faixa — com swatch de cor — oculta quando há modalidade selecionada */}
+              {!filters.classTypeId && <div className="space-y-2">
                 <Label className="text-sm font-medium">Faixa</Label>
                 <Select
                   value={filters.belt || "all"}
@@ -411,7 +430,7 @@ export function AdvancedFilters({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </div>}
 
               {/* Data de Cadastro */}
               <div className="space-y-2">
@@ -512,12 +531,23 @@ export function AdvancedFilters({
           <div className="relative hidden md:block w-64 shrink-0 ml-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
+              ref={desktopSearchRef}
               placeholder="Buscar..."
               value={searchTerm ?? ""}
               onChange={(e) => onSearch(e.target.value)}
-              className="pl-9 h-9"
+              className={`pl-9 h-9 ${searchTerm ? "pr-8" : ""}`}
               data-testid="input-search-students"
             />
+            {searchTerm && (
+              <button
+                type="button"
+                aria-label="Limpar busca"
+                onClick={() => { onSearch(""); desktopSearchRef.current?.focus(); }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -526,17 +556,25 @@ export function AdvancedFilters({
 }
 
 export function applyFilters<
-  T extends { active: boolean; createdAt: string; name: string; email?: string; belt?: string | null }
+  T extends { active: boolean; createdAt: string; name: string; email?: string; belt?: string | null; phone?: string }
 >(items: T[], filters: FilterOptions, searchTerm: string = ""): T[] {
   let result = [...items];
 
   if (searchTerm.trim()) {
-    const term = searchTerm.toLowerCase();
-    result = result.filter(
-      (item) =>
-        item.name.toLowerCase().includes(term) ||
-        (item.email != null && item.email.toLowerCase().includes(term))
-    );
+    const raw = searchTerm.trim();
+    const tokens = raw.toLowerCase().split(/\s+/).filter(Boolean);
+    const digits = raw.replace(/\D/g, '');
+
+    result = result.filter((item) => {
+      const nameWords = item.name.toLowerCase().split(/\s+/);
+      // Every token must match the start of at least one word in the name
+      const nameMatch = tokens.every(t => nameWords.some(w => w.startsWith(t)));
+      // Every token must appear somewhere in the email
+      const emailMatch = item.email != null && tokens.every(t => item.email!.toLowerCase().includes(t));
+      // Digit sequence must appear in the phone (strips formatting on both sides)
+      const phoneMatch = digits.length > 0 && item.phone != null && item.phone.replace(/\D/g, '').includes(digits);
+      return nameMatch || emailMatch || phoneMatch;
+    });
   }
 
   if (filters.status !== "all") {
