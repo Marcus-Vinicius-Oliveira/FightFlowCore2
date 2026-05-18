@@ -18,8 +18,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
 import { AdvancedFilters, FilterOptions, applyFilters } from "@/components/AdvancedFilters";
 import { AddStudentDialog } from "@/components/AddStudentDialog";
-import { BeltBadge, BeltBar, isLightHex } from "@/components/BeltBadge";
+import { BeltBar, isLightHex } from "@/components/BeltBadge";
 import { GraduationDialog } from "@/components/GraduationDialog";
+import { StudentDetailDialog } from "@/components/StudentDetailDialog";
 import { invalidateAfterStudentChange } from "@/lib/cache-helpers";
 
 interface Student {
@@ -790,78 +791,11 @@ export default function StudentManagement() {
           </AlertDialogContent>
         </AlertDialog>
 
-        <Dialog open={!!viewStudent} onOpenChange={(open) => !open && setViewStudent(undefined)}>
-          <DialogContent className="max-w-md" onCloseAutoFocus={(e) => e.preventDefault()}>
-            <DialogHeader>
-              <DialogTitle>Detalhes do Aluno</DialogTitle>
-              <DialogDescription>
-                Informações completas de {viewStudent?.name}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Nome</Label>
-                <div className="p-2 bg-muted rounded-md text-sm">
-                  {viewStudent?.name}
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Email</Label>
-                <div className="p-2 bg-muted rounded-md text-sm flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  {viewStudent?.email}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Telefone</Label>
-                <div className="p-2 bg-muted rounded-md text-sm flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  {formatPhone(viewStudent?.phone)}
-                </div>
-              </div>
-
-              {viewStudent?.dateOfBirth && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Data de Nascimento</Label>
-                  <div className="p-2 bg-muted rounded-md text-sm">
-                    {new Date(viewStudent.dateOfBirth).toLocaleDateString('pt-BR')}
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Graduação</Label>
-                <div className="p-2 bg-muted rounded-md text-sm">
-                  <BeltBadge belt={viewStudent?.belt} />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Status</Label>
-                <div className="p-2 bg-muted rounded-md text-sm">
-                  <Badge variant={viewStudent?.active ? "default" : "secondary"}>
-                    {viewStudent?.active ? "Ativo" : "Inativo"}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Data de Cadastro</Label>
-                <div className="p-2 bg-muted rounded-md text-sm flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  {viewStudent && formatDate(viewStudent.createdAt)}
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <Button variant="outline" onClick={() => setViewStudent(undefined)}>
-                Fechar
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <StudentDetailDialog
+          student={viewStudent}
+          open={!!viewStudent}
+          onOpenChange={(open) => !open && setViewStudent(undefined)}
+        />
       </div>
 
       {/* Search + Filters (mobile-first: search on top, filter bar below) */}

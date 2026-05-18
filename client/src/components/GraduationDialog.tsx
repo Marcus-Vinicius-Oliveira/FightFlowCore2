@@ -5,29 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Award, ChevronRight } from "lucide-react";
+import { Award, Check, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { BeltBadge, BeltBar } from "@/components/BeltBadge";
+import { BeltBar } from "@/components/BeltBadge";
 
 interface GraduationStudent {
   id: string;
   name: string;
-  belt?: string | null;
-}
-
-// ─── Legacy belt list (fallback when no graduation system is configured) ───────
-const BELTS = [
-  "branca", "cinza", "amarela", "laranja", "verde",
-  "azul", "roxa", "marrom", "preta", "coral", "vermelha",
-];
-
-interface BeltHistoryEntry {
-  id: string;
-  beltBefore: string | null;
-  beltAfter: string;
-  promotedAt: string;
-  notes: string | null;
 }
 
 interface GraduationRank {
@@ -66,65 +51,60 @@ interface GraduationDialogProps {
 
 function RankBadge({ rank }: { rank: Pick<GraduationRank, 'name' | 'colorClass'> }) {
   return (
-    <span className="inline-flex items-center gap-2 min-w-0">
-      <BeltBar color={rank.colorClass} name={rank.name} width={40} height={10} />
-      <span className="text-xs font-medium truncate">{rank.name}</span>
+    <span className="inline-flex items-center gap-2.5 min-w-0">
+      <BeltBar color={rank.colorClass} name={rank.name} width={36} height={10} />
+      <span className="text-sm font-medium leading-tight">{rank.name}</span>
     </span>
   );
 }
 
 export function GraduationDialog({ student, open, onOpenChange }: GraduationDialogProps) {
-  const [mode, setMode] = useState<'modality' | 'legacy'>('modality');
   const [selectedClassTypeId, setSelectedClassTypeId] = useState('');
   const [selectedRankId, setSelectedRankId] = useState('');
-  const [beltAfter, setBeltAfter] = useState('');
   const [notes, setNotes] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Load graduation systems (with ranks)
   const { data: systems = [] } = useQuery<GraduationSystem[]>({
     queryKey: ['/api/graduation/systems'],
     queryFn: () => apiRequest('GET', '/api/graduation/systems').then(r => r.json()),
     enabled: open,
   });
 
-  // Load class types for labels
   const { data: classTypes = [] } = useQuery<ClassType[]>({
     queryKey: ['/api/classes/class-types'],
     enabled: open,
   });
 
-  // Legacy belt history
-  const { data: beltHistory = [] } = useQuery<BeltHistoryEntry[]>({
-    queryKey: ['/api/students', student?.id, 'belt-history'],
-    queryFn: () => apiRequest('GET', `/api/students/${student!.id}/belt-history`).then(r => r.json()),
-    enabled: open && !!student?.id && mode === 'legacy',
+  // Faixas atuais do aluno por modalidade
+  const { data: currentModalityRanks = [] } = useQuery<{ classTypeId: string; rankId: string }[]>({
+    queryKey: ['/api/students', student?.id, 'modality-ranks'],
+    queryFn: () => apiRequest('GET', `/api/students/${student!.id}/modality-ranks`).then(r => r.json()),
+    enabled: open && !!student?.id,
   });
 
-  // New modality rank history for selected classType
   const { data: rankHistory = [] } = useQuery<RankHistoryEntry[]>({
     queryKey: ['/api/students', student?.id, 'rank-history', selectedClassTypeId],
-    queryFn: () => apiRequest('GET', `/api/students/${student!.id}/rank-history?classTypeId=${selectedClassTypeId}`).then(r => r.json()),
-    enabled: open && !!student?.id && !!selectedClassTypeId && mode === 'modality',
+    queryFn: () =>
+      apiRequest('GET', `/api/students/${student!.id}/rank-history?classTypeId=${selectedClassTypeId}`)
+        .then(r => r.json()),
+    enabled: open && !!student?.id && !!selectedClassTypeId,
   });
 
-  const hasModalitySystems = systems.length > 0;
-
-  // Find the system for the selected classType
-  const activeSystem = systems.find(s => s.classTypeId === selectedClassTypeId);
-  const ranksForSystem = activeSystem?.ranks.sort((a, b) => a.displayOrder - b.displayOrder) ?? [];
-
-  // Build a map of rankId → rank for history display
+  // Mapa rankId → GraduationRank para lookups no histórico
   const allRanks: Record<string, GraduationRank> = {};
-  for (const sys of systems) {
-    for (const r of sys.ranks) allRanks[r.id] = r;
-  }
+  for (const sys of systems) for (const r of sys.ranks) allRanks[r.id] = r;
+
+  const activeSystem = systems.find(s => s.classTypeId === selectedClassTypeId);
+  const ranksForSystem = activeSystem?.ranks.slice().sort((a, b) => a.displayOrder - b.displayOrder) ?? [];
+
+  // Faixa atual do aluno na modalidade selecionada
+  const currentRankId = currentModalityRanks.find(r => r.classTypeId === selectedClassTypeId)?.rankId;
+  const currentRank = currentRankId ? allRanks[currentRankId] : null;
 
   const classTypeName = (id: string) => classTypes.find(c => c.id === id)?.name ?? id;
 
-  // ─── Mutation: modality graduation ─────────────────────────────────────────
-  const graduateModalityMutation = useMutation({
+  const graduateMutation = useMutation({
     mutationFn: () =>
       apiRequest('POST', `/api/students/${student!.id}/graduate-modality`, {
         classTypeId: selectedClassTypeId,
@@ -137,6 +117,7 @@ export function GraduationDialog({ student, open, onOpenChange }: GraduationDial
         description: `${student?.name} promovido(a) em ${classTypeName(selectedClassTypeId)}.`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/students', student?.id, 'modality-ranks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/students', student?.id, 'rank-history', selectedClassTypeId] });
       queryClient.invalidateQueries({ queryKey: ['/api/graduation/modality-ranks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/students/academy-modality-enrollments'] });
@@ -147,46 +128,19 @@ export function GraduationDialog({ student, open, onOpenChange }: GraduationDial
     onError: () => toast({ title: 'Erro ao registrar graduação', variant: 'destructive' }),
   });
 
-  // ─── Mutation: legacy belt graduation ──────────────────────────────────────
-  const graduateLegacyMutation = useMutation({
-    mutationFn: () =>
-      apiRequest('POST', `/api/students/${student!.id}/graduate`, { beltAfter, notes }).then(r => r.json()),
-    onSuccess: () => {
-      toast({
-        title: 'Graduação registrada!',
-        description: `${student?.name} promovido(a) para faixa ${beltAfter}.`,
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/students'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/students', student?.id, 'belt-history'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/charts'] });
-      resetForm();
-      onOpenChange(false);
-    },
-    onError: () => toast({ title: 'Erro ao registrar graduação', variant: 'destructive' }),
-  });
-
   function resetForm() {
     setSelectedClassTypeId('');
     setSelectedRankId('');
-    setBeltAfter('');
     setNotes('');
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (mode === 'modality') {
-      if (!selectedClassTypeId || !selectedRankId) return;
-      graduateModalityMutation.mutate();
-    } else {
-      if (!beltAfter) return;
-      graduateLegacyMutation.mutate();
-    }
+    if (!selectedClassTypeId || !selectedRankId) return;
+    graduateMutation.mutate();
   };
 
-  const isPending = graduateModalityMutation.isPending || graduateLegacyMutation.isPending;
-  const canSubmit = mode === 'modality'
-    ? !!(selectedClassTypeId && selectedRankId)
-    : !!beltAfter;
+  const showRankPanel = !!selectedClassTypeId;
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
@@ -198,122 +152,99 @@ export function GraduationDialog({ student, open, onOpenChange }: GraduationDial
             <Award className="h-5 w-5 text-yellow-500" />
             Registrar Graduação
           </DialogTitle>
-          <DialogDescription className="flex items-center gap-1.5 flex-wrap mt-1">
-            {student?.name}
-            {student?.belt && (
-              <>
-                {' '}— faixa atual: <BeltBadge belt={student.belt} />
-              </>
-            )}
-          </DialogDescription>
+          <DialogDescription className="mt-1">{student?.name}</DialogDescription>
         </DialogHeader>
 
-        {/* Mode toggle (only if systems exist) */}
-        {hasModalitySystems && (
-          <div className="px-6 pt-4 flex gap-2">
-            <Button
-              size="sm"
-              variant={mode === 'modality' ? 'default' : 'outline'}
-              onClick={() => setMode('modality')}
-            >
-              Por Modalidade
-            </Button>
-            <Button
-              size="sm"
-              variant={mode === 'legacy' ? 'default' : 'outline'}
-              onClick={() => setMode('legacy')}
-            >
-              Faixa Geral
-            </Button>
-          </div>
-        )}
-
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
+        {/* Corpo com scroll */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
           <form id="graduation-form" onSubmit={handleSubmit} className="space-y-4">
 
-            {/* ── MODALITY MODE ── */}
-            {mode === 'modality' && (
-              <>
-                <div className="space-y-2">
-                  <Label>Modalidade</Label>
-                  <Select
-                    value={selectedClassTypeId}
-                    onValueChange={(v) => {
-                      setSelectedClassTypeId(v);
-                      setSelectedRankId('');
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a modalidade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {systems.map(sys => (
-                        <SelectItem key={sys.id} value={sys.classTypeId ?? sys.id}>
-                          {sys.classTypeId ? classTypeName(sys.classTypeId) : sys.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {systems.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      Nenhum sistema de graduação configurado.{' '}
-                      <a href="/settings" className="underline text-primary">Criar em Configurações</a>.
-                    </p>
-                  )}
-                </div>
+            {/* Seleção de modalidade */}
+            <div className="space-y-2">
+              <Label>Modalidade</Label>
+              <Select
+                value={selectedClassTypeId}
+                onValueChange={(v) => { setSelectedClassTypeId(v); setSelectedRankId(''); }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a modalidade" />
+                </SelectTrigger>
+                <SelectContent>
+                  {systems.map(sys => (
+                    <SelectItem key={sys.id} value={sys.classTypeId ?? sys.id}>
+                      {sys.classTypeId ? classTypeName(sys.classTypeId) : sys.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {systems.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Nenhum sistema de graduação configurado.{' '}
+                  <a href="/settings" className="underline text-primary">Criar em Configurações</a>.
+                </p>
+              )}
+            </div>
 
-                {selectedClassTypeId && ranksForSystem.length > 0 && (
-                  <div className="space-y-2">
-                    <Label>Nova graduação</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {ranksForSystem.map(rank => (
+            {/* Painel de faixa atual + grade de nova graduação — surge com transição suave */}
+            <div
+              className={`space-y-4 overflow-hidden transition-all duration-300 ease-in-out ${
+                showRankPanel ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'
+              }`}
+            >
+              {/* Faixa atual na modalidade */}
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-muted/50 border">
+                <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">Faixa atual:</span>
+                {currentRank ? (
+                  <span className="flex items-center gap-2">
+                    <BeltBar color={currentRank.colorClass} name={currentRank.name} width={32} height={9} />
+                    <span className="text-sm font-medium">{currentRank.name}</span>
+                  </span>
+                ) : (
+                  <span className="text-sm text-muted-foreground italic">Sem graduação</span>
+                )}
+              </div>
+
+              {/* Grade de faixas — coluna única para evitar truncamento */}
+              {ranksForSystem.length > 0 ? (
+                <div className="space-y-2">
+                  <Label>Nova graduação</Label>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {ranksForSystem.map(rank => {
+                      const isSelected = selectedRankId === rank.id;
+                      return (
                         <button
                           key={rank.id}
                           type="button"
                           title={rank.name}
                           onClick={() => setSelectedRankId(rank.id)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all text-left ${
-                            selectedRankId === rank.id
-                              ? 'border-primary ring-2 ring-primary ring-offset-1'
-                              : 'border-border hover:border-muted-foreground'
+                          className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border-2 text-left transition-all duration-150 ${
+                            isSelected
+                              ? 'border-primary bg-primary/5 shadow-sm'
+                              : 'border-border hover:border-muted-foreground/50 hover:bg-muted/40'
                           }`}
                         >
                           <RankBadge rank={rank} />
+                          <Check
+                            className={`h-4 w-4 shrink-0 transition-opacity duration-150 ${
+                              isSelected ? 'text-primary opacity-100' : 'opacity-0'
+                            }`}
+                          />
                         </button>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                )}
-
-                {selectedClassTypeId && ranksForSystem.length === 0 && (
+                </div>
+              ) : (
+                selectedClassTypeId && (
                   <p className="text-sm text-muted-foreground italic">
-                    Nenhuma graduação configurada para esta modalidade.
-                    <a href="/settings" className="ml-1 underline text-primary">Adicionar em Configurações</a>.
+                    Nenhuma graduação configurada para esta modalidade.{' '}
+                    <a href="/settings" className="underline text-primary">Adicionar em Configurações</a>.
                   </p>
-                )}
-              </>
-            )}
+                )
+              )}
+            </div>
 
-            {/* ── LEGACY MODE ── */}
-            {mode === 'legacy' && (
-              <div className="space-y-2">
-                <Label>Nova faixa</Label>
-                <Select value={beltAfter} onValueChange={setBeltAfter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a nova faixa" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BELTS.map(belt => (
-                      <SelectItem key={belt} value={belt}>
-                        <BeltBadge belt={belt} />
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
+            {/* Observações */}
             <div className="space-y-2">
               <Label>Observações (opcional)</Label>
               <Textarea
@@ -325,10 +256,12 @@ export function GraduationDialog({ student, open, onOpenChange }: GraduationDial
             </div>
           </form>
 
-          {/* History */}
-          {mode === 'modality' && selectedClassTypeId && rankHistory.length > 0 && (
-            <div className="border-t pt-4 space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Histórico — {classTypeName(selectedClassTypeId)}</p>
+          {/* Histórico de graduações na modalidade */}
+          {selectedClassTypeId && rankHistory.length > 0 && (
+            <div className="border-t mt-4 pt-4 space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">
+                Histórico — {classTypeName(selectedClassTypeId)}
+              </p>
               <div className="space-y-2">
                 {rankHistory.map(entry => (
                   <div key={entry.id} className="flex items-center gap-2 text-sm flex-wrap">
@@ -352,27 +285,6 @@ export function GraduationDialog({ student, open, onOpenChange }: GraduationDial
               </div>
             </div>
           )}
-
-          {mode === 'legacy' && beltHistory.length > 0 && (
-            <div className="border-t pt-4 space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Histórico de faixas gerais</p>
-              <div className="space-y-2">
-                {beltHistory.map(entry => (
-                  <div key={entry.id} className="flex items-center gap-2 text-sm flex-wrap">
-                    <span className="text-muted-foreground text-xs w-20 shrink-0">
-                      {new Date(entry.promotedAt).toLocaleDateString('pt-BR')}
-                    </span>
-                    <BeltBadge belt={entry.beltBefore} />
-                    <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                    <BeltBadge belt={entry.beltAfter} />
-                    {entry.notes && (
-                      <span className="text-xs text-muted-foreground truncate max-w-[160px]">{entry.notes}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer */}
@@ -383,9 +295,9 @@ export function GraduationDialog({ student, open, onOpenChange }: GraduationDial
           <Button
             type="submit"
             form="graduation-form"
-            disabled={!canSubmit || isPending}
+            disabled={!(selectedClassTypeId && selectedRankId) || graduateMutation.isPending}
           >
-            {isPending ? 'Salvando...' : 'Confirmar Graduação'}
+            {graduateMutation.isPending ? 'Salvando...' : 'Confirmar Graduação'}
           </Button>
         </div>
 
