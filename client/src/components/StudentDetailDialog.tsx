@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogClose, DialogContent, DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -322,48 +322,72 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-lg flex flex-col max-h-[90vh] gap-0 p-0"
+        className="max-w-lg flex flex-col max-h-[90vh] gap-0 p-0 [&>button:last-child]:hidden"
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
-        {/* ── Header ──────────────────────────────────────────────────────── */}
-        <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
-          <div className="flex items-center justify-between gap-3">
-            <DialogTitle className="text-base">Detalhes do Aluno</DialogTitle>
-            <div className="flex items-center gap-2">
-              {isEditing ? (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleCancel}
-                    disabled={saveMutation.isPending}
-                    className="h-8"
-                  >
-                    <X className="h-3.5 w-3.5 mr-1.5" /> Cancelar
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={() => saveMutation.mutate()}
-                    disabled={saveMutation.isPending}
-                  >
-                    <Save className="h-3.5 w-3.5 mr-1.5" />
-                    {saveMutation.isPending ? 'Salvando...' : 'Salvar'}
-                  </Button>
-                </>
-              ) : (
+        {/*
+          ── Header ────────────────────────────────────────────────────────
+          Layout: 3 zonas em flex linha única
+            [X fechar] · [Detalhes do Aluno] · [Cancelar | Salvar / Editar]
+          O close padrão do Shadcn (absolute right-4 top-4) foi suprimido
+          via [&>button:last-child]:hidden no DialogContent acima.
+        */}
+        <div className="flex items-center gap-2 px-3 py-3 border-b shrink-0">
+
+          {/* ← Fechar — extrema esquerda, área de toque 40×40 px */}
+          <DialogClose asChild>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-10 w-10 shrink-0"
+              disabled={saveMutation.isPending}
+              title="Fechar"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Fechar</span>
+            </Button>
+          </DialogClose>
+
+          {/* Título — ocupa o espaço central */}
+          <DialogTitle className="flex-1 text-base font-semibold text-center leading-none">
+            Detalhes do Aluno
+          </DialogTitle>
+
+          {/* → Ações — extrema direita, sem invadir o close */}
+          <div className="flex items-center gap-2 shrink-0">
+            {isEditing ? (
+              <>
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-8"
-                  onClick={() => setIsEditing(true)}
+                  onClick={handleCancel}
+                  disabled={saveMutation.isPending}
+                  className="h-9"
                 >
-                  <Edit2 className="h-3.5 w-3.5 mr-1.5" /> Editar
+                  Cancelar
                 </Button>
-              )}
-            </div>
+                <Button
+                  size="sm"
+                  className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={() => saveMutation.mutate()}
+                  disabled={saveMutation.isPending}
+                >
+                  <Save className="h-3.5 w-3.5 mr-1.5" />
+                  {saveMutation.isPending ? 'Salvando...' : 'Salvar'}
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9"
+                onClick={() => setIsEditing(true)}
+              >
+                <Edit2 className="h-3.5 w-3.5 mr-1.5" /> Editar
+              </Button>
+            )}
           </div>
-        </DialogHeader>
+        </div>
 
         {/* ── Scrollable body ──────────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 min-h-0">
