@@ -149,6 +149,49 @@ router.patch('/payments/:id',
   }
 );
 
+// GET /api/academy/billing-settings — dia de vencimento das mensalidades
+router.get('/academy/billing-settings',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA']),
+  requireSameAcademy,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academy = await storage.getAcademy(req.user!.academyId!);
+      if (!academy) return res.status(404).json({ error: 'Academia não encontrada' });
+      res.json({ paymentDueDay: academy.paymentDueDay });
+    } catch (error) {
+      console.error('Get billing settings error:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+// PATCH /api/academy/billing-settings
+router.patch('/academy/billing-settings',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA']),
+  requireSameAcademy,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const schema = z.object({
+        // 1–28 para o vencimento existir em todo mês (fevereiro inclusive)
+        paymentDueDay: z.number().int().min(1, 'Dia deve ser entre 1 e 28').max(28, 'Dia deve ser entre 1 e 28'),
+      });
+      const { paymentDueDay } = schema.parse(req.body);
+
+      const updated = await storage.updateAcademy(req.user!.academyId!, { paymentDueDay });
+      if (!updated) return res.status(404).json({ error: 'Academia não encontrada' });
+      res.json({ paymentDueDay: updated.paymentDueDay });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Erro de validação', details: error.errors });
+      }
+      console.error('Update billing settings error:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
 // GET /api/membership-plans
 router.get('/membership-plans',
   authenticateToken,

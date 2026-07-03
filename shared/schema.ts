@@ -15,6 +15,7 @@ export const academies = pgTable("academies", {
   email: text("email"),
   description: text("description"),
   logo: text("logo"),
+  paymentDueDay: integer("payment_due_day").notNull().default(5), // dia fixo de vencimento das mensalidades (1–28)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
 });
@@ -29,6 +30,7 @@ export const users = pgTable("users", {
   phone: text("phone"),
   dateOfBirth: timestamp("date_of_birth"),
   belt: text("belt").default('branca'),
+  customMonthlyAmount: integer("custom_monthly_amount"), // centavos; desconto individual (bolsa/família) — null = valor do plano
   active: boolean("active").default(true),
   firstAccess: boolean("first_access").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -127,6 +129,7 @@ export const payments = pgTable("payments", {
   paidDate: timestamp("paid_date"),
   status: text("status").notNull().default('pending'), // pending, paid, overdue
   paymentMethod: text("payment_method"), // PIX, Dinheiro, Cartão de Débito, Cartão de Crédito
+  reminderSentAt: timestamp("reminder_sent_at"), // idempotência do lembrete de vencimento
   notes: text("notes"),
   updatedBy: uuid("updated_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),

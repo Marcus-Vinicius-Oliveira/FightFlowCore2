@@ -36,10 +36,12 @@ import {
   TrendingUp,
   Filter,
   Save,
-  X
+  X,
+  CalendarClock
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiClient, type Payment, type MembershipPlan, type Student } from "@/lib/api";
+import { apiRequest } from "@/lib/queryClient";
 
 interface PaymentRecord {
   id: string;
@@ -64,6 +66,8 @@ function computeStatus(p: Payment): PaymentRecord['status'] {
 export default function FinancialControl() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('todos');
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isDueDayDialogOpen, setIsDueDayDialogOpen] = useState(false);
+  const [dueDayInput, setDueDayInput] = useState('');
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
   const [detailPayment, setDetailPayment] = useState<Payment | null>(null);
   const [paymentForm, setPaymentForm] = useState({
@@ -88,6 +92,39 @@ export default function FinancialControl() {
   const { data: plansData } = useQuery<MembershipPlan[]>({
     queryKey: ['/api/membership-plans'],
   });
+
+  const { data: billingSettings } = useQuery<{ paymentDueDay: number }>({
+    queryKey: ['/api/academy/billing-settings'],
+  });
+
+  const updateDueDayMutation = useMutation({
+    mutationFn: (paymentDueDay: number) =>
+      apiRequest('PATCH', '/api/academy/billing-settings', { paymentDueDay }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/academy/billing-settings'] });
+      toast({
+        title: 'Dia de vencimento atualizado!',
+        description: 'As próximas mensalidades geradas automaticamente usarão o novo dia.',
+      });
+      setIsDueDayDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const handleSaveDueDay = () => {
+    const day = parseInt(dueDayInput, 10);
+    if (!Number.isInteger(day) || day < 1 || day > 28) {
+      toast({
+        title: 'Dia inválido',
+        description: 'Informe um dia entre 1 e 28 (para existir em todos os meses).',
+        variant: 'destructive',
+      });
+      return;
+    }
+    updateDueDayMutation.mutate(day);
+  };
 
   const updatePaymentMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Parameters<typeof apiClient.updatePayment>[1] }) =>
@@ -224,12 +261,60 @@ export default function FinancialControl() {
   return (
     <div className="max-w-none w-full space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold">Controle Financeiro</h1>
-        <p className="text-muted-foreground mt-2">
-          Gerencie pagamentos, mensalidades e acompanhe a saúde financeira da academia
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold">Controle Financeiro</h1>
+          <p className="text-muted-foreground mt-2">
+            Gerencie pagamentos, mensalidades e acompanhe a saúde financeira da academia
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setDueDayInput(String(billingSettings?.paymentDueDay ?? 5));
+            setIsDueDayDialogOpen(true);
+          }}
+          data-testid="button-due-day-settings"
+        >
+          <CalendarClock className="h-4 w-4 mr-2" />
+          Vencimento: dia {billingSettings?.paymentDueDay ?? 5}
+        </Button>
       </div>
+
+      {/* Dialog: dia de vencimento das mensalidades */}
+      <Dialog open={isDueDayDialogOpen} onOpenChange={setIsDueDayDialogOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Dia de vencimento das mensalidades</DialogTitle>
+            <DialogDescription>
+              As mensalidades são geradas automaticamente na virada do mês para todos os
+              alunos ativos, vencendo neste dia. Use um dia entre 1 e 28 para que exista
+              em todos os meses.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="due-day">Dia do mês</Label>
+            <Input
+              id="due-day"
+              type="number"
+              min={1}
+              max={28}
+              value={dueDayInput}
+              onChange={e => setDueDayInput(e.target.value)}
+              data-testid="input-due-day"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDueDayDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveDueDay} disabled={updateDueDayMutation.isPending} data-testid="button-save-due-day">
+              {updateDueDayMutation.isPending ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-3">

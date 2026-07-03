@@ -179,6 +179,8 @@ router.patch('/:id',
         dateOfBirth: z.string().optional(),
         belt: z.string().optional(),
         active: z.boolean().optional(),
+        // Desconto individual em centavos (bolsa/família); null volta ao valor do plano
+        customMonthlyAmount: z.number().int().nonnegative().nullable().optional(),
       });
 
       const updateData = updateSchema.parse(req.body);

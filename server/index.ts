@@ -5,6 +5,7 @@ import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startOverduePaymentsJob } from "./jobs/markOverduePayments";
+import { startRecurringBillingJob } from "./jobs/recurringBilling";
 import { db } from "./db";
 import { users } from "@shared/schema";
 import { isNull, or, eq, and } from "drizzle-orm";
@@ -78,6 +79,7 @@ async function backfillStudentBelts() {
 (async () => {
   await backfillStudentBelts();
   const server = await registerRoutes(app);
+  startRecurringBillingJob();
   startOverduePaymentsJob();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

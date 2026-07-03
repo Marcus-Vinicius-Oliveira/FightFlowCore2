@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import {
   Edit2, Save, X, Plus, Trash2,
-  Mail, Phone, Calendar, ShieldCheck, ShieldOff,
+  Mail, Phone, Calendar, ShieldCheck, ShieldOff, Banknote,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient as globalQueryClient } from "@/lib/queryClient";
@@ -32,6 +32,8 @@ export interface DialogStudent {
   email: string;
   phone?: string;
   dateOfBirth?: string;
+  /** Desconto individual em centavos (bolsa/família); null/undefined = valor do plano */
+  customMonthlyAmount?: number | null;
   active: boolean;
   createdAt: string;
 }
@@ -66,6 +68,8 @@ interface FormData {
   email: string;
   phone: string;
   dateOfBirth: string;
+  /** Mensalidade com desconto em reais ("150,00"); vazio = valor do plano */
+  customMonthlyAmount: string;
   active: boolean;
 }
 
@@ -145,6 +149,24 @@ function genKey() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
+function centsToBRLInput(cents?: number | null): string {
+  if (cents == null) return '';
+  return (cents / 100).toFixed(2).replace('.', ',');
+}
+
+/** "150,00" → 15000; vazio/inválido → null (volta ao valor do plano) */
+function brlInputToCents(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed.replace(/\./g, '').replace(',', '.'));
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n * 100);
+}
+
+function formatBRL(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function StudentDetailDialog({ student, open, onOpenChange }: StudentDetailDialogProps) {
@@ -178,7 +200,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
   // ── Local state ───────────────────────────────────────────────────────────
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<FormData>({
-    name: '', email: '', phone: '', dateOfBirth: '', active: true,
+    name: '', email: '', phone: '', dateOfBirth: '', customMonthlyAmount: '', active: true,
   });
   const [modalidadesForm, setModalidadesForm] = useState<ModalidadeFormRow[]>([]);
 
@@ -195,6 +217,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
       email: student.email,
       phone: student.phone ?? '',
       dateOfBirth: isoToDisplayDate(student.dateOfBirth),
+      customMonthlyAmount: centsToBRLInput(student.customMonthlyAmount),
       active: student.active,
     });
     const rankByClassType = new Map(modalityRanks.map(r => [r.classTypeId, r.rankId]));
@@ -275,6 +298,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
       email: student.email,
       phone: student.phone ?? '',
       dateOfBirth: isoToDisplayDate(student.dateOfBirth),
+      customMonthlyAmount: centsToBRLInput(student.customMonthlyAmount),
       active: student.active,
     });
     const rankByClassType = new Map(modalityRanks.map(r => [r.classTypeId, r.rankId]));
@@ -298,6 +322,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
         email: formData.email,
         phone: formData.phone || undefined,
         dateOfBirth: displayDateToISO(formData.dateOfBirth),
+        customMonthlyAmount: brlInputToCents(formData.customMonthlyAmount),
         active: formData.active,
       });
 
@@ -530,6 +555,35 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
               ) : (
                 <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
                   {formatDate(student?.dateOfBirth) ?? '—'}
+                </p>
+              )}
+            </div>
+
+            {/* Mensalidade com desconto individual */}
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Banknote className="h-3.5 w-3.5" /> Mensalidade com Desconto
+              </Label>
+              {isEditing ? (
+                <div className="space-y-1">
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Vazio = valor do plano"
+                    value={formData.customMonthlyAmount}
+                    onChange={e => setFormData(p => ({ ...p, customMonthlyAmount: e.target.value.replace(/[^\d.,]/g, '') }))}
+                    className="h-8 text-sm"
+                    data-testid="input-custom-monthly-amount"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Valor em reais (ex.: 99,90). Usado nas mensalidades geradas automaticamente; deixe vazio para cobrar o valor do plano.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
+                  {student?.customMonthlyAmount != null
+                    ? `${formatBRL(student.customMonthlyAmount)} (desconto individual)`
+                    : 'Valor do plano'}
                 </p>
               )}
             </div>
