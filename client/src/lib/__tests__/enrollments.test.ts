@@ -3,6 +3,7 @@ import {
   mergeGroupEnrollments,
   missingEnrollmentIds,
   occupancy,
+  occupancyText,
   formatDaysShort,
   groupStudentEnrollments,
   type StudentEnrollmentRecord,
@@ -73,6 +74,28 @@ describe('occupancy — rótulo e estado de lotação', () => {
     expect(occupancy(7, null)).toEqual({ label: '7', isFull: false, hasLimit: false });
     expect(occupancy(7, undefined)).toEqual({ label: '7', isFull: false, hasLimit: false });
     expect(occupancy(7, 0)).toEqual({ label: '7', isFull: false, hasLimit: false });
+  });
+});
+
+describe('occupancyText — texto de exibição da ocupação', () => {
+  it('turma com limite mostra "X/Y vagas"', () => {
+    expect(occupancyText(14, 20)).toBe('14/20 vagas');
+    expect(occupancyText(0, 20)).toBe('0/20 vagas');
+    expect(occupancyText(20, 20)).toBe('20/20 vagas');
+  });
+
+  it('turma sem limite mostra a contagem de matriculados, nunca vazio', () => {
+    expect(occupancyText(14, null)).toBe('14 alunos');
+    expect(occupancyText(14, undefined)).toBe('14 alunos');
+    expect(occupancyText(0, null)).toBe('0 alunos');
+  });
+
+  it('singular para exatamente 1 matriculado sem limite', () => {
+    expect(occupancyText(1, null)).toBe('1 aluno');
+  });
+
+  it('maxCapacity 0 é tratado como sem limite (valor inválido de cadastro)', () => {
+    expect(occupancyText(5, 0)).toBe('5 alunos');
   });
 });
 

@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
 import { ClassEnrollmentsDialog } from "@/components/ClassEnrollmentsDialog";
-import { occupancy } from "@/lib/enrollments";
+import { occupancy, occupancyText } from "@/lib/enrollments";
 
 interface ClassType {
   id: string;
@@ -807,7 +807,7 @@ export default function ClassManagement() {
                               className="cursor-pointer hover:opacity-80"
                             >
                               <Users className="h-3 w-3 mr-1" />
-                              {occ.hasLimit ? `${occ.label} vagas` : occ.label}
+                              {occupancyText(classData.enrolledCount, classData.classType?.maxCapacity)}
                             </Badge>
                           </button>
                         );

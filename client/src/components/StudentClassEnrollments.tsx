@@ -17,6 +17,7 @@ import {
   groupStudentEnrollments,
   missingEnrollmentIds,
   occupancy,
+  occupancyText,
   formatDaysShort,
   type StudentEnrollmentRecord,
 } from "@/lib/enrollments";
@@ -224,7 +225,7 @@ export function StudentClassEnrollments({ studentId, studentName }: StudentClass
                     <span className="flex items-center gap-2">
                       <span>{g.classType?.name} · {formatDaysShort(g.daysOfWeek)} {g.startTime}</span>
                       <span className="text-xs text-muted-foreground">
-                        {occ.isFull ? 'lotada' : occ.hasLimit ? `${occ.label} vagas` : ''}
+                        {occ.isFull ? 'lotada' : occupancyText(g.enrolledCount, g.classType?.maxCapacity)}
                       </span>
                     </span>
                   </SelectItem>

@@ -27,6 +27,7 @@ import {
   mergeGroupEnrollments,
   missingEnrollmentIds,
   occupancy,
+  occupancyText,
   formatDaysShort,
   type ClassEnrollmentRecord,
 } from "@/lib/enrollments";
@@ -211,7 +212,7 @@ export function ClassEnrollmentsDialog({ classData, open, onOpenChange }: ClassE
                 variant={occ.isFull ? "destructive" : "secondary"}
                 data-testid="badge-occupancy"
               >
-                {occ.hasLimit ? `${occ.label} vagas` : `${occ.label} aluno${enrolled.length === 1 ? '' : 's'}`}
+                {occupancyText(enrolled.length, classData?.classType?.maxCapacity)}
               </Badge>
             </DialogTitle>
             <DialogDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">

@@ -60,6 +60,14 @@ export function occupancy(enrolledCount: number, maxCapacity: number | null | un
   };
 }
 
+/** Texto de exibição da ocupação: "X/Y vagas" com limite, "X aluno(s)" sem limite —
+ *  nunca um número solto ou vazio, para toda turma mostrar sua ocupação real. */
+export function occupancyText(enrolledCount: number, maxCapacity: number | null | undefined): string {
+  const occ = occupancy(enrolledCount, maxCapacity);
+  if (occ.hasLimit) return `${occ.label} vagas`;
+  return `${enrolledCount} aluno${enrolledCount === 1 ? '' : 's'}`;
+}
+
 export interface StudentEnrollmentRecord {
   id: string;
   classId: string;
