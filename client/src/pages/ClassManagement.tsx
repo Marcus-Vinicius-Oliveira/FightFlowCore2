@@ -13,10 +13,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Edit, MoreHorizontal, Trash2, Eye, Clock, Calendar, FileDown, ChevronDown, X } from "lucide-react";
+import { Plus, Edit, MoreHorizontal, Trash2, Eye, Clock, Calendar, FileDown, ChevronDown, X, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
+import { ClassEnrollmentsDialog } from "@/components/ClassEnrollmentsDialog";
+import { occupancy } from "@/lib/enrollments";
 
 interface ClassType {
   id: string;
@@ -43,6 +45,7 @@ interface ClassData {
   startTime: string;
   endTime: string;
   active: boolean;
+  enrolledCount: number;
   classType?: ClassType;
   instructor?: Instructor;
   createdAt?: string;
@@ -410,6 +413,7 @@ export default function ClassManagement() {
   const [selectedClass, setSelectedClass] = useState<ClassData | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showEnrollments, setShowEnrollments] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [classToDelete, setClassToDelete] = useState<ClassData | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -529,6 +533,11 @@ export default function ClassManagement() {
   const handleViewDetails = (classData: ClassData) => {
     setSelectedClass(classData);
     setShowDetails(true);
+  };
+
+  const handleEnrollments = (classData: ClassData) => {
+    setSelectedClass(classData);
+    setShowEnrollments(true);
   };
 
   const handleDelete = (classData: ClassData) => {
@@ -755,6 +764,7 @@ export default function ClassManagement() {
                   <TableHead>Professor</TableHead>
                   <TableHead className="min-w-[160px]">Dia da Semana</TableHead>
                   <TableHead>Horário</TableHead>
+                  <TableHead>Ocupação</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
@@ -782,6 +792,28 @@ export default function ClassManagement() {
                       </div>
                     </TableCell>
                     <TableCell>
+                      {(() => {
+                        const occ = occupancy(classData.enrolledCount, classData.classType?.maxCapacity);
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => handleEnrollments(classData)}
+                            title="Ver matrículas da turma"
+                            className="inline-flex"
+                            data-testid={`button-occupancy-${classData.id}`}
+                          >
+                            <Badge
+                              variant={occ.isFull ? "destructive" : "secondary"}
+                              className="cursor-pointer hover:opacity-80"
+                            >
+                              <Users className="h-3 w-3 mr-1" />
+                              {occ.hasLimit ? `${occ.label} vagas` : occ.label}
+                            </Badge>
+                          </button>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell>
                       <Badge variant={classData.active ? "default" : "secondary"}>
                         {classData.active ? "Ativa" : "Inativa"}
                       </Badge>
@@ -798,12 +830,19 @@ export default function ClassManagement() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={() => handleViewDetails(classData)}
                             data-testid={`button-view-details-${classData.id}`}
                           >
                             <Eye className="h-4 w-4 mr-2" />
                             Ver Detalhes
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleEnrollments(classData)}
+                            data-testid={`button-enrollments-${classData.id}`}
+                          >
+                            <Users className="h-4 w-4 mr-2" />
+                            Matrículas
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => handleEdit(classData)}
@@ -860,6 +899,16 @@ export default function ClassManagement() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Enrollments Dialog */}
+      <ClassEnrollmentsDialog
+        classData={selectedClass}
+        open={showEnrollments}
+        onOpenChange={(open) => {
+          setShowEnrollments(open);
+          if (!open) setSelectedClass(null);
+        }}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

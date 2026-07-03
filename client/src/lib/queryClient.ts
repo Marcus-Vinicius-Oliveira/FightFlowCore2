@@ -16,7 +16,16 @@ async function throwIfResNotOk(res: Response) {
       throw new Error(body?.error ?? 'Sessão expirada. Faça login novamente.');
     }
     const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    // O servidor responde { error: "mensagem em pt-BR" } — mostrar a mensagem
+    // limpa no toast em vez do JSON bruto com status na frente.
+    let message = `${res.status}: ${text}`;
+    try {
+      const body = JSON.parse(text);
+      if (typeof body?.error === 'string') message = body.error;
+    } catch {
+      // corpo não é JSON — mantém o texto bruto com status
+    }
+    throw new Error(message);
   }
 }
 
