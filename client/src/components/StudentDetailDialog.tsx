@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient as globalQueryClient } from "@/lib/queryClient";
 import { invalidateAfterStudentChange } from "@/lib/cache-helpers";
 import { BeltBar, isLightHex } from "@/components/BeltBadge";
+import { StudentClassEnrollments } from "@/components/StudentClassEnrollments";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -710,6 +711,14 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
               </div>
             )}
           </div>
+
+          {/* ── Turmas (matrículas para presença) ────────────────────────── */}
+          {!isEditing && student && (
+            <>
+              <Separator />
+              <StudentClassEnrollments studentId={student.id} studentName={student.name} />
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

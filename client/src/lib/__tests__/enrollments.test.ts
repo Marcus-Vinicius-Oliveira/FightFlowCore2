@@ -4,6 +4,8 @@ import {
   missingEnrollmentIds,
   occupancy,
   formatDaysShort,
+  groupStudentEnrollments,
+  type StudentEnrollmentRecord,
 } from '../enrollments';
 
 describe('mergeGroupEnrollments — matrículas de um grupo de registros (um por dia)', () => {
@@ -71,6 +73,48 @@ describe('occupancy — rótulo e estado de lotação', () => {
     expect(occupancy(7, null)).toEqual({ label: '7', isFull: false, hasLimit: false });
     expect(occupancy(7, undefined)).toEqual({ label: '7', isFull: false, hasLimit: false });
     expect(occupancy(7, 0)).toEqual({ label: '7', isFull: false, hasLimit: false });
+  });
+});
+
+describe('groupStudentEnrollments — turmas do aluno a partir dos registros por dia', () => {
+  const rec = (over: Partial<StudentEnrollmentRecord['class']> & { classId: string }): StudentEnrollmentRecord => ({
+    id: `e-${over.classId}`,
+    classId: over.classId,
+    class: {
+      id: over.classId,
+      classTypeId: over.classTypeId ?? 'ct1',
+      classTypeName: over.classTypeName ?? 'BJJ',
+      instructorId: over.instructorId ?? 'i1',
+      instructorName: over.instructorName ?? 'Prof. João',
+      dayOfWeek: over.dayOfWeek ?? 1,
+      startTime: over.startTime ?? '19:00',
+      endTime: over.endTime ?? '20:00',
+    },
+  });
+
+  it('agrupa registros da mesma turma (modalidade+professor+horário) e junta os dias', () => {
+    const groups = groupStudentEnrollments([
+      rec({ classId: 'seg', dayOfWeek: 1 }),
+      rec({ classId: 'qua', dayOfWeek: 3 }),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].daysOfWeek).toEqual([1, 3]);
+    expect(groups[0].classIds.sort()).toEqual(['qua', 'seg']);
+  });
+
+  it('separa turmas com horários diferentes', () => {
+    const groups = groupStudentEnrollments([
+      rec({ classId: 'a', startTime: '19:00' }),
+      rec({ classId: 'b', startTime: '07:00', dayOfWeek: 2 }),
+    ]);
+    expect(groups).toHaveLength(2);
+    // ordenadas por horário de início
+    expect(groups[0].startTime).toBe('07:00');
+  });
+
+  it('ignora registros sem dados da turma (turma removida)', () => {
+    const broken = { id: 'e1', classId: 'x', class: null };
+    expect(groupStudentEnrollments([broken as unknown as StudentEnrollmentRecord])).toEqual([]);
   });
 });
 

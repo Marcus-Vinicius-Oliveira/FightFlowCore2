@@ -60,6 +60,63 @@ export function occupancy(enrolledCount: number, maxCapacity: number | null | un
   };
 }
 
+export interface StudentEnrollmentRecord {
+  id: string;
+  classId: string;
+  class: {
+    id: string;
+    classTypeId: string;
+    classTypeName?: string;
+    instructorId: string;
+    instructorName?: string;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+  } | null;
+}
+
+export interface StudentClassGroup {
+  key: string;
+  classTypeId: string;
+  classTypeName: string;
+  instructorName: string;
+  startTime: string;
+  endTime: string;
+  daysOfWeek: number[];
+  /** Registros (dias) em que o aluno está matriculado nesta turma */
+  classIds: string[];
+}
+
+/** Agrupa os registros de matrícula do aluno (um por dia) em turmas,
+ *  com a mesma chave de agrupamento usada pelo servidor. */
+export function groupStudentEnrollments(records: StudentEnrollmentRecord[]): StudentClassGroup[] {
+  const groups = new Map<string, StudentClassGroup>();
+  for (const rec of records) {
+    if (!rec.class) continue; // turma removida — registro órfão
+    const c = rec.class;
+    const key = `${c.classTypeId}|${c.instructorId}|${c.startTime}|${c.endTime}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        classTypeId: c.classTypeId,
+        classTypeName: c.classTypeName ?? '—',
+        instructorName: c.instructorName ?? '—',
+        startTime: c.startTime,
+        endTime: c.endTime,
+        daysOfWeek: [],
+        classIds: [],
+      });
+    }
+    const group = groups.get(key)!;
+    group.daysOfWeek.push(c.dayOfWeek);
+    group.classIds.push(rec.classId);
+  }
+  for (const g of Array.from(groups.values())) {
+    g.daysOfWeek.sort((a, b) => a - b);
+  }
+  return Array.from(groups.values()).sort((a, b) => a.startTime.localeCompare(b.startTime));
+}
+
 const DAY_SHORT_PT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 export function formatDaysShort(days: number[]): string {
