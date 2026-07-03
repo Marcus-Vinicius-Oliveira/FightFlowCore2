@@ -116,6 +116,30 @@ function formatDate(iso?: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 }
 
+function maskDate(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function isoToDisplayDate(iso?: string): string {
+  if (!iso) return '';
+  const d = iso.split('T')[0]; // YYYY-MM-DD
+  const [y, m, day] = d.split('-');
+  if (!y || !m || !day) return '';
+  return `${day}/${m}/${y}`;
+}
+
+function displayDateToISO(display: string): string | undefined {
+  const digits = display.replace(/\D/g, '');
+  if (digits.length !== 8) return undefined;
+  const dd = digits.slice(0, 2);
+  const mm = digits.slice(2, 4);
+  const yyyy = digits.slice(4, 8);
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function genKey() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -169,7 +193,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
       name: student.name,
       email: student.email,
       phone: student.phone ?? '',
-      dateOfBirth: student.dateOfBirth ? student.dateOfBirth.split('T')[0] : '',
+      dateOfBirth: isoToDisplayDate(student.dateOfBirth),
       active: student.active,
     });
     const rankByClassType = new Map(modalityRanks.map(r => [r.classTypeId, r.rankId]));
@@ -249,7 +273,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
       name: student.name,
       email: student.email,
       phone: student.phone ?? '',
-      dateOfBirth: student.dateOfBirth ? student.dateOfBirth.split('T')[0] : '',
+      dateOfBirth: isoToDisplayDate(student.dateOfBirth),
       active: student.active,
     });
     const rankByClassType = new Map(modalityRanks.map(r => [r.classTypeId, r.rankId]));
@@ -272,7 +296,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
         name: formData.name,
         email: formData.email,
         phone: formData.phone || undefined,
-        dateOfBirth: formData.dateOfBirth || undefined,
+        dateOfBirth: displayDateToISO(formData.dateOfBirth),
         active: formData.active,
       });
 
@@ -466,7 +490,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
                   className="h-8 text-sm"
                 />
               ) : (
-                <p className="text-sm font-semibold text-foreground break-all">{student?.email ?? '—'}</p>
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-50 break-all">{student?.email ?? '—'}</p>
               )}
             </div>
 
@@ -483,7 +507,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
                   className="h-8 text-sm"
                 />
               ) : (
-                <p className="text-sm font-semibold text-foreground">{formatPhone(student?.phone) ?? '—'}</p>
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-50">{formatPhone(student?.phone) ?? '—'}</p>
               )}
             </div>
 
@@ -493,15 +517,17 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
                 <Calendar className="h-3.5 w-3.5" /> Data de Nascimento
               </Label>
               {isEditing ? (
-                <input
-                  type="date"
-                  title="Data de Nascimento"
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="DD/MM/AAAA"
                   value={formData.dateOfBirth}
-                  onChange={e => setFormData(p => ({ ...p, dateOfBirth: e.target.value }))}
-                  className="w-full border border-input rounded-md px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground h-8"
+                  onChange={e => setFormData(p => ({ ...p, dateOfBirth: maskDate(e.target.value) }))}
+                  className="h-8 text-sm"
                 />
               ) : (
-                <p className="text-sm font-semibold text-foreground">
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
                   {formatDate(student?.dateOfBirth) ?? '—'}
                 </p>
               )}
@@ -512,7 +538,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
               <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5" /> Data de Matrícula
               </Label>
-              <p className="text-sm font-semibold text-foreground">{formatDate(student?.createdAt) ?? '—'}</p>
+              <p className="text-sm font-medium text-slate-900 dark:text-slate-50">{formatDate(student?.createdAt) ?? '—'}</p>
             </div>
           </div>
 
@@ -527,6 +553,13 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
             {isEditing ? (
               /* Repeater de edição */
               <div className="space-y-2">
+                {/* Column headers — visíveis apenas quando há linhas e em telas sm+ */}
+                {modalidadesForm.length > 0 && (
+                  <div className="hidden sm:grid sm:grid-cols-2 sm:gap-2 pr-11">
+                    <Label className="text-xs text-muted-foreground">Modalidade</Label>
+                    <Label className="text-xs text-muted-foreground">Graduação</Label>
+                  </div>
+                )}
                 {modalidadesForm.map(row => {
                   const ranks = getRanksForClassType(row.classTypeId);
                   return (
@@ -578,7 +611,11 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
                           <SelectTrigger className="h-9 text-sm w-full [&>span]:min-w-0 [&>span]:truncate">
                             <SelectValue
                               placeholder={
-                                ranks.length === 0 && row.classTypeId ? 'Sem graduação' : 'Graduação'
+                                !row.classTypeId
+                                  ? 'Graduação'
+                                  : ranks.length === 0
+                                    ? 'Sem graduação'
+                                    : 'Selecionar graduação'
                               }
                             />
                           </SelectTrigger>
@@ -639,7 +676,9 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
               <div className="space-y-2">
                 {viewModalities.length > 0 ? (
                   viewModalities.map(m => {
-                    const c1 = m.rankColor?.split('|')[0];
+                    const rankColor = m.rankColor?.split('|')[0];
+                    // Barra cinza neutra quando sem graduação; cor da faixa quando graduado
+                    const barColor = rankColor ?? '#94a3b8'; // slate-400
                     return (
                       <div
                         key={m.classTypeId}
@@ -649,11 +688,11 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
                           width="5" height="28" viewBox="0 0 5 28"
                           className="shrink-0" aria-hidden="true"
                         >
-                          <rect width="5" height="28" rx="2.5" fill={c1 ?? '#cbd5e1'} />
+                          <rect width="5" height="28" rx="2.5" fill={barColor} />
                         </svg>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold leading-tight">{m.name}</p>
-                          {c1 ? (
+                          {rankColor ? (
                             <div className="flex items-center gap-1.5 mt-1">
                               <BeltBar color={m.rankColor!} name={m.rankName!} width={26} height={8} />
                               <span className="text-xs text-muted-foreground">{m.rankName}</span>

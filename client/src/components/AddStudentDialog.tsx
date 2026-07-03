@@ -16,6 +16,35 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
+// ─── Date mask helpers ────────────────────────────────────────────────────────
+
+function maskDate(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+
+  const d1 = digits.slice(0, 2);
+  const d2 = digits.slice(2, 4);
+  const d3 = digits.slice(4, 8);
+
+  // Clamp day and month to valid ranges when the segment is complete
+  const dd = d1.length === 2
+    ? String(Math.max(1, Math.min(parseInt(d1, 10), 31))).padStart(2, '0')
+    : d1;
+  const mm = d2.length === 2
+    ? String(Math.max(1, Math.min(parseInt(d2, 10), 12))).padStart(2, '0')
+    : d2;
+
+  if (digits.length === 0) return '';
+  if (digits.length <= 2) return dd;
+  if (digits.length <= 4) return `${dd}/${mm}`;
+  return `${dd}/${mm}/${d3}`;
+}
+
+function displayDateToISO(display: string): string {
+  const digits = display.replace(/\D/g, '');
+  if (digits.length !== 8) return '';
+  return `${digits.slice(4, 8)}-${digits.slice(2, 4)}-${digits.slice(0, 2)}`;
+}
+
 interface AddStudentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -25,6 +54,7 @@ export function AddStudentDialog({ open, onOpenChange }: AddStudentDialogProps) 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedClassTypeIds, setSelectedClassTypeIds] = useState<string[]>([]);
+  const [birthDateDisplay, setBirthDateDisplay] = useState('');
 
   const { data: classTypes = [] } = useQuery<{ id: string; name: string }[]>({
     queryKey: ['/api/classes/class-types'],
@@ -58,6 +88,7 @@ export function AddStudentDialog({ open, onOpenChange }: AddStudentDialogProps) 
       invalidateAfterStudentChange(queryClient);
       queryClient.invalidateQueries({ queryKey: ['/api/students/academy-modality-enrollments'] });
       setSelectedClassTypeIds([]);
+      setBirthDateDisplay('');
       form.reset();
       onOpenChange(false);
       toast({
@@ -80,6 +111,7 @@ export function AddStudentDialog({ open, onOpenChange }: AddStudentDialogProps) 
 
   const handleCancel = () => {
     setSelectedClassTypeIds([]);
+    setBirthDateDisplay('');
     form.reset();
     onOpenChange(false);
   };
@@ -164,17 +196,20 @@ export function AddStudentDialog({ open, onOpenChange }: AddStudentDialogProps) 
               )}
             </div>
 
-            {/*
-              Input nativo type="date" sem wrapper Shadcn para garantir que
-              o seletor nativo do smartphone seja acionado corretamente.
-            */}
             <div className="space-y-2">
               <Label htmlFor="student-birthdate">Data de Nascimento (Opcional)</Label>
-              <input
+              <Input
                 id="student-birthdate"
-                type="date"
-                {...form.register("dateOfBirth")}
-                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground"
+                type="text"
+                inputMode="numeric"
+                maxLength={10}
+                placeholder="DD/MM/AAAA"
+                value={birthDateDisplay}
+                onChange={e => {
+                  const masked = maskDate(e.target.value);
+                  setBirthDateDisplay(masked);
+                  form.setValue("dateOfBirth", displayDateToISO(masked));
+                }}
                 data-testid="input-student-birthdate"
               />
               {form.formState.errors.dateOfBirth && (

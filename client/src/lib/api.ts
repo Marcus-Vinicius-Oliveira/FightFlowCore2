@@ -162,30 +162,31 @@ class ApiClient {
     return response.json();
   }
 
-  // Authentication
-  async login(credentials: LoginRequest): Promise<AuthResponse> {
-    const response = await this.request<AuthResponse>('/auth/login', {
+  // Authentication — bypass the 401 handler so credential errors don't trigger "session expired"
+  private async authFetch<T>(endpoint: string, body: unknown): Promise<T> {
+    const response = await fetch(`${API_BASE}/api${endpoint}`, {
       method: 'POST',
-      body: JSON.stringify(credentials),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || `Erro ${response.status}`);
+    }
+    return response.json();
+  }
 
-    // Store auth token
+  async login(credentials: LoginRequest): Promise<AuthResponse> {
+    const response = await this.authFetch<AuthResponse>('/auth/login', credentials);
     localStorage.setItem('auth_token', response.token);
     localStorage.setItem('user', JSON.stringify(response.user));
-
     return response;
   }
 
   async signup(userData: SignupRequest): Promise<AuthResponse> {
-    const response = await this.request<AuthResponse>('/auth/signup', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    });
-
-    // Store auth token
+    const response = await this.authFetch<AuthResponse>('/auth/signup', userData);
     localStorage.setItem('auth_token', response.token);
     localStorage.setItem('user', JSON.stringify(response.user));
-
     return response;
   }
 

@@ -51,6 +51,7 @@ interface AdvancedFiltersProps {
   onSearch?: (value: string) => void;
   availableClassTypeIds?: Set<string>;
   className?: string;
+  onSearchFocusChange?: (focused: boolean) => void;
 }
 
 function useIsMobile() {
@@ -95,6 +96,7 @@ export function AdvancedFilters({
   onSearch,
   availableClassTypeIds,
   className = "",
+  onSearchFocusChange,
 }: AdvancedFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -233,10 +235,16 @@ export function AdvancedFilters({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
             ref={mobileSearchRef}
+            type="search"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            data-lpignore="true"
             placeholder="Buscar..."
             value={searchTerm ?? ""}
             onChange={(e) => onSearch(e.target.value)}
-            className={`pl-9 ${searchTerm ? "pr-8" : ""}`}
+            onFocus={() => onSearchFocusChange?.(true)}
+            className={`pl-9 [&::-webkit-search-cancel-button]:hidden ${searchTerm ? "pr-8" : ""}`}
             data-testid="input-search-students"
           />
           {searchTerm && (
@@ -532,10 +540,15 @@ export function AdvancedFilters({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
               ref={desktopSearchRef}
+              type="search"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              data-lpignore="true"
               placeholder="Buscar..."
               value={searchTerm ?? ""}
               onChange={(e) => onSearch(e.target.value)}
-              className={`pl-9 h-9 ${searchTerm ? "pr-8" : ""}`}
+              className={`pl-9 h-9 [&::-webkit-search-cancel-button]:hidden ${searchTerm ? "pr-8" : ""}`}
               data-testid="input-search-students"
             />
             {searchTerm && (

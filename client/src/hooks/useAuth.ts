@@ -46,15 +46,18 @@ export function useAuth() {
 
     // Sync all hook instances when login/signup happens in another instance
     const handleAuthLogin = () => checkAuth();
+    const handleAuthLogout = () => setUser(null);
 
     checkAuth();
 
     window.addEventListener('auth:unauthorized', handleUnauthorized as EventListener);
     window.addEventListener('auth:login', handleAuthLogin);
+    window.addEventListener('auth:logout', handleAuthLogout);
 
     return () => {
       window.removeEventListener('auth:unauthorized', handleUnauthorized as EventListener);
       window.removeEventListener('auth:login', handleAuthLogin);
+      window.removeEventListener('auth:logout', handleAuthLogout);
     };
   }, [toast]);
 
@@ -100,6 +103,7 @@ export function useAuth() {
     apiClient.logout();
     setUser(null);
     queryClient.clear();
+    window.dispatchEvent(new CustomEvent('auth:logout'));
     toast({
       title: 'Desconectado',
       description: 'Você foi desconectado com sucesso. Até logo!',

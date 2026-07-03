@@ -1,7 +1,20 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+function dispatchUnauthorized(message?: string) {
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('user');
+  window.dispatchEvent(
+    new CustomEvent('auth:unauthorized', { detail: { message } })
+  );
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
+    if (res.status === 401) {
+      const body = await res.json().catch(() => ({}));
+      dispatchUnauthorized(body?.error);
+      throw new Error(body?.error ?? 'Sessão expirada. Faça login novamente.');
+    }
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
@@ -34,11 +47,8 @@ export async function apiRequest(
   return res;
 }
 
-type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn: <T>(options: {
-  on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
+export const getQueryFn: <T>() => QueryFunction<T> =
+  () =>
   async ({ queryKey }) => {
     // Get auth token from localStorage
     const token = localStorage.getItem('auth_token');
@@ -53,10 +63,6 @@ export const getQueryFn: <T>(options: {
       headers,
     });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
-    }
-
     await throwIfResNotOk(res);
     return await res.json();
   };
@@ -64,7 +70,7 @@ export const getQueryFn: <T>(options: {
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
+      queryFn: getQueryFn(),
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: 1000 * 60 * 5, // 5 minutes - permite invalidação funcionar corretamente

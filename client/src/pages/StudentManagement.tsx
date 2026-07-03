@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Mail, Phone, Calendar, MoreHorizontal, Trash2, Eye, UserX, UserCheck, Award, GraduationCap } from "lucide-react";
+import { Plus, Edit, Mail, Phone, Calendar, MoreHorizontal, Trash2, Eye, UserX, UserCheck, Award, GraduationCap, Search, X } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -475,6 +475,12 @@ export default function StudentManagement() {
   });
   const [inadimplentesActive, setInadimplentesActive] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+
+  const handleSearchClose = () => {
+    setSearchTerm("");
+    setIsSearchFocused(false);
+  };
 
   const { data: students = [], isLoading } = useQuery<Student[]>({
     queryKey: ['/api/students'],
@@ -731,6 +737,123 @@ export default function StudentManagement() {
   const getInitials = (name: string) =>
     name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
 
+  const renderMobileStudentCards = (studentList: Student[]) =>
+    studentList.map((student) => {
+      const modalities = studentModalityData.get(student.id) ?? [];
+      const activeModality = hasModalityFilter
+        ? modalities.find(m => m.classTypeId === filters.classTypeId)
+        : null;
+      const ringColor = activeModality?.colorClass.split('|')[0];
+      const ringNeedsBorder = ringColor ? isLightHex(ringColor) : false;
+
+      return (
+        <div
+          key={student.id}
+          className={`flex items-center gap-3 py-2.5 px-3 rounded-lg border bg-card transition-opacity ${!student.active ? 'opacity-60 shadow-none' : ''}`}
+          data-testid={`row-student-${student.id}`}
+        >
+          <Avatar
+            className="h-9 w-9 shrink-0"
+            style={ringColor ? {
+              outline: `3px solid ${ringColor}`,
+              outlineOffset: '2px',
+              boxShadow: ringNeedsBorder ? '0 0 0 4px #d1d5db' : 'none',
+            } : {}}
+          >
+            <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+              {getInitials(student.name)}
+            </AvatarFallback>
+          </Avatar>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-1">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Link
+                  to={`/dashboard/alunos/${student.id}`}
+                  className={`font-semibold text-sm leading-none truncate hover:underline underline-offset-2 ${!student.active ? 'text-muted-foreground' : ''}`}
+                >{highlightText(student.name, searchTerm)}</Link>
+                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${student.active ? 'bg-green-500' : 'bg-red-400'}`} />
+              </div>
+              <DropdownMenu
+                open={openMenuId === `m:${student.id}`}
+                onOpenChange={(open) => setOpenMenuId(open ? `m:${student.id}` : null)}
+              >
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 p-0 shrink-0"
+                    data-testid={`button-student-actions-${student.id}`}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleViewDetails(student)} data-testid={`button-view-student-${student.id}`}>
+                    <Eye className="h-4 w-4 mr-2" />Ver Detalhes
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleEdit(student)} data-testid={`button-edit-student-${student.id}`}>
+                    <Edit className="h-4 w-4 mr-2" />Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setOpenMenuId(null); setGraduateStudent(student); }} data-testid={`button-graduate-student-${student.id}`}>
+                    <Award className="h-4 w-4 mr-2 text-yellow-500" />Registrar Graduação
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {student.active ? (
+                    <DropdownMenuItem
+                      onClick={() => { setOpenMenuId(null); setDeleteStudent(student); }}
+                      className="text-destructive focus:text-destructive"
+                      data-testid={`button-deactivate-student-${student.id}`}
+                    >
+                      <UserX className="h-4 w-4 mr-2" />Desativar
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      onClick={() => { setOpenMenuId(null); setActivateStudent(student); }}
+                      className="text-green-600 focus:text-green-600"
+                      data-testid={`button-activate-student-${student.id}`}
+                    >
+                      <UserCheck className="h-4 w-4 mr-2" />Reativar
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={() => { setOpenMenuId(null); setPermanentDeleteStudent(student); }}
+                    className="text-destructive focus:text-destructive"
+                    data-testid={`button-permanent-delete-student-${student.id}`}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />Excluir
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            <div className="flex items-center gap-3 mt-0.5">
+              {student.phone && (
+                <span className="text-xs text-muted-foreground">{formatPhone(student.phone)}</span>
+              )}
+              <span className="text-xs text-muted-foreground">{formatDate(student.createdAt)}</span>
+            </div>
+
+            {!hasModalityFilter && modalities.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {modalities.map(m => (
+                  <span
+                    key={m.classTypeId}
+                    className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${student.active ? 'bg-muted' : 'bg-muted/40 text-muted-foreground'}`}
+                  >
+                    <svg width="8" height="8" viewBox="0 0 8 8" className="shrink-0" aria-hidden="true">
+                      <circle cx="4" cy="4" r="4" fill={student.active ? m.modalityColor : '#9ca3af'} />
+                    </svg>
+                    {m.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    });
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -756,7 +879,10 @@ export default function StudentManagement() {
             Gerencie todos os alunos da sua academia
           </p>
         </div>
-        <Button onClick={() => setShowAddStudentDialog(true)} data-testid="button-add-student">
+        <Button
+          onClick={() => setShowAddStudentDialog(true)}
+          data-testid="button-add-student"
+        >
           <Plus className="mr-2 h-4 w-4" />
           Adicionar Novo Aluno
         </Button>
@@ -870,6 +996,7 @@ export default function StudentManagement() {
         searchTerm={searchTerm}
         onSearch={setSearchTerm}
         availableClassTypeIds={availableClassTypeIds}
+        onSearchFocusChange={setIsSearchFocused}
       />
 
       {/* Quick Chips */}
@@ -922,139 +1049,7 @@ export default function StudentManagement() {
             <>
             {/* ── MOBILE: cards (< md) ─────────────────────────────────── */}
             <div className="md:hidden space-y-1.5">
-              {filteredStudents.map((student) => {
-                const modalities = studentModalityData.get(student.id) ?? [];
-
-                // Quando há filtro de modalidade: mostra a cor da faixa naquela luta
-                // como anel colorido no Avatar em vez de chips
-                const activeModality = hasModalityFilter
-                  ? modalities.find(m => m.classTypeId === filters.classTypeId)
-                  : null;
-                const ringColor = activeModality?.colorClass.split('|')[0];
-                const ringNeedsBorder = ringColor ? isLightHex(ringColor) : false;
-
-                return (
-                  <div
-                    key={student.id}
-                    className={`flex items-center gap-3 py-2.5 px-3 rounded-lg border bg-card transition-opacity ${!student.active ? 'opacity-60 shadow-none' : ''}`}
-                    data-testid={`row-student-${student.id}`}
-                  >
-                    {/* Avatar — anel colorido pela faixa quando filtro de modalidade ativo */}
-                    <Avatar
-                      className="h-9 w-9 shrink-0"
-                      style={ringColor ? {
-                        outline: `3px solid ${ringColor}`,
-                        outlineOffset: '2px',
-                        boxShadow: ringNeedsBorder ? '0 0 0 4px #d1d5db' : 'none',
-                      } : {}}
-                    >
-                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-                        {getInitials(student.name)}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    <div className="flex-1 min-w-0">
-                      {/* Linha 1: Nome + ponto de status + menu */}
-                      <div className="flex items-center justify-between gap-1">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <Link
-                            to={`/dashboard/alunos/${student.id}`}
-                            className={`font-semibold text-sm leading-none truncate hover:underline underline-offset-2 ${!student.active ? 'text-muted-foreground' : ''}`}
-                          >{highlightText(student.name, searchTerm)}</Link>
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full shrink-0 ${student.active ? 'bg-green-500' : 'bg-red-400'}`}
-                          />
-                        </div>
-                        <DropdownMenu
-                          open={openMenuId === `m:${student.id}`}
-                          onOpenChange={(open) => setOpenMenuId(open ? `m:${student.id}` : null)}
-                        >
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 w-7 p-0 shrink-0"
-                              data-testid={`button-student-actions-${student.id}`}
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => handleViewDetails(student)}
-                              data-testid={`button-view-student-${student.id}`}
-                            >
-                              <Eye className="h-4 w-4 mr-2" />Ver Detalhes
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleEdit(student)}
-                              data-testid={`button-edit-student-${student.id}`}
-                            >
-                              <Edit className="h-4 w-4 mr-2" />Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => { setOpenMenuId(null); setGraduateStudent(student); }}
-                              data-testid={`button-graduate-student-${student.id}`}
-                            >
-                              <Award className="h-4 w-4 mr-2 text-yellow-500" />Registrar Graduação
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {student.active ? (
-                              <DropdownMenuItem
-                                onClick={() => { setOpenMenuId(null); setDeleteStudent(student); }}
-                                className="text-destructive focus:text-destructive"
-                                data-testid={`button-deactivate-student-${student.id}`}
-                              >
-                                <UserX className="h-4 w-4 mr-2" />Desativar
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem
-                                onClick={() => { setOpenMenuId(null); setActivateStudent(student); }}
-                                className="text-green-600 focus:text-green-600"
-                                data-testid={`button-activate-student-${student.id}`}
-                              >
-                                <UserCheck className="h-4 w-4 mr-2" />Reativar
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem
-                              onClick={() => { setOpenMenuId(null); setPermanentDeleteStudent(student); }}
-                              className="text-destructive focus:text-destructive"
-                              data-testid={`button-permanent-delete-student-${student.id}`}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-
-                      {/* Linha 2: Telefone + Data de matrícula */}
-                      <div className="flex items-center gap-3 mt-0.5">
-                        {student.phone && (
-                          <span className="text-xs text-muted-foreground">{formatPhone(student.phone)}</span>
-                        )}
-                        <span className="text-xs text-muted-foreground">{formatDate(student.createdAt)}</span>
-                      </div>
-
-                      {/* Linha 3: chips de modalidade — apenas sem filtro de modalidade ativo */}
-                      {!hasModalityFilter && modalities.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          {modalities.map(m => (
-                            <span
-                              key={m.classTypeId}
-                              className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${student.active ? 'bg-muted' : 'bg-muted/40 text-muted-foreground'}`}
-                            >
-                              <svg width="8" height="8" viewBox="0 0 8 8" className="shrink-0" aria-hidden="true">
-                                <circle cx="4" cy="4" r="4" fill={student.active ? m.modalityColor : '#9ca3af'} />
-                              </svg>
-                              {m.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+              {renderMobileStudentCards(filteredStudents)}
             </div>
 
             {/* ── DESKTOP: tabela (≥ md) ───────────────────────────────── */}
@@ -1189,6 +1184,87 @@ export default function StudentManagement() {
         open={!!graduateStudent}
         onOpenChange={(open) => !open && setGraduateStudent(undefined)}
       />
+
+      {/* ── Full-screen search overlay — mobile only ─────────────── */}
+      {isSearchFocused && (
+        <div className="fixed inset-0 z-50 bg-background flex flex-col md:hidden">
+          {/* Search header */}
+          <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b shrink-0">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                autoFocus
+                type="search"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                data-lpignore="true"
+                placeholder="Buscar alunos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={`pl-9 [&::-webkit-search-cancel-button]:hidden ${searchTerm ? "pr-8" : ""}`}
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  aria-label="Limpar busca"
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleSearchClose}
+              className="shrink-0 text-sm font-medium text-primary px-1 py-2 active:opacity-70 transition-opacity"
+            >
+              Cancelar
+            </button>
+          </div>
+
+          {/* Quick chips */}
+          <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-4 py-2.5 border-b shrink-0">
+            {QUICK_CHIPS.map(chip => (
+              <button
+                key={chip.value}
+                type="button"
+                onClick={() => handleChipClick(chip.value)}
+                className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium whitespace-nowrap border transition-all duration-150 ${
+                  activeChip === chip.value
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : "bg-background text-muted-foreground border-border"
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Results */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="px-4 pt-3 pb-1">
+              <p className="text-xs text-muted-foreground">
+                {filteredStudents.length} de {students.length} alunos
+              </p>
+            </div>
+            {filteredStudents.length === 0 ? (
+              <div className="text-center py-12 px-4">
+                <p className="text-muted-foreground">
+                  {searchTerm
+                    ? "Nenhum aluno encontrado com esse termo."
+                    : "Nenhum aluno cadastrado ainda."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-1.5 px-4 pb-24">
+                {renderMobileStudentCards(filteredStudents)}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

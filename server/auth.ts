@@ -119,6 +119,17 @@ export async function authenticateToken(req: AuthenticatedRequest, res: Response
       return res.status(401).json({ error: 'User not found or inactive' });
     }
 
+    // If the user belongs to an academy that no longer exists in the DB
+    // (e.g. after a db:push wipe), invalidate the token immediately so the
+    // client is forced to re-authenticate instead of reaching a zombie state.
+    if (user.academyId && user.role !== 'SUPER_ADMIN') {
+      const academy = await storage.getAcademy(user.academyId);
+      if (!academy) {
+        blacklistToken(payload.jti);
+        return res.status(401).json({ error: 'Academia não encontrada. Faça login novamente.' });
+      }
+    }
+
     req.user = {
       id: user.id,
       email: user.email,

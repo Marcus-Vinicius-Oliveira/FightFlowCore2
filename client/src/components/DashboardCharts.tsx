@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BarChart, Bar, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell,
+  ResponsiveContainer,
 } from "recharts";
 import { TrendingUp, DollarSign, Award } from "lucide-react";
 import { BeltBar, BELT_HEX, isLightHex } from "@/components/BeltBadge";
@@ -48,9 +49,9 @@ type RankBar = {
   displayOrder: number;
 };
 
-// ─── Barra de progresso mobile ─────────────────────────────────────────────
-// Substitui o eixo Y do Recharts em telas pequenas.
-// Suporta bicolor (colorClass com '|').
+// ─── Barra de progresso moderna ───────────────────────────────────────────────
+// Label + contagem acima da barra; barra 100% largura com trilha cinza.
+// Suporta bicolor (colorClass com '|') com efeito de profundidade.
 function ProgressBarList({
   items,
 }: {
@@ -59,35 +60,39 @@ function ProgressBarList({
   const max = Math.max(...items.map(i => i.count), 1);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {items.map(item => {
         const cls = item.colorClass ?? item.color;
         const parts = cls.split('|');
         const c1 = parts[0];
         const c2 = parts[1] ?? null;
         const isBicolor = !!c2;
-        const pct = `${Math.max((item.count / max) * 100, 4)}%`;
-        const needsBorder = isLightHex(c1) || (c2 ? isLightHex(c2) : false);
+        const pct = Math.max((item.count / max) * 100, 3);
+        const isLight = isLightHex(c1) || (c2 ? isLightHex(c2) : false);
+        const countLabel = `${item.count} ${item.count === 1 ? 'aluno' : 'alunos'}`;
 
         return (
-          <div key={item.label}>
-            <div className="flex items-center justify-between text-xs mb-1">
-              <div className="flex items-center gap-2">
-                {/* BeltBar já suporta bicolor nativamente via string com '|' */}
-                <BeltBar color={cls} name={item.label} width={22} height={9} />
-                <span className="font-medium leading-none">{item.label}</span>
+          <div key={item.label} className="space-y-1.5">
+            {/* Linha de cabeçalho: badge + nome à esquerda, contagem à direita */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <BeltBar color={cls} name={item.label} width={24} height={10} />
+                <span className="text-sm font-semibold leading-tight truncate">{item.label}</span>
               </div>
-              <span className="tabular-nums font-semibold ml-2 shrink-0">{item.count}</span>
+              <span className="text-[11px] font-bold tabular-nums text-muted-foreground uppercase tracking-wider shrink-0">
+                {countLabel}
+              </span>
             </div>
 
-            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+            {/* Trilha + preenchimento — h-3 com cantos totalmente arredondados */}
+            <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
               {isBicolor ? (
-                // Bicolor: dois spans lado a lado dentro do wrapper proporcional
                 <div
-                  className="h-full flex rounded-full overflow-hidden"
+                  className="h-full flex rounded-full overflow-hidden transition-all duration-500 ease-out"
                   style={{
-                    width: pct,
-                    boxShadow: needsBorder ? 'inset 0 0 0 1px #d1d5db' : 'none',
+                    width: `${pct}%`,
+                    filter: isLight ? 'none' : 'saturate(1.4) brightness(1.06)',
+                    boxShadow: isLight ? 'inset 0 0 0 1px #d1d5db' : 'none',
                   }}
                 >
                   <span style={{ flex: 1, backgroundColor: c1 }} />
@@ -95,11 +100,15 @@ function ProgressBarList({
                 </div>
               ) : (
                 <div
-                  className="h-full rounded-full transition-all duration-300"
+                  className="h-full rounded-full transition-all duration-500 ease-out"
                   style={{
-                    width: pct,
+                    width: `${pct}%`,
                     backgroundColor: c1,
-                    boxShadow: needsBorder ? 'inset 0 0 0 1px #d1d5db' : 'none',
+                    // Glow externo + reflexo interno no topo para cores escuras
+                    filter: isLight ? 'none' : 'saturate(1.4) brightness(1.06)',
+                    boxShadow: isLight
+                      ? 'inset 0 0 0 1px #d1d5db'
+                      : `0 1px 4px ${c1}66, inset 0 1px 0 rgba(255,255,255,0.2)`,
                   }}
                 />
               )}
@@ -113,6 +122,22 @@ function ProgressBarList({
 
 export function DashboardCharts() {
   const [activeModality, setActiveModality] = useState('');
+
+  // Auto-scroll: âncora no topo do card de graduações
+  const graduationCardRef = useRef<HTMLDivElement>(null);
+  // Evita scroll no carregamento inicial (primeira resolução de currentModality)
+  const isFirstRender = useRef(true);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    // Só em mobile/tablet — em desktop o card está sempre visível
+    if (window.innerWidth < 1024 && graduationCardRef.current) {
+      graduationCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [activeModality]);
 
   const { data, isLoading } = useQuery<ChartsData>({
     queryKey: ['/api/dashboard/charts'],
@@ -187,8 +212,8 @@ export function DashboardCharts() {
         </CardHeader>
         <CardContent>
           {hasGrowth ? (
-            <div className="w-full min-w-0">
-              <ResponsiveContainer width="100%" height={200}>
+            <div className="w-full min-w-0 h-40 md:h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={growth} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -202,7 +227,7 @@ export function DashboardCharts() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
+            <div className="h-40 md:h-[200px] flex items-center justify-center text-sm text-muted-foreground">
               Sem novos alunos nos últimos 6 meses
             </div>
           )}
@@ -219,8 +244,8 @@ export function DashboardCharts() {
         </CardHeader>
         <CardContent>
           {hasRevenue ? (
-            <div className="w-full min-w-0">
-              <ResponsiveContainer width="100%" height={200}>
+            <div className="w-full min-w-0 h-40 md:h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={revenue} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
@@ -251,7 +276,7 @@ export function DashboardCharts() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
+            <div className="h-40 md:h-[200px] flex items-center justify-center text-sm text-muted-foreground">
               Sem pagamentos registrados nos últimos 6 meses
             </div>
           )}
@@ -260,7 +285,8 @@ export function DashboardCharts() {
 
       {/* Graduações por Modalidade */}
       {hasModality && (
-        <Card className="col-span-1 md:col-span-2 min-w-0">
+        // self-start: impede que o grid force o card a esticar na altura de vizinhos
+        <Card ref={graduationCardRef} className="col-span-1 md:col-span-2 min-w-0 self-start">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -279,71 +305,52 @@ export function DashboardCharts() {
             </div>
           </CardHeader>
           <CardContent>
-            {activeData.length > 0 ? (
-              <>
-                {/* Mobile: lista com barras de progresso — suporte bicolor */}
-                <div className="block md:hidden">
-                  <ProgressBarList
-                    items={activeData.map(e => ({
-                      label: e.rank,
-                      count: e.count,
-                      color: e.color,
-                      colorClass: e.colorClass, // preserva string completa ex: "#dc2626|#dbeafe"
-                    }))}
-                  />
-                </div>
-
-                {/* Desktop: gráfico Recharts */}
-                <div className="hidden md:block w-full min-w-0">
-                  <ResponsiveContainer
-                    width="100%"
-                    height={Math.max(160, activeData.length * 38)}
+            {/*
+              layout: detecta mudança de altura quando o conteúdo troca e anima
+              o card inteiro de forma orgânica — sem height fixo, sem overflow.
+            */}
+            <motion.div layout transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}>
+              {/*
+                mode="popLayout": o item que sai é retirado do fluxo imediatamente
+                (não empilha com o item que entra), permitindo que o layout pai
+                calcule a nova altura sem esperar o fade-out terminar.
+              */}
+              <AnimatePresence mode="popLayout" initial={false}>
+                {activeData.length > 0 ? (
+                  <motion.div
+                    key={currentModality}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
                   >
-                    <BarChart
-                      layout="vertical"
-                      data={activeData}
-                      margin={{ top: 2, right: 32, left: 8, bottom: 2 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-muted" />
-                      <XAxis
-                        type="number"
-                        allowDecimals={false}
-                        tick={{ fontSize: 11 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        type="category"
-                        dataKey="rank"
-                        tick={{ fontSize: 12, fontWeight: 500 }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={72}
-                      />
-                      <Tooltip
-                        cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }}
-                        formatter={(v: number) => [v, 'Alunos']}
-                        contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                      />
-                      <Bar dataKey="count" radius={[0, 5, 5, 0]} maxBarSize={28}>
-                        {activeData.map(entry => (
-                          <Cell
-                            key={entry.rank}
-                            fill={entry.color}
-                            stroke={isLightHex(entry.color) ? '#d1d5db' : 'none'}
-                            strokeWidth={isLightHex(entry.color) ? 1 : 0}
-                          />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </>
-            ) : (
-              <div className="h-[160px] flex items-center justify-center text-sm text-muted-foreground">
-                Nenhum aluno graduado em {currentModality}
-              </div>
-            )}
+                    {/*
+                      ProgressBarList em todos os breakpoints — altura 100% governada
+                      pelo CSS (h-auto). Sem cálculo JS, sem overflow interno.
+                    */}
+                    <ProgressBarList
+                      items={activeData.map(e => ({
+                        label: e.rank,
+                        count: e.count,
+                        color: e.color,
+                        colorClass: e.colorClass,
+                      }))}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key={`empty-${currentModality}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="flex items-center justify-center py-12 text-sm text-muted-foreground"
+                  >
+                    Nenhum aluno graduado em {currentModality}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
           </CardContent>
         </Card>
       )}

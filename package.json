@@ -16,7 +16,8 @@
     "db:migrate": "drizzle-kit migrate",
     "seed": "tsx --env-file=.env server/seeds.ts",
     "seed:demo": "tsx --env-file=.env server/seeds-demo.ts",
-    "seed:reset-alunos": "tsx --env-file=.env server/seeds-reset-alunos.ts"
+    "seed:reset-alunos": "tsx --env-file=.env server/seeds-reset-alunos.ts",
+    "seed:restore": "tsx --env-file=.env server/seeds-full-restore.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

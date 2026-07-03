@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Calendar, DollarSign, TrendingUp, UserCheck, Clock, AlertCircle } from "lucide-react";
+import { Users, Calendar, CalendarOff, DollarSign, TrendingUp, UserCheck, Clock, AlertCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 interface DashboardInfo {
@@ -51,9 +51,10 @@ interface StatCardProps {
   href?: string;
   alert?: boolean;
   compact?: boolean;
+  emptyIcon?: React.ReactNode;
 }
 
-function StatCard({ title, value, description, icon, trend, href, alert, compact }: StatCardProps) {
+function StatCard({ title, value, description, icon, trend, href, alert, compact, emptyIcon }: StatCardProps) {
   const headerCls = compact
     ? "flex flex-row items-center justify-between space-y-0 px-4 pt-3 pb-2"
     : "flex flex-row items-center justify-between space-y-0 pb-2";
@@ -78,6 +79,11 @@ function StatCard({ title, value, description, icon, trend, href, alert, compact
         >
           {value}
         </div>
+        {emptyIcon && (
+          <div className="flex justify-center pt-2 pb-1 text-slate-300">
+            {emptyIcon}
+          </div>
+        )}
         {description && (
           <p className="text-xs text-muted-foreground mt-1 leading-tight">
             {description}
@@ -195,6 +201,9 @@ export function DashboardStats() {
       icon: <Clock className="h-4 w-4" />,
       trend: attendanceRate != null
         ? { value: attendanceRate >= 70 ? "Frequência saudável" : "Frequência baixa", isPositive: attendanceRate >= 70 }
+        : undefined,
+      emptyIcon: !loading && attendanceRate == null
+        ? <CalendarOff className="h-9 w-9" />
         : undefined,
       href: "/dashboard/presenca",
     },

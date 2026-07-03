@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { useLocation } from "wouter";
+import { Redirect, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 
 interface ProtectedRouteProps {
@@ -9,61 +8,8 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, requireRole }: ProtectedRouteProps) {
   const { isAuthenticated, user, isLoading } = useAuth();
-  const [location, setLocation] = useLocation();
+  const [location] = useLocation();
 
-  useEffect(() => {
-    // If not authenticated, redirect to appropriate login page
-    if (!isLoading && !isAuthenticated) {
-      // If trying to access super admin routes, redirect to main login
-      if (location.startsWith('/superadmin/')) {
-        setLocation("/login");
-      }
-      // If trying to access portal routes, redirect to portal login
-      else if (location.startsWith('/portal/')) {
-        setLocation("/portal/login");
-      } else {
-        setLocation("/login");
-      }
-      return;
-    }
-
-    // If specific role is required and user doesn't have it, redirect
-    if (
-      !isLoading && 
-      isAuthenticated && 
-      user && 
-      requireRole && 
-      !requireRole.includes(user.role as any)
-    ) {
-      // Redirect based on user role to appropriate dashboard
-      if (user.role === 'SUPER_ADMIN') {
-        setLocation("/superadmin/dashboard");
-      } else if (user.role === 'ALUNO') {
-        setLocation("/portal/dashboard");
-      } else if (user.role === 'ADMIN_ACADEMIA' || user.role === 'PROFESSOR') {
-        setLocation("/dashboard");
-      } else {
-        // Fallback for unknown roles
-        setLocation("/login");
-      }
-      return;
-    }
-
-    // FIRST ACCESS ENFORCEMENT: If student has firstAccess=true and trying to access portal routes (except login)
-    if (
-      !isLoading &&
-      isAuthenticated &&
-      user?.role === 'ALUNO' &&
-      user.firstAccess &&
-      location.startsWith('/portal/') &&
-      location !== '/portal/login'
-    ) {
-      setLocation('/portal/login');
-      return;
-    }
-  }, [isAuthenticated, user, isLoading, requireRole, location, setLocation]);
-
-  // Show loading while checking authentication
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -75,26 +21,24 @@ export function ProtectedRoute({ children, requireRole }: ProtectedRouteProps) {
     );
   }
 
-  // Don't render if not authenticated or wrong role
-  if (!isAuthenticated || (requireRole && user && !requireRole.includes(user.role as any))) {
-    return null;
+  if (!isAuthenticated) {
+    const loginPath = location.startsWith('/portal/') ? '/portal/login' : '/login';
+    return <Redirect to={loginPath} />;
   }
 
-  // Don't render portal content if student needs to change password first
+  if (requireRole && user && !requireRole.includes(user.role as any)) {
+    if (user.role === 'SUPER_ADMIN') return <Redirect to="/superadmin/dashboard" />;
+    if (user.role === 'ALUNO') return <Redirect to="/portal/dashboard" />;
+    return <Redirect to="/dashboard" />;
+  }
+
   if (
     user?.role === 'ALUNO' &&
     user.firstAccess &&
     location.startsWith('/portal/') &&
     location !== '/portal/login'
   ) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Redirecionando para alteração de senha...</p>
-        </div>
-      </div>
-    );
+    return <Redirect to="/portal/login" />;
   }
 
   return <>{children}</>;
