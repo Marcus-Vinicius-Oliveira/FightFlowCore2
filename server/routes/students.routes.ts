@@ -264,6 +264,41 @@ router.delete('/:id/permanent',
   }
 );
 
+// GET /api/students/:id/enrollments — turmas em que o aluno está matriculado
+router.get('/:id/enrollments',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const student = await storage.getUser(req.params.id);
+      if (!student || student.academyId !== req.user!.academyId) {
+        return res.status(404).json({ error: 'Aluno não encontrado' });
+      }
+
+      const enrollmentsList = await storage.getEnrollmentsByStudentWithClass(req.params.id);
+      res.json(enrollmentsList.map(e => ({
+        id: e.id,
+        classId: e.classId,
+        startDate: e.startDate,
+        class: e.class ? {
+          id: e.class.id,
+          dayOfWeek: e.class.dayOfWeek,
+          startTime: e.class.startTime,
+          endTime: e.class.endTime,
+          active: e.class.active,
+          classTypeId: e.class.classTypeId,
+          classTypeName: e.class.classType?.name,
+          instructorId: e.class.instructorId,
+          instructorName: e.class.instructor?.name,
+        } : null,
+      })));
+    } catch (error) {
+      console.error('Get student enrollments error:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
 // GET /api/students/:id/modality-ranks
 router.get('/:id/modality-ranks',
   authenticateToken,

@@ -411,13 +411,15 @@ export type ClassGrouped = {
   /** Dias da semana (0 = Dom … 6 = Sáb), ordenados crescentemente */
   daysOfWeek: number[];
   active: boolean;
+  /** Nº de alunos distintos com matrícula ativa em qualquer registro do grupo */
+  enrolledCount: number;
   classType?: ClassType;
   instructor?: Pick<User, 'id' | 'name' | 'email'>;
 };
 
 export type EnrollmentWithRefs = Enrollment & {
   student?: User;
-  class?: Class;
+  class?: ClassWithRefs;
   membershipPlan?: MembershipPlan;
 };
 

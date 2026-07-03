@@ -117,6 +117,8 @@ export interface IStorage {
 
   // Enrollment operations
   getEnrollmentsByStudent(studentId: string): Promise<Enrollment[]>;
+  getEnrollmentsByStudentWithClass(studentId: string): Promise<EnrollmentWithRefs[]>;
+  getActiveEnrollmentPairsByAcademy(academyId: string): Promise<{ classId: string; studentId: string }[]>;
   getEnrollmentsByClass(classId: string): Promise<EnrollmentWithRefs[]>;
   getEnrollmentByStudentAndClass(studentId: string, classId: string): Promise<Enrollment | undefined>;
   createEnrollment(enrollment: InsertEnrollment): Promise<Enrollment>;
@@ -376,18 +378,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClassesByAcademyGrouped(academyId: string, filters?: ClassFilters): Promise<ClassGrouped[]> {
-    const rows = await db.query.classes.findMany({
-      where: and(
-        eq(classes.academyId, academyId),
-        eq(classes.active, true),
-        ...(filters?.classTypeId  ? [eq(classes.classTypeId,  filters.classTypeId)]            : []),
-        ...(filters?.instructorId ? [eq(classes.instructorId, filters.instructorId)]            : []),
-        ...(filters?.startTime    ? [eq(classes.startTime,    filters.startTime)]               : []),
-        ...(filters?.daysOfWeek?.length ? [inArray(classes.dayOfWeek, filters.daysOfWeek)]     : []),
-      ),
-      with: { classType: true, instructor: true },
-      orderBy: asc(classes.dayOfWeek),
-    }) as ClassWithRefs[];
+    const [rows, enrollmentPairs] = await Promise.all([
+      db.query.classes.findMany({
+        where: and(
+          eq(classes.academyId, academyId),
+          eq(classes.active, true),
+          ...(filters?.classTypeId  ? [eq(classes.classTypeId,  filters.classTypeId)]            : []),
+          ...(filters?.instructorId ? [eq(classes.instructorId, filters.instructorId)]            : []),
+          ...(filters?.startTime    ? [eq(classes.startTime,    filters.startTime)]               : []),
+          ...(filters?.daysOfWeek?.length ? [inArray(classes.dayOfWeek, filters.daysOfWeek)]     : []),
+        ),
+        with: { classType: true, instructor: true },
+        orderBy: asc(classes.dayOfWeek),
+      }) as Promise<ClassWithRefs[]>,
+      this.getActiveEnrollmentPairsByAcademy(academyId),
+    ]);
+
+    const studentsByClassId = new Map<string, Set<string>>();
+    for (const pair of enrollmentPairs) {
+      if (!studentsByClassId.has(pair.classId)) studentsByClassId.set(pair.classId, new Set());
+      studentsByClassId.get(pair.classId)!.add(pair.studentId);
+    }
 
     const filtered = rows;
 
@@ -406,6 +417,7 @@ export class DatabaseStorage implements IStorage {
           endTime: row.endTime,
           daysOfWeek: [],
           active: row.active ?? true,
+          enrolledCount: 0,
           classType: row.classType,
           instructor: row.instructor ? {
             id: row.instructor.id,
@@ -418,6 +430,16 @@ export class DatabaseStorage implements IStorage {
       group.ids.push(row.id);
       group.dayRecords.push({ id: row.id, dayOfWeek: row.dayOfWeek });
       group.daysOfWeek.push(row.dayOfWeek);
+    }
+
+    // Ocupação do grupo = alunos distintos com matrícula ativa em qualquer
+    // registro do grupo (a UI matricula em todos os dias de uma vez).
+    for (const group of Array.from(groupMap.values())) {
+      const students = new Set<string>();
+      for (const id of group.ids) {
+        studentsByClassId.get(id)?.forEach(s => students.add(s));
+      }
+      group.enrolledCount = students.size;
     }
 
     // Ordena grupos por horário de início (HH:MM — comparação lexicográfica é suficiente)
@@ -450,6 +472,22 @@ export class DatabaseStorage implements IStorage {
       .from(enrollments)
       .where(and(eq(enrollments.studentId, studentId), eq(enrollments.active, true)))
       .orderBy(desc(enrollments.startDate));
+  }
+
+  async getEnrollmentsByStudentWithClass(studentId: string): Promise<EnrollmentWithRefs[]> {
+    return db.query.enrollments.findMany({
+      where: and(eq(enrollments.studentId, studentId), eq(enrollments.active, true)),
+      with: { class: { with: { classType: true, instructor: true } } },
+      orderBy: desc(enrollments.startDate),
+    }) as Promise<EnrollmentWithRefs[]>;
+  }
+
+  async getActiveEnrollmentPairsByAcademy(academyId: string): Promise<{ classId: string; studentId: string }[]> {
+    return db
+      .select({ classId: enrollments.classId, studentId: enrollments.studentId })
+      .from(enrollments)
+      .innerJoin(classes, eq(enrollments.classId, classes.id))
+      .where(and(eq(classes.academyId, academyId), eq(enrollments.active, true)));
   }
 
   async getEnrollmentsByClass(classId: string): Promise<EnrollmentWithRefs[]> {
