@@ -10,6 +10,13 @@ import {
 
 const router = Router({ mergeParams: true });
 
+// O campo legado `present` precisa acompanhar `status` — o dashboard e os
+// seeds antigos consultam por ele. 'justificado' é ausência abonada, não
+// presença física.
+export function statusToPresent(status: 'presente' | 'falta' | 'justificado'): boolean {
+  return status === 'presente';
+}
+
 // GET /api/classes/:classId/attendance
 router.get('/',
   authenticateToken,
@@ -105,9 +112,15 @@ router.post('/',
       const dateObj = attendanceData.date;
       const existing = await storage.getAttendanceByStudentClassAndDate(attendanceData.studentId, classId, dateObj);
 
+      const present = statusToPresent(attendanceData.status);
+
       let record;
       if (existing) {
-        record = await storage.updateAttendance(existing.id, { status: attendanceData.status, notes: attendanceData.notes });
+        record = await storage.updateAttendance(existing.id, {
+          status: attendanceData.status,
+          present,
+          notes: attendanceData.notes,
+        });
       } else {
         record = await storage.createAttendance({
           studentId: attendanceData.studentId,
@@ -115,6 +128,7 @@ router.post('/',
           academyId: req.user!.academyId!,
           date: dateObj,
           status: attendanceData.status,
+          present,
           notes: attendanceData.notes,
         });
       }

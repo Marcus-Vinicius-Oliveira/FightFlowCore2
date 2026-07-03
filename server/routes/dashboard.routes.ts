@@ -93,11 +93,13 @@ router.get('/stats',
         db.select({ count: count() }).from(attendance)
           .where(and(eq(attendance.academyId, academyId), gte(attendance.date, thirtyDaysAgo))),
 
+        // `status` é a fonte de verdade — o campo legado `present` não era
+        // preenchido pela rota de presença até jul/2026 e zerava a taxa.
         db.select({ count: count() }).from(attendance)
           .where(and(
             eq(attendance.academyId, academyId),
             gte(attendance.date, thirtyDaysAgo),
-            eq(attendance.present, true),
+            eq(attendance.status, 'presente'),
           )),
 
         db.select({ count: count() }).from(classes)
