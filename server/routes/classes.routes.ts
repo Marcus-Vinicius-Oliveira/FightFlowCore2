@@ -9,8 +9,17 @@ import {
 } from "../auth";
 import { insertClassSchema, insertClassTypeSchema } from "@shared/schema";
 import { generateSchedulePDF } from "../services/schedule-pdf.service";
+import { isValidTimeFormat, findInstructorConflict } from "../lib/schedule";
 
 const router = Router();
+
+const timeField = z.string().refine(isValidTimeFormat, 'Horário deve estar no formato HH:MM (ex.: 08:30)');
+
+const timeRangeChecks = {
+  check: (data: { startTime?: string; endTime?: string }) =>
+    !data.startTime || !data.endTime || data.startTime < data.endTime,
+  message: 'Horário de término deve ser depois do horário de início',
+};
 
 // GET /api/class-types
 router.get('/class-types',
@@ -134,7 +143,10 @@ router.post('/',
   requireSameAcademy,
   async (req: AuthenticatedRequest, res) => {
     try {
-      const classData = insertClassSchema.parse({ ...req.body, academyId: req.user!.academyId });
+      const classData = insertClassSchema
+        .extend({ startTime: timeField, endTime: timeField })
+        .refine(timeRangeChecks.check, timeRangeChecks.message)
+        .parse({ ...req.body, academyId: req.user!.academyId });
 
       const instructor = await storage.getUser(classData.instructorId);
       if (!instructor || instructor.academyId !== req.user!.academyId || instructor.role !== 'PROFESSOR') {
@@ -144,6 +156,14 @@ router.post('/',
       const classType = await storage.getClassType(classData.classTypeId);
       if (!classType || classType.academyId !== req.user!.academyId) {
         return res.status(400).json({ error: 'Tipo de turma inválido ou não pertence à sua academia' });
+      }
+
+      const instructorClasses = await storage.getClassesByInstructor(classData.instructorId);
+      const conflict = findInstructorConflict(instructorClasses, classData);
+      if (conflict) {
+        return res.status(409).json({
+          error: `Conflito de horário: o professor já tem aula das ${conflict.startTime} às ${conflict.endTime} neste dia.`,
+        });
       }
 
       const newClass = await storage.createClass(classData);
@@ -251,12 +271,23 @@ router.patch('/:id',
         classTypeId: z.string().uuid().optional(),
         instructorId: z.string().uuid().optional(),
         dayOfWeek: z.number().min(0).max(6).optional(),
-        startTime: z.string().optional(),
-        endTime: z.string().optional(),
+        startTime: timeField.optional(),
+        endTime: timeField.optional(),
         active: z.boolean().optional(),
       });
 
       const updateData = updateSchema.parse(req.body);
+
+      // Valida o intervalo com os valores efetivos (novos ou existentes)
+      const effective = {
+        instructorId: updateData.instructorId ?? existingClass.instructorId,
+        dayOfWeek: updateData.dayOfWeek ?? existingClass.dayOfWeek,
+        startTime: updateData.startTime ?? existingClass.startTime,
+        endTime: updateData.endTime ?? existingClass.endTime,
+      };
+      if (!timeRangeChecks.check(effective)) {
+        return res.status(400).json({ error: timeRangeChecks.message });
+      }
 
       if (updateData.instructorId) {
         const instructor = await storage.getUser(updateData.instructorId);
@@ -270,6 +301,14 @@ router.patch('/:id',
         if (!classType || classType.academyId !== req.user!.academyId) {
           return res.status(400).json({ error: 'Tipo de turma inválido' });
         }
+      }
+
+      const instructorClasses = await storage.getClassesByInstructor(effective.instructorId);
+      const conflict = findInstructorConflict(instructorClasses, effective, [classId]);
+      if (conflict) {
+        return res.status(409).json({
+          error: `Conflito de horário: o professor já tem aula das ${conflict.startTime} às ${conflict.endTime} neste dia.`,
+        });
       }
 
       const updated = await storage.updateClass(classId, updateData);
