@@ -70,34 +70,86 @@
 Ordenação por impacto × esforço. Regras: teste antes de mexer em regra de negócio crítica; suíte + typecheck após cada mudança de dependência; commits atômicos em português.
 
 ### Etapa 0 — Baseline
-- [ ] Commitar WIP pré-existente de sessões anteriores (auth/redirect client, validação de academia órfã, seeds-restore)
-- [ ] Corrigir os 3 erros de typecheck (M6): generics do `useQuery` + `target` no tsconfig
+- [x] Commitar WIP pré-existente de sessões anteriores (auth/redirect client, validação de academia órfã, seeds-restore) — `034286e`
+- [x] Corrigir os 3 erros de typecheck (M6): generics do `useQuery` + `target` no tsconfig — `b4dc7bf`
 
 ### Etapa 1 — Segurança e dependências (C3, A1, A4)
-- [ ] `npm audit fix` (ws, express/qs, babel, rollup, yaml, brace-expansion) → rodar suíte + tsc
-- [ ] Upgrade `drizzle-orm` → 0.45.x e `drizzle-kit` → 0.31.x (SQLi high) → rodar suíte + tsc
-- [ ] Escape de HTML no `schedule-pdf.service.ts`
-- [ ] `trust proxy` em produção + `@playwright/test` para devDependencies (M10)
+- [x] `npm audit fix` (ws, express/qs, babel, rollup, yaml, brace-expansion) → suíte + tsc verdes — `4f64196`
+- [x] Upgrade `drizzle-orm` → 0.45.2 e `drizzle-kit` → 0.31.10 (SQLi high) — `4f64196`
+- [x] Upgrade `vite` 5 → 7 + `@vitejs/plugin-react` 5 (path traversal high do dev server) — `4f64196`
+- [x] Escape de HTML no `schedule-pdf.service.ts` — `fd88a29`
+- [x] `trust proxy` em produção + `@playwright/test` para devDependencies (M10) — `fd88a29`
 
 ### Etapa 2 — Regras de negócio críticas (C1, C2, M1–M4)
-- [ ] Presença: gravar `present` derivado de `status` na rota + dashboard contar por `status = 'presente'` (teste primeiro)
-- [ ] Rotas de matrícula em turma: `POST/DELETE /api/classes/:classId/enrollments` com checagem de vaga (`maxCapacity`), duplicidade e tenant (teste da lógica de capacidade primeiro)
-- [ ] Conflito de horário do professor ao criar/editar turma (helper puro `timesOverlap` — teste primeiro)
-- [ ] Validação `HH:MM` + `endTime > startTime` (Zod)
-- [ ] Job de inadimplência: cutoff = início do dia corrente (teste primeiro)
-- [ ] PATCH payments: `status: 'paid'` sem `paidDate` → default `now()`; nova coluna `payment_method`
-- [ ] FinancialControl: enviar `paymentMethod` + valor editado; "Receita do Mês" filtrada pelo mês corrente
+- [x] Presença: `present` derivado de `status` na rota + dashboard conta por `status = 'presente'` (teste primeiro) — `705d5a0`
+- [x] Rotas de matrícula em turma com vaga/duplicidade/tenant (teste de capacidade primeiro) — `e60f7f7`
+- [x] Conflito de horário do professor ao criar/editar turma (helpers puros testados) — `7bcc7bc`
+- [x] Validação `HH:MM` + `endTime > startTime` (Zod) — `7bcc7bc`
+- [x] Job de inadimplência: cutoff = início do dia corrente (teste primeiro) — `2cdb760`
+- [x] PATCH payments: `paid` sem `paidDate` → `now()`; coluna `payment_method`; índices compostos — `2cdb760`
+- [x] FinancialControl: envia `paymentMethod` + valor editado; "Receita do Mês" do mês corrente — `0b89843`
 
 ### Etapa 3 — Qualidade, performance e UX (M5, M7–M9, B3, B5)
-- [ ] Unificar queryKeys do FinancialControl no padrão `['/api/...']`
-- [ ] Remover código morto (`components/examples/`, `components/StudentManagement.tsx`)
-- [ ] Índices compostos em `payments` (schema + instrução de migração)
-- [ ] Mensagens de erro do servidor em pt-BR
-- [ ] "Ver Detalhes" funcional + loading state na página financeira
-
-### Fora de escopo desta rodada (recomendações futuras — ver §5)
-UI completa de matrícula em turmas, geração automática de mensalidades recorrentes, paginação no client, refresh tokens, senha mínima 8, RLS no Postgres.
+- [x] queryKeys do FinancialControl unificadas no padrão `['/api/...']` — `0b89843`
+- [x] Código morto removido (`components/examples/`, `components/StudentManagement.tsx`, −964 linhas) — `d0ec818`
+- [x] Índices compostos em `payments` — `2cdb760` (migração já aplicada, ver §4.2)
+- [x] Mensagens de erro do servidor em pt-BR — `1033d68`
+- [x] "Ver Detalhes" funcional + loading state na página financeira — `0b89843`
 
 ---
 
-*(§4 Execução e §5 Próximos passos são preenchidos na Fase 4.)*
+## 4. Execução — o que foi feito (Fase 4)
+
+### 4.1 Resumo executivo
+
+**11 commits atômicos**, todos com suíte de testes e typecheck verdes. Resultado:
+
+- **Vulnerabilidades: 22 → 5** (era 11 high; as 5 restantes são todas de ferramentas de desenvolvimento — vite aninhado do vitest e cadeia `@esbuild-kit` do drizzle-kit — **sem nenhuma exposição em produção**). As 3 diretas apontadas pelo relatório de dependências (drizzle-orm SQLi, ws, express/qs) estão resolvidas.
+- **3 bugs críticos de domínio corrigidos**: taxa de presença que nunca saía de 0%, impossibilidade de matricular aluno em turma (fluxo de presença quebrado) e KPIs financeiros errados/perdendo dados.
+- **Testes: 10 → 33** (helpers de presença, capacidade de turma, sobreposição de horários e corte de inadimplência — todos escritos antes do código, conforme regra).
+- **Typecheck: 3 erros → 0**. Código morto: −964 linhas.
+- **Smoke test de runtime**: servidor no ar, login real, `/api/payments` com a nova coluna, `/api/dashboard/stats` e a nova rota de matrículas respondendo corretamente.
+
+### 4.2 Migração de banco (já aplicada no banco de desenvolvimento)
+
+`npm run db:push` foi executado com sucesso (mudanças **aditivas**): coluna `payments.payment_method` (nullable) e índices `payments_status_due_date_idx` e `payments_academy_due_date_idx`. Em outros ambientes, rode `npm run db:push` após o deploy.
+
+**Rollback** (se necessário):
+```sql
+ALTER TABLE payments DROP COLUMN payment_method;
+DROP INDEX payments_status_due_date_idx;
+DROP INDEX payments_academy_due_date_idx;
+```
+
+### 4.3 Mudanças de comportamento visível (intencionais)
+
+| Mudança | Antes | Depois |
+|---|---|---|
+| Conflito de agenda | Professor podia ter 2 turmas sobrepostas | POST/PATCH de turma retorna 409 com mensagem clara |
+| Inadimplência | Mensalidade virava "atrasada" no próprio dia do vencimento | Só após o fim do dia do vencimento |
+| Marcar como pago | Meio de pagamento e valor editado eram descartados | Persistidos; `paidDate` default = hoje |
+| Receita do Mês (pág. financeira) | Somava todos os pagos de sempre | Apenas o mês corrente |
+| Ver Detalhes | Botão sem ação | Dialog com dados completos do pagamento |
+| Erros da API | Parte em inglês | Tudo em pt-BR |
+
+### 4.4 Itens deixados como recomendação (com justificativa)
+
+| Item | Justificativa |
+|---|---|
+| **UI de matrícula em turmas** | A API está pronta e testada (`/api/classes/:id/enrollments`); a UI merece um fluxo próprio desenhado com o padrão visual do app (sugestão: ação "Matricular em turma" no StudentDetailDialog e aba de alunos no ClassManagement). |
+| Vulnerabilidades dev-time restantes (5) | Exigem vitest/drizzle-kit majors futuros; zero exposição em produção. |
+| Paginação no client | Servidor já suporta `limit/offset`; client carrega listas completas — aceitável no volume atual (58 alunos), vira prioridade acima de ~500 registros. |
+| Code-splitting do bundle (1,4 MB) | `manualChunks`/`React.lazy` para recharts e páginas do superadmin; ganho relevante em mobile. |
+| Senha mínima 8 caracteres + política | Mudança de comportamento em signup — decidir junto com política de recuperação de senha. |
+| Refresh tokens / expiração menor | Token de 24h em localStorage é o design atual; migrar para refresh + cookie httpOnly é projeto próprio. |
+| Geração automática de mensalidades | Ver §5 — é a melhoria de produto de maior valor. |
+
+## 5. Próximos passos sugeridos (produto)
+
+1. **Geração automática de mensalidades recorrentes** — job que cria o próximo pagamento ao fim de cada ciclo do plano (`duration`), eliminando o cadastro manual um a um. É o maior atrito atual do financeiro.
+2. **Lembretes automáticos de vencimento** — WhatsApp/e-mail D-3 e D+1 usando o telefone já cadastrado; reduz inadimplência sem esforço do gestor.
+3. **Relatório de retenção/churn** — alunos sem presença há 14/30 dias (dados já existem em `attendance`); alerta proativo é o que mais salva receita de academia.
+4. **Ranking de assiduidade** — top alunos por presenças no mês, exibível no mural/portal; gamificação barata com dados existentes.
+5. **Check-in pelo aluno (QR code)** — o portal do aluno já existe; um QR na recepção tiraria o professor do papel de apontador.
+6. **Sugestão de graduação** — cruzar presenças acumuladas com tempo na faixa atual para sugerir candidatos a promoção por modalidade.
+7. **Dashboard de ocupação de turmas** — com matrículas agora funcionais, mostrar taxa de ocupação por turma (`enrollments`/`maxCapacity`) orienta abertura/fechamento de horários.
