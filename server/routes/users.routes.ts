@@ -46,7 +46,7 @@ router.get('/users',
       res.json(sanitized);
     } catch (error) {
       console.error('Get users error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -61,7 +61,7 @@ router.get('/student/me/belt-history',
       res.json(history);
     } catch (error) {
       console.error('Get student belt history error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -80,7 +80,7 @@ router.get('/student/me',
       res.json({ enrollments: enrollmentsList, attendance: attendanceList, payments: paymentsList });
     } catch (error) {
       console.error('Get student data error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );

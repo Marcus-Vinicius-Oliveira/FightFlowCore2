@@ -67,7 +67,7 @@ router.get('/',
       });
     } catch (error) {
       console.error('Get attendance error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -139,7 +139,7 @@ router.post('/',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Record attendance error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );

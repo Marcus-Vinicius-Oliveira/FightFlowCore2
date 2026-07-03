@@ -84,8 +84,8 @@ async function backfillStudentBelts() {
     const status = err.status || err.statusCode || 500;
     const message =
       process.env.NODE_ENV === 'production'
-        ? 'Internal Server Error'
-        : err.message || 'Internal Server Error';
+        ? 'Erro interno do servidor'
+        : err.message || 'Erro interno do servidor';
 
     res.status(status).json({ error: message });
     if (status >= 500) console.error(err);

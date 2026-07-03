@@ -43,7 +43,7 @@ router.get('/info',
       });
     } catch (error) {
       console.error('Dashboard info error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -131,7 +131,7 @@ router.get('/stats',
       });
     } catch (error) {
       console.error('Dashboard stats error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -231,7 +231,7 @@ router.get('/charts',
       });
     } catch (error) {
       console.error('Dashboard charts error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );

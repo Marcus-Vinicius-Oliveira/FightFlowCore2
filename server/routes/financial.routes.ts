@@ -38,7 +38,7 @@ router.get('/payments',
       res.json(payments);
     } catch (error) {
       console.error('Get payments error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -57,7 +57,7 @@ router.get('/payments/:id',
       res.json(payment);
     } catch (error) {
       console.error('Get payment error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -100,7 +100,7 @@ router.post('/payments',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Create payment error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -144,7 +144,7 @@ router.patch('/payments/:id',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Update payment error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -162,7 +162,7 @@ router.get('/membership-plans',
       res.json(plans);
     } catch (error) {
       console.error('Get membership plans error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -192,7 +192,7 @@ router.post('/membership-plans',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Create membership plan error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -228,7 +228,7 @@ router.patch('/membership-plans/:id',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Update membership plan error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );

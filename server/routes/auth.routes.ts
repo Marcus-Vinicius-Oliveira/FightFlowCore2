@@ -58,7 +58,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
@@ -134,7 +134,7 @@ router.post('/signup', signupLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Erro de validação', details: error.errors });
     }
     console.error('Signup error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
@@ -179,7 +179,7 @@ router.post('/change-password', authenticateToken, async (req: AuthenticatedRequ
       return res.status(400).json({ error: 'Erro de validação', details: error.errors });
     }
     console.error('Password change error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
@@ -213,7 +213,7 @@ router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
     });
   } catch (error) {
     console.error('Get user error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 

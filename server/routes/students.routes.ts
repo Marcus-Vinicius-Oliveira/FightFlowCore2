@@ -55,7 +55,7 @@ router.get('/',
       res.json(sanitized);
     } catch (error) {
       console.error('Get students error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -90,7 +90,7 @@ router.get('/academy-modality-enrollments',
       res.json(combined);
     } catch (error) {
       console.error('Get academy modality enrollments error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -110,7 +110,7 @@ router.get('/:id',
       res.json(safe);
     } catch (error) {
       console.error('Get student error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -160,7 +160,7 @@ router.post('/',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Create student error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -206,7 +206,7 @@ router.patch('/:id',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Update student error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -226,7 +226,7 @@ router.delete('/:id',
       res.json({ message: 'Aluno desativado com sucesso' });
     } catch (error) {
       console.error('Delete student error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -259,7 +259,7 @@ router.delete('/:id/permanent',
       res.json({ message: 'Aluno excluído permanentemente' });
     } catch (error) {
       console.error('Permanent delete student error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -278,7 +278,7 @@ router.get('/:id/modality-ranks',
       res.json(ranks);
     } catch (error) {
       console.error('Get modality ranks error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -344,7 +344,7 @@ router.post('/:id/graduate-modality',
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: 'Validação', details: error.errors });
       console.error('Graduate modality error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -364,7 +364,7 @@ router.get('/:id/rank-history',
       res.json(history);
     } catch (error) {
       console.error('Get rank history error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -384,7 +384,7 @@ router.get('/:id/belt-history',
       res.json(history);
     } catch (error) {
       console.error('Get belt history error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -431,7 +431,7 @@ router.post('/:id/graduate',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Graduate student error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -450,7 +450,7 @@ router.get('/:id/modality-enrollments',
       res.json(list);
     } catch (error) {
       console.error('Get student modality enrollments error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -517,7 +517,7 @@ router.post('/:id/modality-enrollments',
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: 'Validação', details: error.errors });
       console.error('Create modality enrollment error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -536,7 +536,7 @@ router.delete('/:id/modality-enrollments/:classTypeId',
       res.json({ message: 'Matrícula na modalidade removida' });
     } catch (error) {
       console.error('Deactivate modality enrollment error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );

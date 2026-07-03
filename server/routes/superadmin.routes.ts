@@ -34,7 +34,7 @@ router.get('/stats',
       });
     } catch (error) {
       console.error('Get super admin stats error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -48,7 +48,7 @@ router.get('/academias',
       res.json(await storage.getAllAcademies());
     } catch (error) {
       console.error('Get all academies error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -80,7 +80,7 @@ router.get('/academias/:id',
       });
     } catch (error) {
       console.error('Get academy error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -100,7 +100,7 @@ router.patch('/academias/:id',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Update academy error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -111,7 +111,7 @@ router.get('/planos', authenticateToken, requireSuperAdmin, async (_req, res) =>
     res.json(await storage.getAllPlanos());
   } catch (error) {
     console.error('Get planos error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
@@ -123,7 +123,7 @@ router.get('/planos/:id', authenticateToken, requireSuperAdmin, async (req, res)
     res.json(plano);
   } catch (error) {
     console.error('Get plano error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
@@ -137,7 +137,7 @@ router.post('/planos', authenticateToken, requireSuperAdmin, async (req, res) =>
       return res.status(400).json({ error: 'Erro de validação', details: error.errors });
     }
     console.error('Create plano error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
@@ -152,7 +152,7 @@ router.patch('/planos/:id', authenticateToken, requireSuperAdmin, async (req, re
       return res.status(400).json({ error: 'Erro de validação', details: error.errors });
     }
     console.error('Update plano error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
@@ -162,7 +162,7 @@ router.get('/assinaturas', authenticateToken, requireSuperAdmin, async (_req, re
     res.json(await storage.getAllAssinaturas());
   } catch (error) {
     console.error('Get assinaturas error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
@@ -176,7 +176,7 @@ router.post('/assinaturas', authenticateToken, requireSuperAdmin, async (req, re
       return res.status(400).json({ error: 'Erro de validação', details: error.errors });
     }
     console.error('Create assinatura error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
@@ -191,7 +191,7 @@ router.patch('/assinaturas/:id', authenticateToken, requireSuperAdmin, async (re
       return res.status(400).json({ error: 'Erro de validação', details: error.errors });
     }
     console.error('Update assinatura error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 

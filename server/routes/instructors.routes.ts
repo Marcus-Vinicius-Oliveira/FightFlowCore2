@@ -38,7 +38,7 @@ router.get('/',
       res.json(sanitized);
     } catch (error) {
       console.error('Get instructors error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -80,7 +80,7 @@ router.patch('/:id',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Update instructor error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -100,7 +100,7 @@ router.delete('/:id',
       res.json({ message: 'Instrutor desativado com sucesso' });
     } catch (error) {
       console.error('Delete instructor error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -129,7 +129,7 @@ router.delete('/:id/permanent',
       res.json({ message: 'Instrutor excluído permanentemente' });
     } catch (error) {
       console.error('Permanent delete instructor error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );

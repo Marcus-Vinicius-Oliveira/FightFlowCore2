@@ -23,7 +23,7 @@ router.get('/systems',
       res.json(withRanks);
     } catch (error) {
       console.error('Get graduation systems error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -48,7 +48,7 @@ router.post('/systems',
       if (error instanceof z.ZodError) return res.status(400).json({ error: 'Validação', details: error.errors });
       if ((error as any)?.code === '23505') return res.status(409).json({ error: 'Já existe um sistema para esta modalidade' });
       console.error('Create graduation system error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -69,7 +69,7 @@ router.patch('/systems/:id',
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: 'Validação', details: error.errors });
       console.error('Update graduation system error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -102,7 +102,7 @@ router.delete('/systems/:id',
       res.json({ message: 'Sistema removido' });
     } catch (error) {
       console.error('Delete graduation system error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -122,7 +122,7 @@ router.get('/systems/:id/ranks',
       res.json(ranks);
     } catch (error) {
       console.error('Get ranks error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -147,7 +147,7 @@ router.post('/systems/:id/ranks',
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: 'Validação', details: error.errors });
       console.error('Create rank error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -175,7 +175,7 @@ router.patch('/ranks/:id',
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: 'Validação', details: error.errors });
       console.error('Update rank error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -196,7 +196,7 @@ router.delete('/ranks/:id',
       res.json({ message: 'Graduação removida' });
     } catch (error) {
       console.error('Delete rank error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -216,7 +216,7 @@ router.get('/modality-ranks',
       res.json(rows);
     } catch (error) {
       console.error('Get modality ranks error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );

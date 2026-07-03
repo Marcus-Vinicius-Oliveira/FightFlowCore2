@@ -34,7 +34,7 @@ router.get('/class-types',
       res.json(cts);
     } catch (error) {
       console.error('Get class types error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -65,7 +65,7 @@ router.post('/class-types',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Create class type error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -100,7 +100,7 @@ router.patch('/class-types/:id',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Update class type error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -131,7 +131,7 @@ router.get('/',
       res.json(grouped);
     } catch (error) {
       console.error('Get classes error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -173,7 +173,7 @@ router.post('/',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Create class error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -216,7 +216,7 @@ router.get('/schedule/weekly',
       res.json(weeklySchedule);
     } catch (error) {
       console.error('Get weekly schedule error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -319,7 +319,7 @@ router.patch('/:id',
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
       }
       console.error('Update class error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );
@@ -339,7 +339,7 @@ router.delete('/:id',
       res.json({ message: 'Turma desativada com sucesso' });
     } catch (error) {
       console.error('Delete class error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 );

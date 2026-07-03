@@ -104,7 +104,7 @@ export async function authenticateToken(req: AuthenticatedRequest, res: Response
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
-      return res.status(401).json({ error: 'Access token required' });
+      return res.status(401).json({ error: 'Token de acesso obrigatório' });
     }
 
     const payload = verifyToken(token);
@@ -116,7 +116,7 @@ export async function authenticateToken(req: AuthenticatedRequest, res: Response
     // Always trust DB over token claims to prevent privilege escalation.
     const user = await storage.getUser(payload.userId);
     if (!user || !user.active) {
-      return res.status(401).json({ error: 'User not found or inactive' });
+      return res.status(401).json({ error: 'Usuário não encontrado ou inativo' });
     }
 
     // If the user belongs to an academy that no longer exists in the DB
@@ -141,17 +141,17 @@ export async function authenticateToken(req: AuthenticatedRequest, res: Response
 
     next();
   } catch (error) {
-    return res.status(403).json({ error: 'Invalid or expired token' });
+    return res.status(403).json({ error: 'Token inválido ou expirado' });
   }
 }
 
 export function requireRole(allowedRoles: string[]) {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return res.status(401).json({ error: 'Autenticação necessária' });
     }
     if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
+      return res.status(403).json({ error: 'Permissão insuficiente' });
     }
     next();
   };
@@ -159,7 +159,7 @@ export function requireRole(allowedRoles: string[]) {
 
 export function requireSameAcademy(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required' });
+    return res.status(401).json({ error: 'Autenticação necessária' });
   }
 
   if (req.user.role === 'SUPER_ADMIN') {
@@ -170,11 +170,11 @@ export function requireSameAcademy(req: AuthenticatedRequest, res: Response, nex
   const bodyAcademyId = req.body?.academyId;
 
   if (pathAcademyId && pathAcademyId !== req.user.academyId) {
-    return res.status(403).json({ error: 'Access denied: Cannot access resources from different academy' });
+    return res.status(403).json({ error: 'Acesso negado: recurso pertence a outra academia' });
   }
 
   if (bodyAcademyId && bodyAcademyId !== req.user.academyId) {
-    return res.status(403).json({ error: 'Access denied: Cannot modify resources for different academy' });
+    return res.status(403).json({ error: 'Acesso negado: não é possível alterar recursos de outra academia' });
   }
 
   // Prevent client from overriding academyId — always inject from authenticated user.
@@ -187,10 +187,10 @@ export function requireSameAcademy(req: AuthenticatedRequest, res: Response, nex
 
 export function requireSuperAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required' });
+    return res.status(401).json({ error: 'Autenticação necessária' });
   }
   if (req.user.role !== 'SUPER_ADMIN') {
-    return res.status(403).json({ error: 'Super Admin access required' });
+    return res.status(403).json({ error: 'Acesso restrito ao Super Admin' });
   }
   next();
 }
