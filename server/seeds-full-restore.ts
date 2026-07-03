@@ -8,7 +8,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from 'ws';
 import bcrypt from 'bcryptjs';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import {
   academies, users, planos, assinaturas, membershipPlans,
   classTypes, classes,
@@ -206,6 +206,22 @@ async function main() {
     console.log(`✅ Academia criada: ${academy.name} (slug: anjo)`);
   } else {
     console.log(`⚠️  Academia já existe: ${academy.name}`);
+  }
+
+  // Guarda anti-empilhamento: este seed usa o elenco @ffc.demo; se a academia já
+  // foi povoada por outro seed demo (@demo.com), rodar os dois duplica a base de
+  // alunos com "quase-clones" (João Victor Pires / João Pires etc.).
+  const demoComStudents = await db.select({ id: users.id }).from(users)
+    .where(and(
+      eq(users.academyId, academy.id),
+      eq(users.role, 'ALUNO'),
+      sql`${users.email} LIKE '%@demo.com'`,
+    ));
+  if (demoComStudents.length > 0) {
+    console.error(`❌ A academia já tem ${demoComStudents.length} aluno(s) demo de outro seed (@demo.com).`);
+    console.error('   Rodar este seed por cima duplicaria a base de alunos.');
+    console.error('   Para repovoar do zero sem duplicados: npm run seed:demo:reset');
+    process.exit(1);
   }
 
   // 3. Assinatura

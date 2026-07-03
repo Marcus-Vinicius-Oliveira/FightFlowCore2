@@ -17,7 +17,9 @@
     "seed": "tsx --env-file=.env server/seeds.ts",
     "seed:demo": "tsx --env-file=.env server/seeds-demo.ts",
     "seed:reset-alunos": "tsx --env-file=.env server/seeds-reset-alunos.ts",
-    "seed:restore": "tsx --env-file=.env server/seeds-full-restore.ts"
+    "seed:restore": "tsx --env-file=.env server/seeds-full-restore.ts",
+    "seed:demo:clean": "tsx --env-file=.env server/seeds-demo-clean.ts",
+    "seed:demo:reset": "npm run seed:demo:clean && npm run seed:restore"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -113,6 +113,22 @@ async function main() {
   }
   console.log(`✅ Admin: ${admin.name} (${admin.email})\n`);
 
+  // Guarda anti-empilhamento: este seed usa o elenco @demo.com; se a academia já
+  // foi povoada pelo seed de restauração (@ffc.demo), rodar os dois duplica a
+  // base de alunos com "quase-clones" (João Pires / João Victor Pires etc.).
+  const ffcStudents = await db.select({ id: users.id }).from(users)
+    .where(and(
+      eq(users.academyId, academy.id),
+      eq(users.role, 'ALUNO'),
+      sql`${users.email} LIKE '%@ffc.demo'`,
+    ));
+  if (ffcStudents.length > 0) {
+    console.error(`❌ A academia já tem ${ffcStudents.length} aluno(s) demo do seed de restauração (@ffc.demo).`);
+    console.error('   Rodar este seed por cima duplicaria a base de alunos.');
+    console.error('   Para repovoar do zero sem duplicados: npm run seed:demo:reset');
+    process.exit(1);
+  }
+
   // 3. Professor
   let professor = (await db.select().from(users)
     .where(and(eq(users.academyId, academy.id), eq(users.role, 'PROFESSOR'))))[0];

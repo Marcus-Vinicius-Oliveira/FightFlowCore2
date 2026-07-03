@@ -9,7 +9,7 @@ import ws from 'ws';
 import bcrypt from 'bcryptjs';
 import { eq, and, inArray } from 'drizzle-orm';
 import {
-  academies, users, membershipPlans, classTypes,
+  academies, users, membershipPlans, classTypes, enrollments,
   graduationSystems, graduationRanks,
   studentModalityRanks, studentRankHistory, studentModalityEnrollments,
   attendance, payments, beltHistory,
@@ -447,6 +447,9 @@ async function main() {
 
     await db.delete(payments).where(inArray(payments.studentId, alunoIds));
     console.log('   ✓ Pagamentos apagados');
+
+    await db.delete(enrollments).where(inArray(enrollments.studentId, alunoIds));
+    console.log('   ✓ Matrículas em turma apagadas');
 
     await db.delete(beltHistory).where(inArray(beltHistory.studentId, alunoIds));
     console.log('   ✓ Histórico de faixas apagado');

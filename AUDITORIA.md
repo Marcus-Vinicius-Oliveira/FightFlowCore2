@@ -173,4 +173,21 @@ Sessão dedicada a construir a interface sobre a API de matrículas criada na au
 
 **Verificação:** typecheck limpo; **50 testes Vitest** (17 novos para a lógica pura de grupo/ocupação); **e2e Playwright novo** (`05-class-enrollments.spec.ts`) cobrindo o fluxo feliz completo — abrir turma → matricular → ocupação 0/20→1/20 no dialog e na tabela → registrar presença do aluno → remover matrícula → ocupação volta a 0/20 — passando em 6,6s; build de produção OK; smoke visual mobile do dialog e da listagem.
 
+---
+
+## 7. Seeds de desenvolvimento — fluxo sem duplicados (03/07/2026)
+
+O teste manual revelou alunos "duplicados" na academia demo: dois seeds com elencos diferentes (`seeds-full-restore.ts` → e-mails `@ffc.demo`; `seeds-demo.ts`/`seeds-reset-alunos.ts` → `@demo.com`) haviam rodado na mesma academia `anjo`, empilhando 82 alunos com quase-clones ("João Pires" / "João Victor Pires"). Correções:
+
+- **Guarda anti-empilhamento**: `seed:demo` aborta se a academia já tem alunos `@ffc.demo`, e `seed:restore` aborta se já tem `@demo.com` — rodar dois seeds na mesma base não duplica mais alunos. Cada seed continua individualmente idempotente (pula alunos existentes por e-mail).
+- **`seed:reset-alunos` corrigido**: passou a apagar também `enrollments` (matrículas em turma — tabela criada depois do script), que causava violação de FK.
+- **Novos comandos** (exclusivos de desenvolvimento; `seed:demo:clean` aborta com `NODE_ENV=production`):
+
+```bash
+npm run seed:demo:clean   # remove todos os alunos demo (@ffc.demo e @demo.com) da academia 'anjo' e seus registros
+npm run seed:demo:reset   # limpa e repovoa do zero via seed:restore (elenco canônico: 28 alunos @ffc.demo)
+```
+
+O banco de desenvolvimento foi limpo com `seed:demo:reset` em 03/07/2026 — a academia `anjo` ficou com o elenco único de 28 alunos. Professores e admin são preservados na limpeza (turmas os referenciam).
+
 **Notas:** o Playwright 1.61 exige `npx playwright install chromium` após o upgrade de dependências da auditoria. O limitador de signup (5/hora por IP) restringe execuções repetidas dos e2e que criam academias — em CI, considerar variável de ambiente para relaxá-lo. A tabela de Gestão de Aulas em telas pequenas usa o scroll horizontal interno padrão (comportamento pré-existente); uma visão em cards para mobile fica como melhoria futura.
