@@ -136,7 +136,7 @@ DROP INDEX payments_academy_due_date_idx;
 
 | Item | Justificativa |
 |---|---|
-| **UI de matrícula em turmas** | A API está pronta e testada (`/api/classes/:id/enrollments`); a UI merece um fluxo próprio desenhado com o padrão visual do app (sugestão: ação "Matricular em turma" no StudentDetailDialog e aba de alunos no ClassManagement). |
+| ~~**UI de matrícula em turmas**~~ | ✅ **Entregue em 03/07/2026** — ver §6. |
 | Vulnerabilidades dev-time restantes (5) | Exigem vitest/drizzle-kit majors futuros; zero exposição em produção. |
 | Paginação no client | Servidor já suporta `limit/offset`; client carrega listas completas — aceitável no volume atual (58 alunos), vira prioridade acima de ~500 registros. |
 | Code-splitting do bundle (1,4 MB) | `manualChunks`/`React.lazy` para recharts e páginas do superadmin; ganho relevante em mobile. |
@@ -152,4 +152,25 @@ DROP INDEX payments_academy_due_date_idx;
 4. **Ranking de assiduidade** — top alunos por presenças no mês, exibível no mural/portal; gamificação barata com dados existentes.
 5. **Check-in pelo aluno (QR code)** — o portal do aluno já existe; um QR na recepção tiraria o professor do papel de apontador.
 6. **Sugestão de graduação** — cruzar presenças acumuladas com tempo na faixa atual para sugerir candidatos a promoção por modalidade.
-7. **Dashboard de ocupação de turmas** — com matrículas agora funcionais, mostrar taxa de ocupação por turma (`enrollments`/`maxCapacity`) orienta abertura/fechamento de horários.
+7. **Dashboard de ocupação de turmas** — com matrículas agora funcionais, mostrar taxa de ocupação por turma (`enrollments`/`maxCapacity`) orienta abertura/fechamento de horários. *(Parcialmente entregue em §6 — a ocupação já aparece por turma na Gestão de Aulas.)*
+
+---
+
+## 6. Entrega — UI de matrícula em turmas (03/07/2026)
+
+Sessão dedicada a construir a interface sobre a API de matrículas criada na auditoria (7 commits, `b954f11`..`d49f4b0`). O check-in de presença agora funciona de ponta a ponta pela interface, sem tocar em API.
+
+**Onde ficou (decisão de navegação):**
+
+- **Gestão de Aulas**: nova coluna **Ocupação** ("14/20 vagas", vermelha e clicável quando lotada; contagem simples quando a modalidade não tem limite) + ação **Matrículas** no menu de cada turma. Ambas abrem o dialog de gestão de matrículas — mesmo padrão de dialogs da própria página.
+- **Ficha do aluno** (`StudentDetailDialog`): nova seção **Turmas** com as turmas do aluno (dias, horário, professor), matrícula em nova turma (turmas lotadas aparecem desabilitadas com aviso) e remoção com confirmação.
+
+**Semântica de grupo:** uma "turma" na UI é um grupo de registros no banco (um por dia da semana) e o check-in usa o id do registro do dia. Matricular pela UI matricula em **todos os registros do grupo** (mesmo padrão do delete em lote pré-existente); a ocupação conta alunos distintos no grupo (`enrolledCount` calculado no servidor em 1 query com join, sem N+1).
+
+**Comportamentos cobertos:** busca na lista de matriculados; combobox de aluno que exclui os já matriculados; seleção de plano (exigida pela API); erros 409 da API ("turma lotada", "já matriculado") exibidos como mensagem limpa em pt-BR no toast (o `queryClient` agora extrai o campo `error` do JSON em vez de mostrar o corpo bruto — melhoria global); skeleton de loading; empty states orientados; erro com "Tentar novamente"; invalidação por prefixo `['/api/classes']` atualiza lista de turmas, matrículas e presença sem reload; mobile-first validado com screenshots em viewport 375px.
+
+**Endpoints adicionados (aditivos — a API de enrollments não foi alterada):** `enrolledCount` no `GET /api/classes` agrupado e `GET /api/students/:id/enrollments` (turmas do aluno, com isolamento por academia).
+
+**Verificação:** typecheck limpo; **50 testes Vitest** (17 novos para a lógica pura de grupo/ocupação); **e2e Playwright novo** (`05-class-enrollments.spec.ts`) cobrindo o fluxo feliz completo — abrir turma → matricular → ocupação 0/20→1/20 no dialog e na tabela → registrar presença do aluno → remover matrícula → ocupação volta a 0/20 — passando em 6,6s; build de produção OK; smoke visual mobile do dialog e da listagem.
+
+**Notas:** o Playwright 1.61 exige `npx playwright install chromium` após o upgrade de dependências da auditoria. O limitador de signup (5/hora por IP) restringe execuções repetidas dos e2e que criam academias — em CI, considerar variável de ambiente para relaxá-lo. A tabela de Gestão de Aulas em telas pequenas usa o scroll horizontal interno padrão (comportamento pré-existente); uma visão em cards para mobile fica como melhoria futura.
