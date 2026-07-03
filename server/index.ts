@@ -11,6 +11,12 @@ import { isNull, or, eq, and } from "drizzle-orm";
 
 const app = express();
 
+// Atrás de proxy reverso (Replit/NGINX) o rate limit precisa do IP real do
+// cliente via X-Forwarded-For; sem isso todos compartilham o IP do proxy.
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 // Security headers — CSP disabled in dev (Vite injects inline scripts for HMR)
 app.use(helmet({
   crossOriginEmbedderPolicy: false,

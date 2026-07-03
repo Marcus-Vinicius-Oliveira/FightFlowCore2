@@ -80,6 +80,17 @@ function buildMatrix(classes: ClassWithRefs[]) {
 
 // ─── Template HTML ────────────────────────────────────────────────────────────
 
+// Nomes de academia/modalidade/instrutor são dados de usuário e entram no HTML
+// renderizado por Chromium no servidor — escapar evita injeção de markup/script.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function buildHtml(academyName: string, classes: ClassWithRefs[]): string {
   const { slots, activeDays, matrix } = buildMatrix(classes);
 
@@ -97,8 +108,8 @@ function buildHtml(academyName: string, classes: ClassWithRefs[]): string {
       if (!items.length) return `<td class="empty">—</td>`;
       const cards = items.map(({ typeName, instructorName, color }) => `
         <div class="card" style="background:${color.bg};border-left:4px solid ${color.border};color:${color.text}">
-          <span class="card-name">${typeName}</span>
-          <span class="card-inst">${instructorName}</span>
+          <span class="card-name">${escapeHtml(typeName)}</span>
+          <span class="card-inst">${escapeHtml(instructorName)}</span>
         </div>`).join('');
       return `<td>${cards}</td>`;
     }).join('');
@@ -248,7 +259,7 @@ td.empty {
     <div class="h-left">
       <span class="logo">🥋</span>
       <div>
-        <div class="title">${academyName}</div>
+        <div class="title">${escapeHtml(academyName)}</div>
         <div class="subtitle">Grade Horária Semanal</div>
       </div>
     </div>
