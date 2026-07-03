@@ -507,10 +507,14 @@ export default function StudentManagement() {
   });
 
   // Lazy: only fires when the "Inadimplentes" chip is selected
-  const { data: delinquentIds = EMPTY_ID_SET } = useQuery<Set<string>>({
+  const { data: delinquentIds = EMPTY_ID_SET } = useQuery<
+    { studentId: string; status: string }[],
+    Error,
+    Set<string>
+  >({
     queryKey: ['/api/payments'],
     queryFn: () => apiRequest('GET', '/api/payments').then(r => r.json()),
-    select: (data: { studentId: string; status: string }[]) =>
+    select: (data) =>
       new Set(data.filter(p => p.status === 'overdue').map(p => p.studentId)),
     enabled: inadimplentesActive,
     staleTime: 2 * 60 * 1000,
