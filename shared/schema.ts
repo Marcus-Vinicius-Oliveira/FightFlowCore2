@@ -126,6 +126,7 @@ export const payments = pgTable("payments", {
   dueDate: timestamp("due_date").notNull(),
   paidDate: timestamp("paid_date"),
   status: text("status").notNull().default('pending'), // pending, paid, overdue
+  paymentMethod: text("payment_method"), // PIX, Dinheiro, Cartão de Débito, Cartão de Crédito
   notes: text("notes"),
   updatedBy: uuid("updated_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -134,6 +135,8 @@ export const payments = pgTable("payments", {
   studentIdIdx: index("payments_student_id_idx").on(t.studentId),
   academyIdIdx: index("payments_academy_id_idx").on(t.academyId),
   statusIdx: index("payments_status_idx").on(t.status),
+  statusDueDateIdx: index("payments_status_due_date_idx").on(t.status, t.dueDate), // job de inadimplência
+  academyDueDateIdx: index("payments_academy_due_date_idx").on(t.academyId, t.dueDate), // listagem ordenada
 }));
 
 // Platform subscription plans (managed by SUPER_ADMIN)

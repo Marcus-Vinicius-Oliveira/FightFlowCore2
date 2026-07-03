@@ -76,6 +76,7 @@ router.post('/payments',
         dueDate: z.coerce.date(),
         paidDate: z.coerce.date().optional(),
         status: z.enum(['pending', 'paid', 'overdue']).default('pending'),
+        paymentMethod: z.string().max(50).optional(),
         notes: z.string().optional(),
       });
 
@@ -114,6 +115,7 @@ router.patch('/payments/:id',
       const updateSchema = z.object({
         status: z.enum(['pending', 'paid', 'overdue']).optional(),
         paidDate: z.coerce.date().optional(),
+        paymentMethod: z.string().max(50).optional(),
         notes: z.string().optional(),
         amount: z.number().int().positive().optional(),
       });
@@ -123,6 +125,12 @@ router.patch('/payments/:id',
 
       if (!payment || payment.academyId !== req.user!.academyId) {
         return res.status(404).json({ error: 'Pagamento não encontrado' });
+      }
+
+      // Pagamento marcado como pago precisa de data — o KPI de receita mensal
+      // agrupa por paid_date.
+      if (updateData.status === 'paid' && !updateData.paidDate && !payment.paidDate) {
+        updateData.paidDate = new Date();
       }
 
       const updated = await storage.updatePayment(req.params.id, {

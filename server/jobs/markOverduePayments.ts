@@ -2,14 +2,15 @@ import { eq, and, lt } from "drizzle-orm";
 import { db } from "../db";
 import { payments } from "@shared/schema";
 import { log } from "../vite";
+import { overdueCutoff } from "../lib/payments";
 
 const INTERVAL_MS = 60 * 60 * 1000; // 1 hora
 
-export async function markOverduePayments(): Promise<number> {
+export async function markOverduePayments(now: Date = new Date()): Promise<number> {
   const result = await db
     .update(payments)
     .set({ status: 'overdue' })
-    .where(and(eq(payments.status, 'pending'), lt(payments.dueDate, new Date())));
+    .where(and(eq(payments.status, 'pending'), lt(payments.dueDate, overdueCutoff(now))));
   return result.rowCount ?? 0;
 }
 
