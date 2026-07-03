@@ -108,6 +108,7 @@ export interface Payment {
   dueDate: string;
   paidDate: string | null;
   status: 'pending' | 'paid' | 'overdue';
+  paymentMethod: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -326,6 +327,7 @@ class ApiClient {
   async updatePayment(id: string, data: {
     status?: 'pending' | 'paid' | 'overdue';
     paidDate?: string;
+    paymentMethod?: string;
     notes?: string;
     amount?: number;
   }): Promise<Payment> {

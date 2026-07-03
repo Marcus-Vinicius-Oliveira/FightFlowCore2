@@ -65,6 +65,7 @@ export default function FinancialControl() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('todos');
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
+  const [detailPayment, setDetailPayment] = useState<Payment | null>(null);
   const [paymentForm, setPaymentForm] = useState({
     valorPago: '',
     dataPagamento: '',
@@ -74,26 +75,25 @@ export default function FinancialControl() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: paymentsData } = useQuery<Payment[]>({
-    queryKey: ['payments'],
-    queryFn: () => apiClient.getPayments(),
+  // queryKeys no padrão do app (['/api/...'] + queryFn default) para a
+  // invalidação funcionar entre páginas (ex.: chip "Inadimplentes" da lista de alunos)
+  const { data: paymentsData, isLoading: isLoadingPayments } = useQuery<Payment[]>({
+    queryKey: ['/api/payments'],
   });
 
   const { data: studentsData } = useQuery<Student[]>({
-    queryKey: ['students'],
-    queryFn: () => apiClient.getStudents(),
+    queryKey: ['/api/students'],
   });
 
   const { data: plansData } = useQuery<MembershipPlan[]>({
-    queryKey: ['membership-plans'],
-    queryFn: () => apiClient.getMembershipPlans(),
+    queryKey: ['/api/membership-plans'],
   });
 
   const updatePaymentMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Parameters<typeof apiClient.updatePayment>[1] }) =>
       apiClient.updatePayment(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/payments'] });
       toast({ title: 'Pagamento registrado!', description: 'O pagamento foi registrado com sucesso.' });
       setIsPaymentModalOpen(false);
       setSelectedPaymentId(null);
@@ -125,9 +125,15 @@ export default function FinancialControl() {
     }).format(priceInCents / 100);
   };
 
-  const receitaMes = payments
-    .filter(p => p.status === 'pago')
-    .reduce((sum, p) => sum + p.valor, 0);
+  // Receita do mês corrente — só pagamentos pagos com paid_date neste mês
+  const now = new Date();
+  const receitaMes = (paymentsData ?? [])
+    .filter(p => {
+      if (p.status !== 'paid' || !p.paidDate) return false;
+      const paid = new Date(p.paidDate);
+      return paid.getFullYear() === now.getFullYear() && paid.getMonth() === now.getMonth();
+    })
+    .reduce((sum, p) => sum + p.amount, 0);
 
   const aReceber = payments
     .filter(p => p.status !== 'pago')
@@ -183,11 +189,22 @@ export default function FinancialControl() {
       });
       return;
     }
+    const amountCents = Math.round(parseFloat(paymentForm.valorPago.replace(',', '.')) * 100);
+    if (!Number.isFinite(amountCents) || amountCents <= 0) {
+      toast({
+        title: "Erro de validação",
+        description: "Informe um valor pago válido.",
+        variant: "destructive",
+      });
+      return;
+    }
     updatePaymentMutation.mutate({
       id: selectedPaymentId!,
       data: {
         status: 'paid',
         paidDate: paymentForm.dataPagamento,
+        paymentMethod: paymentForm.meioPagamento,
+        amount: amountCents,
         notes: paymentForm.observacoes || undefined,
       },
     });
@@ -356,6 +373,7 @@ export default function FinancialControl() {
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => setDetailPayment(paymentsData?.find(p => p.id === payment.id) ?? null)}
                         data-testid={`button-details-${payment.id}`}
                       >
                         Ver Detalhes
@@ -374,7 +392,7 @@ export default function FinancialControl() {
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredPayments.length === 0 && (
+              {!isLoadingPayments && filteredPayments.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8">
                     <div className="flex flex-col items-center gap-2">
@@ -382,6 +400,16 @@ export default function FinancialControl() {
                       <div className="text-sm text-muted-foreground">
                         Nenhum registro encontrado para o filtro selecionado
                       </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+              {isLoadingPayments && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+                      <div className="text-sm text-muted-foreground">Carregando pagamentos...</div>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -481,6 +509,59 @@ export default function FinancialControl() {
             >
               <Save className="h-4 w-4 mr-2" />
               {updatePaymentMutation.isPending ? 'Salvando...' : 'Salvar Pagamento'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Details Modal */}
+      <Dialog open={!!detailPayment} onOpenChange={(open) => !open && setDetailPayment(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Pagamento</DialogTitle>
+            <DialogDescription>Informações do pagamento registrado</DialogDescription>
+          </DialogHeader>
+          {detailPayment && (
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Aluno</span>
+                <span className="font-medium text-right">
+                  {studentsData?.find(s => s.id === detailPayment.studentId)?.name ?? '—'}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Plano</span>
+                <span className="font-medium text-right">
+                  {plansData?.find(pl => pl.id === detailPayment.membershipPlanId)?.name ?? '—'}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Valor</span>
+                <span className="font-mono font-medium">{formatPrice(detailPayment.amount)}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Vencimento</span>
+                <span>{new Date(detailPayment.dueDate).toLocaleDateString('pt-BR')}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Data do pagamento</span>
+                <span>{detailPayment.paidDate ? new Date(detailPayment.paidDate).toLocaleDateString('pt-BR') : '—'}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Meio de pagamento</span>
+                <span>{detailPayment.paymentMethod ?? '—'}</span>
+              </div>
+              {detailPayment.notes && (
+                <div className="space-y-1">
+                  <span className="text-muted-foreground">Observações</span>
+                  <p className="rounded-md bg-muted p-2">{detailPayment.notes}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailPayment(null)} data-testid="button-close-details">
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
