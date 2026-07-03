@@ -120,6 +120,7 @@ export interface IStorage {
   getEnrollmentsByClass(classId: string): Promise<EnrollmentWithRefs[]>;
   getEnrollmentByStudentAndClass(studentId: string, classId: string): Promise<Enrollment | undefined>;
   createEnrollment(enrollment: InsertEnrollment): Promise<Enrollment>;
+  deactivateEnrollment(enrollmentId: string, updatedBy: string): Promise<boolean>;
 
   // Attendance operations
   getAttendanceByStudent(studentId: string): Promise<Attendance[]>;
@@ -470,6 +471,13 @@ export class DatabaseStorage implements IStorage {
   async createEnrollment(insertEnrollment: InsertEnrollment): Promise<Enrollment> {
     const [enrollment] = await db.insert(enrollments).values(insertEnrollment).returning();
     return enrollment;
+  }
+
+  async deactivateEnrollment(enrollmentId: string, updatedBy: string): Promise<boolean> {
+    const result = await db.update(enrollments)
+      .set({ active: false, endDate: new Date(), updatedBy })
+      .where(eq(enrollments.id, enrollmentId));
+    return (result.rowCount || 0) > 0;
   }
 
   async getAttendanceByStudent(studentId: string): Promise<Attendance[]> {
