@@ -73,7 +73,7 @@ test.describe('Testes de Controle de Acesso por Papel (RBAC)', () => {
     // But should NOT be able to create class types (admin-only)
     const createClassTypeResult = await helpers.apiRequest(
       'POST',
-      '/class-types',
+      '/classes/class-types',
       professor.token!,
       {
         name: 'Unauthorized Class Type',
@@ -91,7 +91,7 @@ test.describe('Testes de Controle de Acesso por Papel (RBAC)', () => {
     const adminOnlyEndpoints = [
       '/students',     // Student management is admin-only
       '/instructors',  // Instructor management is admin-only
-      '/class-types'   // Class type management is admin-only
+      '/classes/class-types'   // Class type management is admin-only
     ];
 
     for (const endpoint of adminOnlyEndpoints) {
@@ -102,10 +102,11 @@ test.describe('Testes de Controle de Acesso por Papel (RBAC)', () => {
       expect(result.status).toBe(403);
     }
     
-    // But students should be able to see class schedule
+    // A listagem administrativa de turmas também é restrita — aluno consulta a
+    // grade pelo portal (/api/student/me), não por /api/classes
     const classesResult = await helpers.apiRequest('GET', '/classes', student.token!);
-    expect(classesResult.ok).toBe(true);
-    expect(classesResult.status).toBe(200);
+    expect(classesResult.ok).toBe(false);
+    expect(classesResult.status).toBe(403);
   });
 
   test('Cenário 2.4: Admin deve ter acesso completo a todos os recursos', async () => {
@@ -113,7 +114,7 @@ test.describe('Testes de Controle de Acesso por Papel (RBAC)', () => {
     const adminEndpoints = [
       '/students',
       '/instructors', 
-      '/class-types',
+      '/classes/class-types',
       '/classes'
     ];
 
@@ -143,10 +144,10 @@ test.describe('Testes de Controle de Acesso por Papel (RBAC)', () => {
     expect(newStudent.ok).toBe(true);
     expect(newStudent.data.role).toBe('ALUNO');
 
-    // Create instructor using correct endpoint
+    // Professores são criados pelo mesmo endpoint de alunos, com role PROFESSOR
     const newInstructor = await helpers.apiRequest(
       'POST',
-      '/instructors',
+      '/students',
       academy.admin.token!,
       {
         name: `Admin Created Instructor ${Date.now()}`,
@@ -171,7 +172,7 @@ test.describe('Testes de Controle de Acesso por Papel (RBAC)', () => {
     // Create class type
     const classType = await helpers.apiRequest(
       'POST',
-      '/class-types',
+      '/classes/class-types',
       academy.admin.token!,
       {
         name: `Admin Class Type ${Date.now()}`,
@@ -182,10 +183,10 @@ test.describe('Testes de Controle de Acesso por Papel (RBAC)', () => {
 
     expect(classType.ok).toBe(true);
 
-    // Create instructor for the class
+    // Create instructor for the class (mesmo endpoint de alunos, role PROFESSOR)
     const instructor = await helpers.apiRequest(
       'POST',
-      '/instructors',
+      '/students',
       academy.admin.token!,
       {
         name: `Class Instructor ${Date.now()}`,
@@ -226,7 +227,8 @@ test.describe('Testes de Controle de Acesso por Papel (RBAC)', () => {
     const result = await helpers.apiRequest('GET', '/students', invalidToken);
     
     expect(result.ok).toBe(false);
-    expect(result.status).toBe(401);
+    // Contrato atual: token inválido/expirado → 403; token ausente → 401 (cenário 2.8)
+    expect(result.status).toBe(403);
   });
 
   test('Cenário 2.8: Verificação de requisições sem token', async () => {

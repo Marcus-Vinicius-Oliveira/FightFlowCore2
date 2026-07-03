@@ -29,37 +29,38 @@ export class TestHelpers {
   ) {}
 
   /**
-   * Creates a test academy with admin user via signup
+   * Creates a test academy with admin user via API signup.
+   * (A UI de cadastro foi redesenhada; o signup via API é estável e é o mesmo
+   * caminho usado pelo spec 05. Para testar a UI de cadastro em si, use o spec dedicado.)
    */
   async createTestAcademy(academyData: TestAcademy): Promise<TestAcademy> {
-    // Navigate to signup page
-    await this.page.goto('/');
-    await this.page.click('[data-testid="link-signup"]');
-    
-    // Fill signup form
-    await this.page.fill('[data-testid="input-name"]', academyData.admin.name);
-    await this.page.fill('[data-testid="input-email"]', academyData.admin.email);
-    await this.page.fill('[data-testid="input-password"]', academyData.admin.password);
-    await this.page.fill('[data-testid="input-academy-name"]', academyData.name);
-    
-    // Submit signup
-    await this.page.click('[data-testid="button-signup"]');
-    
-    // Wait for redirect to dashboard
-    await this.page.waitForURL('/dashboard', { timeout: 10000 });
-    
-    // Extract auth token from localStorage
-    const token = await this.page.evaluate(() => localStorage.getItem('auth_token'));
-    
+    const response = await this.request.post('/api/auth/signup', {
+      headers: { 'Content-Type': 'application/json' },
+      data: {
+        name: academyData.admin.name,
+        email: academyData.admin.email,
+        password: academyData.admin.password,
+        role: 'ADMIN_ACADEMIA',
+        academyName: academyData.name,
+      },
+    });
+
+    if (!response.ok()) {
+      throw new Error(`Signup falhou (${response.status()}): ${await response.text()}`);
+    }
+
+    const { token, user } = await response.json();
     if (!token) {
       throw new Error('Failed to get auth token after signup');
     }
 
     academyData.admin.token = token;
-    
+    academyData.admin.id = user?.id;
+    academyData.id = user?.academyId;
+
     // Track for cleanup
     this.createdAcademies.push(academyData);
-    
+
     return academyData;
   }
 
@@ -67,8 +68,9 @@ export class TestHelpers {
    * Creates a user (student or instructor) via API
    */
   async createUser(userData: Omit<TestUser, 'token'>, adminToken: string): Promise<TestUser> {
-    const endpoint = userData.role === 'PROFESSOR' ? '/api/instructors' : '/api/students';
-    
+    // A API atual cria professores e alunos pelo mesmo endpoint, diferenciados pelo role
+    const endpoint = '/api/students';
+
     const response = await this.request.post(endpoint, {
       headers: {
         'Authorization': `Bearer ${adminToken}`,
@@ -127,6 +129,10 @@ export class TestHelpers {
    * Authenticates with stored credentials
    */
   async authenticate(token: string): Promise<void> {
+    // localStorage exige uma origem carregada — signup via API deixa a página em about:blank
+    if (this.page.url() === 'about:blank') {
+      await this.page.goto('/');
+    }
     await this.page.evaluate((authToken) => {
       localStorage.setItem('auth_token', authToken);
     }, token);
@@ -162,11 +168,11 @@ export class TestHelpers {
    * Cleans up test data by logging out and clearing created resources
    */
   async cleanup(): Promise<void> {
-    // Clear browser storage
+    // Clear browser storage — pode falhar se a página nunca navegou (about:blank)
     await this.page.evaluate(() => {
       localStorage.clear();
       sessionStorage.clear();
-    });
+    }).catch(() => { /* página sem origem — nada a limpar */ });
     
     // Cleanup created users using their specific admin tokens
     for (const user of this.createdUsers) {

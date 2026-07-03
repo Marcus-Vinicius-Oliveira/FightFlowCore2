@@ -91,7 +91,7 @@ test.describe('Testes Críticos de Segurança - Multi-Tenancy', () => {
 
     const classTypeResult = await helpers.apiRequest(
       'POST',
-      '/class-types',
+      '/classes/class-types',
       academyA.admin.token!,
       classTypeData
     );
@@ -100,7 +100,7 @@ test.describe('Testes Críticos de Segurança - Multi-Tenancy', () => {
     expect(classTypeResult.data.name).toBe(classTypeData.name);
 
     // Verify Admin A can see the class type
-    const classTypesInA = await helpers.apiRequest('GET', '/class-types', academyA.admin.token!);
+    const classTypesInA = await helpers.apiRequest('GET', '/classes/class-types', academyA.admin.token!);
     expect(classTypesInA.ok).toBe(true);
     expect(classTypesInA.data.length).toBeGreaterThan(0);
     
@@ -108,7 +108,7 @@ test.describe('Testes Críticos de Segurança - Multi-Tenancy', () => {
     expect(classTypeExists).toBe(true);
 
     // Critical Test: Admin B should not see Academy A's class types
-    const classTypesInB = await helpers.apiRequest('GET', '/class-types', academyB.admin.token!);
+    const classTypesInB = await helpers.apiRequest('GET', '/classes/class-types', academyB.admin.token!);
     expect(classTypesInB.ok).toBe(true);
     
     const classTypeExistsInB = classTypesInB.data?.some((ct: any) => ct.name === classTypeData.name) || false;
@@ -143,7 +143,7 @@ test.describe('Testes Críticos de Segurança - Multi-Tenancy', () => {
     // Setup: Admin A creates class type and instructor
     const classTypeResult = await helpers.apiRequest(
       'POST',
-      '/class-types',
+      '/classes/class-types',
       academyA.admin.token!,
       {
         name: `BJJ Academy A ${Date.now()}`,

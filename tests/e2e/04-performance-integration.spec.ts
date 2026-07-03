@@ -1,7 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { TestHelpers, TestAcademy, TestUser } from '../helpers/test-utils';
 
-test.describe('Testes de Performance e Integração', () => {
+// SKIP (03/07/2026): mesmo motivo do spec 03 — referencia data-testids da UI
+// original (metric-students, students-table, tab-modalidades etc.) que não
+// existem no client atual. Reescrever contra a interface atual.
+test.describe.skip('Testes de Performance e Integração', () => {
   let helpers: TestHelpers;
   let academy: TestAcademy;
 

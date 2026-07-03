@@ -1,7 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { TestHelpers, TestAcademy } from '../helpers/test-utils';
 
-test.describe('Fluxos Principais da Aplicação', () => {
+// SKIP (03/07/2026): este spec navega pela UI original do projeto, que foi
+// redesenhada — os data-testids que ele usa (link-signup, nav-alunos,
+// tab-modalidades, button-add-modality, user-menu etc.) não existem mais no
+// client. Nunca rodou verde contra a UI atual (a auditoria registrou os e2e
+// como não executados). Precisa de reescrita contra a interface atual; o
+// fluxo de matrícula já é coberto pelo spec 05.
+test.describe.skip('Fluxos Principais da Aplicação', () => {
   let helpers: TestHelpers;
   let academy: TestAcademy;
 
@@ -144,7 +150,7 @@ test.describe('Fluxos Principais da Aplicação', () => {
     // Create class type and instructor via API for faster setup
     const classTypeResult = await helpers.apiRequest(
       'POST',
-      '/class-types',
+      '/classes/class-types',
       academy.admin.token!,
       {
         name: `BJJ Schedule ${Date.now()}`,
