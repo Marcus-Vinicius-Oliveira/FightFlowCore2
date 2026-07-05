@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DollarSign,
   Clock,
@@ -37,7 +38,10 @@ import {
   Filter,
   Save,
   X,
-  CalendarClock
+  CalendarClock,
+  ChevronDown,
+  ChevronRight,
+  Search
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiClient, type Payment, type MembershipPlan, type Student } from "@/lib/api";
@@ -45,15 +49,36 @@ import { apiRequest } from "@/lib/queryClient";
 
 interface PaymentRecord {
   id: string;
+  studentId: string;
   aluno: string;
   plano: string;
   vencimento: string;
+  /** Timestamp do vencimento — ordenação sem reparsear a data formatada */
+  vencimentoMs: number;
   status: 'pago' | 'atrasado' | 'proximo' | 'pendente';
   dataPagamento: string;
   valor: number;
+  /** Total de mensalidades em atraso do aluno (dívida acumulada, não só esta linha) */
+  atrasosDoAluno: number;
 }
 
 type FilterType = 'todos' | 'pagos' | 'atrasados' | 'proximos';
+
+/** Visão agrupada do filtro Atrasados: um devedor por linha, mensalidades ao expandir */
+interface DebtorGroup {
+  studentId: string;
+  aluno: string;
+  /** Mensalidades atrasadas do aluno, mais antiga primeiro */
+  payments: PaymentRecord[];
+  totalCents: number;
+  oldestMs: number;
+}
+
+/** Busca sem acento/caixa (ex.: "patricia" acha "Patrícia") */
+function normalizeSearch(s: string): string {
+  // NFD separa os diacríticos; \p{M} (marcas combinantes) os remove
+  return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+}
 
 function computeStatus(p: Payment): PaymentRecord['status'] {
   if (p.status === 'paid') return 'pago';
@@ -65,6 +90,8 @@ function computeStatus(p: Payment): PaymentRecord['status'] {
 
 export default function FinancialControl() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('todos');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isDueDayDialogOpen, setIsDueDayDialogOpen] = useState(false);
   const [dueDayInput, setDueDayInput] = useState('');
@@ -129,9 +156,31 @@ export default function FinancialControl() {
   const updatePaymentMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Parameters<typeof apiClient.updatePayment>[1] }) =>
       apiClient.updatePayment(id, data),
-    onSuccess: () => {
+    onSuccess: (_data, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['/api/payments'] });
-      toast({ title: 'Pagamento registrado!', description: 'O pagamento foi registrado com sucesso.' });
+
+      // Dívida acumulada: quitar a mensalidade do mês não quita as anteriores —
+      // sem o aviso o gestor assume que o aluno saiu da inadimplência.
+      const paid = paymentsData?.find(p => p.id === id);
+      const outrasAtrasadas = paid
+        ? (paymentsData ?? []).filter(
+            p => p.studentId === paid.studentId && p.status === 'overdue' && p.id !== id
+          )
+        : [];
+
+      if (outrasAtrasadas.length > 0) {
+        const student = studentsData?.find(s => s.id === paid!.studentId);
+        const meses = outrasAtrasadas
+          .map(p => new Date(p.dueDate).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }))
+          .join(', ');
+        toast({
+          title: 'Pagamento registrado!',
+          description: `Atenção: ${student?.name ?? 'o aluno'} ainda tem ${outrasAtrasadas.length} mensalidade${outrasAtrasadas.length > 1 ? 's' : ''} em atraso (${meses}).`,
+        });
+      } else {
+        toast({ title: 'Pagamento registrado!', description: 'O pagamento foi registrado com sucesso.' });
+      }
+
       setIsPaymentModalOpen(false);
       setSelectedPaymentId(null);
       setPaymentForm({ valorPago: '', dataPagamento: '', meioPagamento: '', observacoes: '' });
@@ -141,26 +190,52 @@ export default function FinancialControl() {
     },
   });
 
-  const payments: PaymentRecord[] = (paymentsData ?? []).map(p => {
-    const student = studentsData?.find(s => s.id === p.studentId);
-    const plan = plansData?.find(pl => pl.id === p.membershipPlanId);
-    return {
-      id: p.id,
-      aluno: student?.name ?? 'Aluno',
-      plano: plan?.name ?? 'Plano',
-      vencimento: new Date(p.dueDate).toLocaleDateString('pt-BR'),
-      status: computeStatus(p),
-      dataPagamento: p.paidDate ? new Date(p.paidDate).toLocaleDateString('pt-BR') : '-',
-      valor: p.amount,
-    };
-  });
-
   const formatPrice = (priceInCents: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
     }).format(priceInCents / 100);
   };
+
+  // Dívida acumulada por aluno — contagem para o badge, meses + valor total
+  // para o tooltip (a pergunta do gestor na cobrança é "quanto", não só "quantas")
+  const overdueCountByStudent = new Map<string, number>();
+  const overdueTooltipByStudent = new Map<string, string>();
+  {
+    const acc = new Map<string, { totalCents: number; dates: Date[] }>();
+    for (const p of paymentsData ?? []) {
+      if (p.status !== 'overdue') continue;
+      const entry = acc.get(p.studentId) ?? { totalCents: 0, dates: [] };
+      entry.totalCents += p.amount;
+      entry.dates.push(new Date(p.dueDate));
+      acc.set(p.studentId, entry);
+    }
+    for (const [studentId, entry] of acc) {
+      overdueCountByStudent.set(studentId, entry.dates.length);
+      const meses = entry.dates
+        .sort((a, b) => a.getTime() - b.getTime())
+        .map(d => d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }))
+        .join(', ');
+      overdueTooltipByStudent.set(studentId, `${meses} — ${formatPrice(entry.totalCents)} no total`);
+    }
+  }
+
+  const payments: PaymentRecord[] = (paymentsData ?? []).map(p => {
+    const student = studentsData?.find(s => s.id === p.studentId);
+    const plan = plansData?.find(pl => pl.id === p.membershipPlanId);
+    return {
+      id: p.id,
+      studentId: p.studentId,
+      aluno: student?.name ?? 'Aluno',
+      plano: plan?.name ?? 'Plano',
+      vencimento: new Date(p.dueDate).toLocaleDateString('pt-BR'),
+      vencimentoMs: new Date(p.dueDate).getTime(),
+      status: computeStatus(p),
+      dataPagamento: p.paidDate ? new Date(p.paidDate).toLocaleDateString('pt-BR') : '-',
+      valor: p.amount,
+      atrasosDoAluno: overdueCountByStudent.get(p.studentId) ?? 0,
+    };
+  });
 
   // Receita do mês corrente — só pagamentos pagos com paid_date neste mês
   const now = new Date();
@@ -176,9 +251,18 @@ export default function FinancialControl() {
     .filter(p => p.status !== 'pago')
     .reduce((sum, p) => sum + p.valor, 0);
 
-  const inadimplentes = payments.filter(p => p.status === 'atrasado').length;
+  // Alunos distintos — um aluno pode ter mais de uma mensalidade em atraso,
+  // e o card promete "Nº de alunos" (alinha com o chip da lista de Alunos)
+  const inadimplentes = new Set(
+    (paymentsData ?? []).filter(p => p.status === 'overdue').map(p => p.studentId)
+  ).size;
 
-  const filteredPayments = payments.filter(payment => {
+  const searchNorm = normalizeSearch(searchTerm.trim());
+  const searchedPayments = searchNorm
+    ? payments.filter(p => normalizeSearch(p.aluno).includes(searchNorm))
+    : payments;
+
+  const filteredPayments = searchedPayments.filter(payment => {
     switch (activeFilter) {
       case 'pagos': return payment.status === 'pago';
       case 'atrasados': return payment.status === 'atrasado';
@@ -186,6 +270,36 @@ export default function FinancialControl() {
       default: return true;
     }
   });
+
+  // Atrasados: visão agrupada por devedor (um aluno por linha, mensalidades ao
+  // expandir) — com dezenas de inadimplentes a tabela plana intercala os meses
+  // de alunos diferentes. Ordena pela dívida mais antiga; dentro do aluno,
+  // mais antiga primeiro, para quitar na ordem certa.
+  const debtorGroups: DebtorGroup[] = [];
+  if (activeFilter === 'atrasados') {
+    const byStudent = new Map<string, DebtorGroup>();
+    for (const p of filteredPayments) {
+      let group = byStudent.get(p.studentId);
+      if (!group) {
+        group = { studentId: p.studentId, aluno: p.aluno, payments: [], totalCents: 0, oldestMs: Infinity };
+        byStudent.set(p.studentId, group);
+        debtorGroups.push(group);
+      }
+      group.payments.push(p);
+      group.totalCents += p.valor;
+      group.oldestMs = Math.min(group.oldestMs, p.vencimentoMs);
+    }
+    for (const group of debtorGroups) group.payments.sort((a, b) => a.vencimentoMs - b.vencimentoMs);
+    debtorGroups.sort((a, b) => a.oldestMs - b.oldestMs);
+  }
+
+  const toggleStudent = (studentId: string) => {
+    setExpandedStudents(prev => {
+      const next = new Set(prev);
+      if (next.has(studentId)) next.delete(studentId); else next.add(studentId);
+      return next;
+    });
+  };
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -406,6 +520,17 @@ export default function FinancialControl() {
         >
           🟡 Próximos ao Vencimento
         </Button>
+
+        <div className="relative w-full sm:w-64 sm:ml-auto">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Buscar aluno..."
+            className="pl-8 h-9"
+            data-testid="input-search-financeiro"
+          />
+        </div>
       </div>
 
       {/* Financial Records Table */}
@@ -422,6 +547,108 @@ export default function FinancialControl() {
         <CardContent>
           <div className="overflow-x-auto">
             <div className="min-w-[640px]">
+          {activeFilter === 'atrasados' ? (
+          /*
+            Visão agrupada por devedor: com dezenas de inadimplentes, a tabela
+            plana intercala os meses de alunos diferentes. Uma linha por aluno
+            (total + idade da dívida); expandir lista as mensalidades, mais
+            antiga primeiro, cada uma com seu "Marcar como Pago".
+          */
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Aluno</TableHead>
+                <TableHead>Total devido</TableHead>
+                <TableHead>Em atraso desde</TableHead>
+                <TableHead className="text-right">Mensalidades</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {debtorGroups.map(group => {
+                const expanded = expandedStudents.has(group.studentId);
+                return (
+                  <Fragment key={group.studentId}>
+                    <TableRow
+                      className="cursor-pointer"
+                      onClick={() => toggleStudent(group.studentId)}
+                      aria-expanded={expanded}
+                      data-testid={`row-debtor-${group.studentId}`}
+                    >
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {expanded
+                            ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+                            : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />}
+                          <span>{group.aluno}</span>
+                          <Badge
+                            variant="outline"
+                            className="border-red-300 text-red-700 dark:border-red-800 dark:text-red-400 whitespace-nowrap gap-1"
+                            data-testid={`badge-debtor-${group.studentId}`}
+                          >
+                            <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                            {group.payments.length} em atraso
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono font-semibold text-red-700 dark:text-red-400">
+                        {formatPrice(group.totalCents)}
+                      </TableCell>
+                      <TableCell>{new Date(group.oldestMs).toLocaleDateString('pt-BR')}</TableCell>
+                      <TableCell className="text-right text-xs text-muted-foreground">
+                        {expanded ? 'Recolher' : `Ver ${group.payments.length} mensalidade${group.payments.length > 1 ? 's' : ''}`}
+                      </TableCell>
+                    </TableRow>
+                    {expanded && group.payments.map(payment => (
+                      <TableRow key={payment.id} className="bg-muted/40" data-testid={`row-payment-${payment.id}`}>
+                        <TableCell className="pl-11">
+                          <span className="font-medium">{payment.vencimento}</span>
+                          <span className="text-muted-foreground"> · {payment.plano}</span>
+                        </TableCell>
+                        <TableCell className="font-mono">{formatPrice(payment.valor)}</TableCell>
+                        <TableCell />
+                        <TableCell className="text-right">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="btn-marcar-pago"
+                            onClick={() => handleMarcarPago(payment.id)}
+                            data-testid={`button-mark-paid-${payment.id}`}
+                          >
+                            Marcar como Pago
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </Fragment>
+                );
+              })}
+              {!isLoadingPayments && debtorGroups.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8">
+                    <div className="flex flex-col items-center gap-2">
+                      <DollarSign className="h-8 w-8 text-muted-foreground" />
+                      <div className="text-sm text-muted-foreground">
+                        {searchNorm
+                          ? 'Nenhum aluno inadimplente encontrado para a busca'
+                          : 'Nenhuma mensalidade em atraso — todos em dia! 🎉'}
+                      </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+              {isLoadingPayments && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+                      <div className="text-sm text-muted-foreground">Carregando pagamentos...</div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -437,7 +664,36 @@ export default function FinancialControl() {
             <TableBody>
               {filteredPayments.map((payment) => (
                 <TableRow key={payment.id} data-testid={`row-payment-${payment.id}`}>
-                  <TableCell className="font-medium">{payment.aluno}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      <span>{payment.aluno}</span>
+                      {/*
+                        Dívida acumulada: só quando acrescenta informação além da
+                        própria linha — 2+ atrasos, ou 1 atraso visto de uma linha
+                        que não é a atrasada (na única linha atrasada do aluno, a
+                        coluna Status já comunica). Outline (não sólido) para não
+                        competir com o chip de Status; tooltip responde "quanto".
+                      */}
+                      {(payment.atrasosDoAluno >= 2 ||
+                        (payment.atrasosDoAluno >= 1 && payment.status !== 'atrasado')) && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge
+                              variant="outline"
+                              className="border-red-300 text-red-700 dark:border-red-800 dark:text-red-400 whitespace-nowrap gap-1 cursor-default"
+                              data-testid={`badge-atrasos-${payment.id}`}
+                            >
+                              <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                              {payment.atrasosDoAluno} em atraso
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {overdueTooltipByStudent.get(payment.studentId)}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>{payment.plano}</TableCell>
                   <TableCell>{payment.vencimento}</TableCell>
                   <TableCell>
@@ -501,6 +757,7 @@ export default function FinancialControl() {
               )}
             </TableBody>
           </Table>
+          )}
             </div>
           </div>
         </CardContent>
