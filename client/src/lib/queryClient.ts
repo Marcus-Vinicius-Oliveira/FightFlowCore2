@@ -1,5 +1,12 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Mensagem exata do middleware de auth (server/auth.ts) quando o JWT está
+// expirado ou corrompido. O contrato da API usa 403 para token inválido e 401
+// para token ausente (assertado nos e2e) — por isso o 403 precisa ser
+// inspecionado pela mensagem antes de deslogar: os demais 403 são de permissão.
+export const INVALID_TOKEN_ERROR = 'Token inválido ou expirado';
+const SESSION_EXPIRED_MESSAGE = 'Sessão expirada. Faça login novamente.';
+
 function dispatchUnauthorized(message?: string) {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('user');
@@ -13,7 +20,7 @@ async function throwIfResNotOk(res: Response) {
     if (res.status === 401) {
       const body = await res.json().catch(() => ({}));
       dispatchUnauthorized(body?.error);
-      throw new Error(body?.error ?? 'Sessão expirada. Faça login novamente.');
+      throw new Error(body?.error ?? SESSION_EXPIRED_MESSAGE);
     }
     const text = (await res.text()) || res.statusText;
     // O servidor responde { error: "mensagem em pt-BR" } — mostrar a mensagem
@@ -24,6 +31,12 @@ async function throwIfResNotOk(res: Response) {
       if (typeof body?.error === 'string') message = body.error;
     } catch {
       // corpo não é JSON — mantém o texto bruto com status
+    }
+    // Token expirado responde 403 (não 401): sem isto o app ficava "logado"
+    // com o usuário em cache e todas as queries falhando em silêncio.
+    if (res.status === 403 && message === INVALID_TOKEN_ERROR) {
+      dispatchUnauthorized(SESSION_EXPIRED_MESSAGE);
+      throw new Error(SESSION_EXPIRED_MESSAGE);
     }
     throw new Error(message);
   }

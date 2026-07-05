@@ -1,4 +1,4 @@
-import { queryClient } from "./queryClient";
+import { queryClient, INVALID_TOKEN_ERROR } from "./queryClient";
 
 const API_BASE = ''; // Since frontend and backend are on same port
 
@@ -154,9 +154,20 @@ class ApiClient {
         throw new Error('Session expired. Please log in again.');
       }
 
-      const error = await response.json().catch(() => ({ 
-        error: `HTTP ${response.status} - ${response.statusText}` 
+      const error = await response.json().catch(() => ({
+        error: `HTTP ${response.status} - ${response.statusText}`
       }));
+
+      // Token expirado responde 403 (não 401) — mesma regra do queryClient:
+      // só o 403 do middleware de auth desloga; 403 de permissão passa adiante.
+      if (response.status === 403 && error.error === INVALID_TOKEN_ERROR) {
+        this.logout();
+        window.dispatchEvent(new CustomEvent('auth:unauthorized', {
+          detail: { message: 'Sessão expirada. Faça login novamente.' }
+        }));
+        throw new Error('Sessão expirada. Faça login novamente.');
+      }
+
       throw new Error(error.error || 'Request failed');
     }
 
