@@ -9,7 +9,7 @@ import {
   requireSameAcademy,
   type AuthenticatedRequest,
 } from "../auth";
-import type { User } from "@shared/schema";
+import { guardianRequirementError, type User } from "@shared/schema";
 
 const router = Router();
 
@@ -44,6 +44,8 @@ router.get('/',
       const sanitized = students.map(s => ({
         id: s.id, name: s.name, email: s.email,
         phone: s.phone, dateOfBirth: s.dateOfBirth,
+        guardianName: s.guardianName, guardianPhone: s.guardianPhone,
+        guardianRelationship: s.guardianRelationship,
         belt: s.belt, active: s.active, createdAt: s.createdAt,
       }));
 
@@ -127,12 +129,20 @@ router.post('/',
         email: z.string().email(),
         phone: z.string().optional(),
         dateOfBirth: z.string().optional(),
+        guardianName: z.string().optional(),
+        guardianPhone: z.string().optional(),
+        guardianRelationship: z.string().optional(),
         password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres").optional(),
         role: z.enum(['ALUNO', 'PROFESSOR']).default('ALUNO'),
       });
 
       const userData = createSchema.parse(req.body);
       const academyId = req.user!.academyId!;
+
+      if (userData.role === 'ALUNO') {
+        const guardianError = guardianRequirementError(userData);
+        if (guardianError) return res.status(400).json({ error: guardianError });
+      }
 
       const existingUser = await storage.getUserByEmail(userData.email);
       if (existingUser) {
@@ -177,6 +187,10 @@ router.patch('/:id',
         email: z.string().email().optional(),
         phone: z.string().optional(),
         dateOfBirth: z.string().optional(),
+        // Responsável legal; null limpa o campo (permitido apenas para aluno maior de idade)
+        guardianName: z.string().nullable().optional(),
+        guardianPhone: z.string().nullable().optional(),
+        guardianRelationship: z.string().nullable().optional(),
         belt: z.string().optional(),
         active: z.boolean().optional(),
         // Desconto individual em centavos (bolsa/família); null volta ao valor do plano
@@ -194,6 +208,23 @@ router.patch('/:id',
       if (updateData.email && updateData.email !== existing.email) {
         const conflict = await storage.getUserByEmail(updateData.email);
         if (conflict) return res.status(409).json({ error: 'Email já em uso' });
+      }
+
+      // Regra do responsável legal: valida o estado resultante, mas só quando o
+      // payload altera a data de nascimento ou mexe no responsável — cadastros
+      // antigos de menores sem responsável continuam editáveis em campos não
+      // relacionados (ex.: ativar/desativar, trocar faixa).
+      const dobChanged = updateData.dateOfBirth !== undefined
+        && new Date(updateData.dateOfBirth).getTime() !== (existing.dateOfBirth?.getTime() ?? NaN);
+      const touchesGuardian = updateData.guardianName !== undefined
+        || updateData.guardianPhone !== undefined;
+      if (dobChanged || touchesGuardian) {
+        const guardianError = guardianRequirementError({
+          dateOfBirth: updateData.dateOfBirth !== undefined ? updateData.dateOfBirth : existing.dateOfBirth,
+          guardianName: updateData.guardianName !== undefined ? updateData.guardianName : existing.guardianName,
+          guardianPhone: updateData.guardianPhone !== undefined ? updateData.guardianPhone : existing.guardianPhone,
+        });
+        if (guardianError) return res.status(400).json({ error: guardianError });
       }
 
       const updated = await storage.updateUser(studentId, {

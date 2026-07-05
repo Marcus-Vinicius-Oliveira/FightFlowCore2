@@ -30,6 +30,9 @@ interface Student {
   role: string;
   phone?: string;
   dateOfBirth?: string;
+  guardianName?: string | null;
+  guardianPhone?: string | null;
+  guardianRelationship?: string | null;
   belt?: string;
   active: boolean;
   createdAt: string;

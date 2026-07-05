@@ -2,7 +2,12 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { studentCreateFormSchema, type StudentCreateFormData } from "../../../shared/schema";
+import {
+  studentCreateFormSchema,
+  isMinor,
+  GUARDIAN_RELATIONSHIPS,
+  type StudentCreateFormData,
+} from "../../../shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { invalidateAfterStudentChange } from "@/lib/cache-helpers";
 import { Button } from "@/components/ui/button";
@@ -69,8 +74,14 @@ export function AddStudentDialog({ open, onOpenChange }: AddStudentDialogProps) 
       password: "",
       phone: "",
       dateOfBirth: "",
+      guardianName: "",
+      guardianPhone: "",
+      guardianRelationship: "",
     },
   });
+
+  // Menor de idade? Reage à digitação da data e controla a seção de responsável.
+  const minor = isMinor(form.watch("dateOfBirth") || undefined);
 
   const createStudentMutation = useMutation({
     mutationFn: async (data: StudentCreateFormData) => {
@@ -106,7 +117,15 @@ export function AddStudentDialog({ open, onOpenChange }: AddStudentDialogProps) 
   });
 
   const handleSubmit = (data: StudentCreateFormData) => {
-    createStudentMutation.mutate(data);
+    // Responsável só é persistido para menor de idade; strings vazias viram undefined
+    const clean = (s?: string | null) => (s?.trim() ? s.trim() : undefined);
+    const minorNow = isMinor(data.dateOfBirth || undefined);
+    createStudentMutation.mutate({
+      ...data,
+      guardianName: minorNow ? clean(data.guardianName) : undefined,
+      guardianPhone: minorNow ? clean(data.guardianPhone) : undefined,
+      guardianRelationship: minorNow ? clean(data.guardianRelationship) : undefined,
+    });
   };
 
   const handleCancel = () => {
@@ -218,6 +237,63 @@ export function AddStudentDialog({ open, onOpenChange }: AddStudentDialogProps) 
                 </p>
               )}
             </div>
+
+            {minor && (
+              <div className="space-y-4 rounded-md border border-primary/40 bg-primary/5 p-3">
+                <p className="text-sm font-medium">
+                  Responsável Legal{' '}
+                  <span className="font-normal text-muted-foreground">
+                    — obrigatório para menor de idade
+                  </span>
+                </p>
+
+                <div className="space-y-2">
+                  <Label htmlFor="guardian-name">Nome do Responsável</Label>
+                  <Input
+                    id="guardian-name"
+                    {...form.register("guardianName")}
+                    placeholder="Nome completo do responsável"
+                    data-testid="input-guardian-name"
+                  />
+                  {form.formState.errors.guardianName && (
+                    <p className="text-sm text-destructive">
+                      {form.formState.errors.guardianName.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="guardian-phone">Telefone do Responsável</Label>
+                  <Input
+                    id="guardian-phone"
+                    {...form.register("guardianPhone")}
+                    placeholder="(11) 99999-9999"
+                    data-testid="input-guardian-phone"
+                  />
+                  {form.formState.errors.guardianPhone && (
+                    <p className="text-sm text-destructive">
+                      {form.formState.errors.guardianPhone.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="guardian-relationship">Parentesco (Opcional)</Label>
+                  {/* Select nativo — mesmo racional dos checkboxes acima (robusto em toque no mobile) */}
+                  <select
+                    id="guardian-relationship"
+                    {...form.register("guardianRelationship")}
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:text-sm"
+                    data-testid="select-guardian-relationship"
+                  >
+                    <option value="">Selecione…</option>
+                    {GUARDIAN_RELATIONSHIPS.map(rel => (
+                      <option key={rel} value={rel}>{rel}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
 
             {classTypes.length > 0 && (
               <div className="space-y-2">

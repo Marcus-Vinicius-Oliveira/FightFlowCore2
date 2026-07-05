@@ -31,6 +31,10 @@ export const users = pgTable("users", {
   dateOfBirth: timestamp("date_of_birth"),
   belt: text("belt").default('branca'),
   customMonthlyAmount: integer("custom_monthly_amount"), // centavos; desconto individual (bolsa/família) — null = valor do plano
+  // Responsável legal — obrigatório quando o aluno é menor de idade (ver guardianRequirementError)
+  guardianName: text("guardian_name"),
+  guardianPhone: text("guardian_phone"),
+  guardianRelationship: text("guardian_relationship"),
   active: boolean("active").default(true),
   firstAccess: boolean("first_access").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -443,6 +447,43 @@ export type InsertStudentModalityRank = z.infer<typeof insertStudentModalityRank
 export type InsertStudentRankHistory = z.infer<typeof insertStudentRankHistorySchema>;
 export type InsertStudentModalityEnrollment = z.infer<typeof insertStudentModalityEnrollmentSchema>;
 
+// ─── Responsável legal (menor de idade) ──────────────────────────────────────
+
+export const MAJORITY_AGE = 18;
+
+/** Parentescos sugeridos nos formulários (texto livre também é aceito pela API). */
+export const GUARDIAN_RELATIONSHIPS = ['Mãe', 'Pai', 'Avó/Avô', 'Tia/Tio', 'Tutor(a) legal', 'Outro'] as const;
+
+/** Idade completa em anos na data de referência. Usa componentes UTC — datas de nascimento são armazenadas como meia-noite UTC. */
+export function calculateAge(dateOfBirth: Date, ref: Date = new Date()): number {
+  let age = ref.getUTCFullYear() - dateOfBirth.getUTCFullYear();
+  const monthDiff = ref.getUTCMonth() - dateOfBirth.getUTCMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && ref.getUTCDate() < dateOfBirth.getUTCDate())) age--;
+  return age;
+}
+
+/** Data de nascimento ausente ou inválida conta como adulto — a regra só se aplica quando a idade é conhecida. */
+export function isMinor(dateOfBirth: Date | string | null | undefined, ref: Date = new Date()): boolean {
+  if (!dateOfBirth) return false;
+  const d = typeof dateOfBirth === 'string' ? new Date(dateOfBirth) : dateOfBirth;
+  if (Number.isNaN(d.getTime())) return false;
+  return calculateAge(d, ref) < MAJORITY_AGE;
+}
+
+/**
+ * Regra única de negócio: menor de idade exige nome e telefone do responsável legal.
+ * Retorna a mensagem de erro em pt-BR, ou null quando o cadastro é válido.
+ */
+export function guardianRequirementError(
+  data: { dateOfBirth?: Date | string | null; guardianName?: string | null; guardianPhone?: string | null },
+  ref: Date = new Date(),
+): string | null {
+  if (!isMinor(data.dateOfBirth, ref)) return null;
+  if (!data.guardianName?.trim()) return 'Aluno menor de idade: informe o nome do responsável legal';
+  if (!data.guardianPhone?.trim()) return 'Aluno menor de idade: informe o telefone do responsável legal';
+  return null;
+}
+
 // Student creation schema used by admin panels
 export const studentCreateSchema = insertUserSchema
   .omit({ role: true, academyId: true, active: true, firstAccess: true })
@@ -456,7 +497,24 @@ export const studentCreateSchema = insertUserSchema
 
 export const studentCreateFormSchema = studentCreateSchema
   .omit({ dateOfBirth: true })
-  .extend({ dateOfBirth: z.string().optional() });
+  .extend({ dateOfBirth: z.string().optional() })
+  .superRefine((data, ctx) => {
+    if (!isMinor(data.dateOfBirth || undefined)) return;
+    if (!data.guardianName?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['guardianName'],
+        message: 'Nome do responsável é obrigatório para menor de idade',
+      });
+    }
+    if (!data.guardianPhone?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['guardianPhone'],
+        message: 'Telefone do responsável é obrigatório para menor de idade',
+      });
+    }
+  });
 
 export type StudentCreateData = z.infer<typeof studentCreateSchema>;
 export type StudentCreateFormData = z.infer<typeof studentCreateFormSchema>;

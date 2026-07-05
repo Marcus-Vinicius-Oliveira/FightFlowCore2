@@ -16,8 +16,9 @@ import {
 } from "@/components/ui/select";
 import {
   Edit2, Save, X, Plus, Trash2,
-  Mail, Phone, Calendar, ShieldCheck, ShieldOff, Banknote,
+  Mail, Phone, Calendar, ShieldCheck, ShieldOff, Banknote, Users,
 } from "lucide-react";
+import { isMinor, guardianRequirementError, GUARDIAN_RELATIONSHIPS } from "../../../shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient as globalQueryClient } from "@/lib/queryClient";
 import { invalidateAfterStudentChange } from "@/lib/cache-helpers";
@@ -32,6 +33,10 @@ export interface DialogStudent {
   email: string;
   phone?: string;
   dateOfBirth?: string;
+  /** Responsável legal — obrigatório quando o aluno é menor de idade */
+  guardianName?: string | null;
+  guardianPhone?: string | null;
+  guardianRelationship?: string | null;
   /** Desconto individual em centavos (bolsa/família); null/undefined = valor do plano */
   customMonthlyAmount?: number | null;
   active: boolean;
@@ -68,6 +73,9 @@ interface FormData {
   email: string;
   phone: string;
   dateOfBirth: string;
+  guardianName: string;
+  guardianPhone: string;
+  guardianRelationship: string;
   /** Mensalidade com desconto em reais ("150,00"); vazio = valor do plano */
   customMonthlyAmount: string;
   active: boolean;
@@ -200,7 +208,9 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
   // ── Local state ───────────────────────────────────────────────────────────
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<FormData>({
-    name: '', email: '', phone: '', dateOfBirth: '', customMonthlyAmount: '', active: true,
+    name: '', email: '', phone: '', dateOfBirth: '',
+    guardianName: '', guardianPhone: '', guardianRelationship: '',
+    customMonthlyAmount: '', active: true,
   });
   const [modalidadesForm, setModalidadesForm] = useState<ModalidadeFormRow[]>([]);
 
@@ -217,6 +227,9 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
       email: student.email,
       phone: student.phone ?? '',
       dateOfBirth: isoToDisplayDate(student.dateOfBirth),
+      guardianName: student.guardianName ?? '',
+      guardianPhone: student.guardianPhone ?? '',
+      guardianRelationship: student.guardianRelationship ?? '',
       customMonthlyAmount: centsToBRLInput(student.customMonthlyAmount),
       active: student.active,
     });
@@ -265,6 +278,12 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
 
   const primaryRankColor = viewModalities.find(m => m.rankColor)?.rankColor?.split('|')[0];
 
+  // Menoridade: a do cadastro salvo controla a visualização; a do formulário
+  // controla a edição (reage se o admin corrigir a data de nascimento).
+  const studentIsMinor = isMinor(student?.dateOfBirth);
+  const formIsMinor = isMinor(displayDateToISO(formData.dateOfBirth));
+  const hasGuardianData = !!(formData.guardianName || formData.guardianPhone || formData.guardianRelationship);
+
   // ── Repeater helpers (edit mode) ──────────────────────────────────────────
   const usedClassTypeIds = new Set(modalidadesForm.map(r => r.classTypeId).filter(Boolean));
 
@@ -298,6 +317,9 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
       email: student.email,
       phone: student.phone ?? '',
       dateOfBirth: isoToDisplayDate(student.dateOfBirth),
+      guardianName: student.guardianName ?? '',
+      guardianPhone: student.guardianPhone ?? '',
+      guardianRelationship: student.guardianRelationship ?? '',
       customMonthlyAmount: centsToBRLInput(student.customMonthlyAmount),
       active: student.active,
     });
@@ -317,11 +339,22 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
   // ── Save mutation ─────────────────────────────────────────────────────────
   const saveMutation = useMutation({
     mutationFn: async () => {
+      // Mesma regra do servidor, validada antes do request para feedback imediato
+      const guardianError = guardianRequirementError({
+        dateOfBirth: displayDateToISO(formData.dateOfBirth),
+        guardianName: formData.guardianName,
+        guardianPhone: formData.guardianPhone,
+      });
+      if (guardianError) throw new Error(guardianError);
+
       await apiRequest('PATCH', `/api/students/${student!.id}`, {
         name: formData.name,
         email: formData.email,
         phone: formData.phone || undefined,
         dateOfBirth: displayDateToISO(formData.dateOfBirth),
+        guardianName: formData.guardianName.trim() || null,
+        guardianPhone: formData.guardianPhone.trim() || null,
+        guardianRelationship: formData.guardianRelationship.trim() || null,
         customMonthlyAmount: brlInputToCents(formData.customMonthlyAmount),
         active: formData.active,
       });
@@ -553,11 +586,80 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
                   className="h-8 text-sm"
                 />
               ) : (
-                <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
-                  {formatDate(student?.dateOfBirth) ?? '—'}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
+                    {formatDate(student?.dateOfBirth) ?? '—'}
+                  </p>
+                  {studentIsMinor && (
+                    <Badge variant="outline" className="text-[11px] px-1.5 py-0">
+                      Menor de idade
+                    </Badge>
+                  )}
+                </div>
               )}
             </div>
+
+            {/* Responsável legal — obrigatório para menor de idade */}
+            {(isEditing ? (formIsMinor || hasGuardianData) : (studentIsMinor || !!student?.guardianName)) && (
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5" /> Responsável Legal
+                </Label>
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <Input
+                      value={formData.guardianName}
+                      onChange={e => setFormData(p => ({ ...p, guardianName: e.target.value }))}
+                      placeholder="Nome do responsável"
+                      className="h-8 text-sm"
+                      data-testid="input-guardian-name"
+                    />
+                    <Input
+                      value={formData.guardianPhone}
+                      onChange={e => setFormData(p => ({ ...p, guardianPhone: e.target.value }))}
+                      placeholder="Telefone do responsável"
+                      className="h-8 text-sm"
+                      data-testid="input-guardian-phone"
+                    />
+                    {/* Select nativo — mesmo padrão do AddStudentDialog */}
+                    <select
+                      aria-label="Parentesco do responsável"
+                      value={formData.guardianRelationship}
+                      onChange={e => setFormData(p => ({ ...p, guardianRelationship: e.target.value }))}
+                      className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      data-testid="select-guardian-relationship"
+                    >
+                      <option value="">Parentesco (opcional)</option>
+                      {GUARDIAN_RELATIONSHIPS.map(rel => (
+                        <option key={rel} value={rel}>{rel}</option>
+                      ))}
+                    </select>
+                    {formIsMinor && (
+                      <p className="text-[11px] text-muted-foreground">
+                        Aluno menor de idade: nome e telefone do responsável são obrigatórios.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
+                      {student?.guardianName ?? '—'}
+                      {student?.guardianRelationship ? (
+                        <span className="font-normal text-muted-foreground"> ({student.guardianRelationship})</span>
+                      ) : null}
+                    </p>
+                    {student?.guardianPhone && (
+                      <p className="text-sm text-muted-foreground">{formatPhone(student.guardianPhone)}</p>
+                    )}
+                    {studentIsMinor && !student?.guardianName && (
+                      <p className="text-xs text-amber-600 dark:text-amber-500">
+                        Menor de idade sem responsável cadastrado — edite o perfil para completar.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Mensalidade com desconto individual */}
             <div className="space-y-1">
