@@ -229,3 +229,69 @@ Ao rodar a suíte Playwright completa (nunca executada de ponta a ponta desde a 
 - **Rate limiters de login/signup agora são desativados fora de produção** (mesmo critério do limiter global) — sem isso, execuções repetidas dos e2e esbarravam no 429 de signup (5/hora/IP), a armadilha registrada no §6.
 
 **Notas:** o Playwright 1.61 exige `npx playwright install chromium` após o upgrade de dependências da auditoria. A tabela de Gestão de Aulas em telas pequenas usa o scroll horizontal interno padrão (comportamento pré-existente); uma visão em cards para mobile fica como melhoria futura.
+
+---
+
+## 10. Entrega — Responsável legal para aluno menor de idade (05/07/2026)
+
+Cadastro de alunos passou a exigir **responsável legal (nome + telefone) quando o aluno é menor de 18 anos**, com parentesco opcional. A regra vive em um único lugar (`guardianRequirementError` em `shared/schema.ts`, junto com `calculateAge`/`isMinor`) e é aplicada nos três pontos: validação Zod do formulário, pré-checagem no dialog de edição e validação da API.
+
+**Comportamento:**
+
+- **Adicionar Aluno**: ao digitar uma data de nascimento de menor, aparece a seção "Responsável Legal" (nome e telefone obrigatórios, parentesco em select: Mãe/Pai/Avó-Avô/Tia-Tio/Tutor(a) legal/Outro). Para adulto a seção não aparece e nada é persistido. Selects nativos, pelo mesmo racional mobile dos checkboxes do dialog.
+- **Ficha do aluno** (`StudentDetailDialog`): badge "Menor de idade" ao lado da data de nascimento; seção Responsável Legal em visualização (nome, parentesco, telefone) e edição; aviso âmbar quando um menor legado não tem responsável cadastrado. A pré-checagem no salvar usa a mesma função do servidor (mensagem idêntica, sem round-trip).
+- **API** (`POST/PATCH /api/students`): menor sem nome/telefone do responsável → 400 com mensagem em pt-BR. No PATCH a regra valida o **estado resultante** (payload + banco), mas **só dispara quando a data de nascimento muda ou o payload mexe no responsável** — cadastros antigos de menores sem responsável continuam editáveis em campos não relacionados (ativar/desativar, faixa etc.), e o `StudentForm` legado de StudentManagement não quebra. `null` limpa o responsável (aceito apenas para maior de idade). Sem data de nascimento cadastrada, a regra não se aplica (idade desconhecida ≠ menor).
+- `GET /api/students` (lista) agora inclui os três campos do responsável.
+
+**Migração (aplicada no banco de desenvolvimento via `npm run db:push`; rode após o deploy em outros ambientes).** Aditiva: `users.guardian_name`, `users.guardian_phone`, `users.guardian_relationship` (text, nullable).
+
+**Rollback:**
+
+```sql
+ALTER TABLE users DROP COLUMN guardian_name, DROP COLUMN guardian_phone, DROP COLUMN guardian_relationship;
+```
+
+**Verificação:** 15 testes novos (`server/__tests__/guardian.test.ts` — fronteira dos 18 anos no dia do aniversário, datas string/Date/ausente/inválida, mensagens exatas); typecheck limpo; suíte completa 96/96; build de produção OK. **Nota colateral:** `vitest.config.ts` ganhou o alias `@shared` (o import de valor em `students.routes.ts` expôs que o alias só existia no Vite/tsconfig — os 3 testes de sanitize que dependiam dele deixaram de ser silenciosamente pulados e passam).
+
+**Recomendações futuras:** termo de autorização de imagem/participação assinado pelo responsável (upload na ficha), e-mail do responsável como destinatário dos lembretes de mensalidade quando o aluno é menor, e migrar o `StudentForm` legado de StudentManagement para o `StudentDetailDialog` (dois caminhos de edição hoje).
+
+---
+
+## 11. Fix — sessão expirada deixava o app em estado zumbi (05/07/2026)
+
+**Sintoma:** dashboard com "Erro ao carregar informações da academia" e todas as métricas zeradas, mas usuário aparentemente logado (saudação vinda do cache do localStorage).
+
+**Causa raiz:** o middleware de auth responde **403** para token expirado/corrompido e **401** para token ausente (contrato assertado nos e2e do §9). As duas camadas HTTP do client (`queryClient.ts` e `api.ts`) só deslogavam em 401 — com o JWT vencido (24h), toda query falhava com 403 e o app ficava "logado" indefinidamente na tela de erro.
+
+**Fix (client only, contrato da API intacto):** o 403 cuja mensagem é exatamente a do middleware (`Token inválido ou expirado`, exportada como `INVALID_TOKEN_ERROR` em `queryClient.ts`) agora dispara o mesmo fluxo do 401 — limpa `auth_token`/`user`, emite `auth:unauthorized` (toast "Sessão Expirada" + volta ao login). Os demais 403 (permissão, multi-tenancy, limite de plano) seguem virando toast de erro normal, sem deslogar.
+
+**Verificação:** typecheck + 96/96 testes; smoke headless (Chromium/Playwright) contra o dev server real — token inválido no localStorage + `/dashboard` → sessão limpa, toast exibido, sem tela de erro.
+
+---
+
+## 12. Fix — inadimplência no Financeiro: contagem e aviso de dívida acumulada (05/07/2026)
+
+Investigação a partir de um falso bug relatado ("marquei como pago e o aluno continua inadimplente na lista de Alunos"): o dado estava certo — o aluno tinha **outra** mensalidade em atraso de mês anterior. A confusão vinha de dois problemas reais no Controle Financeiro:
+
+1. **Card "Inadimplentes (Nº de alunos)" contava mensalidades, não alunos** — mostrava 5 (mensalidades atrasadas) enquanto a lista de Alunos filtrava 3 (alunos distintos). Corrigido para `Set` de `studentId` sobre os pagamentos `overdue`; os dois números agora batem.
+2. **Registrar pagamento não avisava sobre dívida acumulada** — o gestor quitava a mensalidade do mês e assumia que o aluno saía da inadimplência. O toast de sucesso agora alerta quando o aluno ainda tem outras mensalidades em atraso, com os meses: "Atenção: Fulano ainda tem 1 mensalidade em atraso (junho de 2026)."
+
+**Verificação:** typecheck + 96/96; headless (read-only) contra o dev server — card mostra 3 com os dados atuais (5 mensalidades atrasadas / 3 alunos).
+
+3. **Badge de dívida acumulada na tabela** *(entregue na sequência)* — a coluna Aluno mostra badge vermelho "N em atraso" ao lado do nome. Regra anti-ruído: o badge só aparece quando acrescenta informação além da própria linha — aluno com 2+ atrasos (qualquer linha dele), ou 1 atraso visto de uma linha não atrasada (ex.: a mensalidade paga do mês quando a do mês anterior segue aberta); na única linha atrasada do aluno, a coluna Status já comunica. Verificado em headless conferindo todas as 386 linhas da tabela contra a regra computada da API (13 linhas com badge, 0 divergências).
+
+**Refinamentos de UX após revisão visual (mesma data):**
+
+- **Badge em outline** (borda/texto vermelhos, fundo transparente, ícone ⚠) — no filtro "Atrasados" o badge sólido competia com o chip de Status na mesma linha; o outline estabelece hierarquia (Status = estado da linha, badge = contexto do aluno).
+- **Tooltip com meses + valor total** no badge (ex.: "junho de 2026, julho de 2026 — R$ 240,00 no total") — a pergunta do gestor na cobrança é "quanto", não só "quantas".
+- **Filtro "Atrasados" ordena vencimento mais antigo primeiro** (só nesse filtro) — o "Marcar como Pago" mais à mão passa a quitar a dívida na ordem certa; pagar só o mês recente escondia o débito anterior (origem da confusão que motivou o §12).
+
+Verificação headless dos três: ordem crescente confirmada, badge outline com ícone, tooltip com meses e total; typecheck + 96/96.
+
+**Escala (200+ alunos, dezenas de inadimplentes) — mesma data:**
+
+- **Filtro "Atrasados" virou visão agrupada por devedor**: uma linha por aluno (badge de contagem, total devido em vermelho, "em atraso desde"), expansível para as mensalidades — mais antiga primeiro, cada uma com seu "Marcar como Pago". Motivo: a tabela plana ordenada por vencimento intercalava os meses de alunos diferentes (40 devedores × 2-3 meses ≈ 100 linhas embaralhadas). Devedores ordenados pela dívida mais antiga. Os filtros "Todos"/"Pagos"/"Próximos" mantêm a tabela plana por mensalidade (formato certo para histórico).
+- **Busca "Buscar aluno..." na linha de filtros** — filtra a tabela em todos os filtros, sem acento/caixa (`NFD` + `\p{M}`); resolve o caso "aluno no balcão querendo pagar" sem rolagem.
+- Empty state do Atrasados diferenciado: "todos em dia 🎉" vs. "nenhum inadimplente para a busca".
+
+Verificação headless: 2 devedores agrupados (linha com total R$ 240,00 e desde 05/06/2026), expansão com 2 mensalidades em ordem e botões de pagamento, busca "patricia" → só Patricia Luz no Atrasados e no Todos; typecheck + 96/96; screenshot conferido.

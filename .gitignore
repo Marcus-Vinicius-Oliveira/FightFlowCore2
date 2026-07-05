@@ -12,3 +12,6 @@ vite.config.ts.*
 # Playwright
 test-results
 playwright-report
+
+# Scripts locais de desenvolvimento
+server/dev-reset-admin.ts
