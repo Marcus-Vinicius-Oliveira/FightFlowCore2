@@ -150,7 +150,7 @@ router.get('/charts',
       sixMonthsAgo.setDate(1);
       sixMonthsAgo.setHours(0, 0, 0, 0);
 
-      const [growthRows, revenueRows, beltRows, modalityRows] = await Promise.all([
+      const [growthRows, revenueRows, beltRows, modalityRows, unrankedRows] = await Promise.all([
         // Novos alunos por mês (últimos 6 meses)
         db.execute(sql`
           SELECT
@@ -190,21 +190,49 @@ router.get('/charts',
           ORDER BY count DESC
         `),
 
-        // Distribuição de graduações por modalidade (student_modality_ranks)
+        // Distribuição de graduações por modalidade — parte do sistema de
+        // graduação (todas as faixas, mesmo sem alunos) e conta via LEFT JOIN.
+        // Faixas zeradas são informação de pipeline, não ausência de dado.
+        // Inclui os IDs para permitir navegação do dashboard à lista de alunos filtrada.
         db.execute(sql`
           SELECT
+            ct.id     AS class_type_id,
             ct.name   AS modality,
+            gr.id     AS rank_id,
             gr.name   AS rank,
             gr.color_class AS color_class,
             gr.display_order AS display_order,
             COUNT(smr.id)::int AS count
-          FROM student_modality_ranks smr
-          JOIN class_types ct   ON ct.id  = smr.class_type_id
-          JOIN graduation_ranks gr ON gr.id = smr.rank_id
-          JOIN graduation_systems gs ON gs.id = gr.system_id
-          WHERE smr.academy_id = ${academyId}::uuid
-          GROUP BY ct.name, gr.name, gr.color_class, gr.display_order
+          FROM graduation_systems gs
+          JOIN class_types ct   ON ct.id = gs.class_type_id
+          JOIN graduation_ranks gr ON gr.system_id = gs.id
+          LEFT JOIN student_modality_ranks smr
+            ON smr.rank_id = gr.id
+           AND smr.class_type_id = ct.id
+           AND smr.academy_id = ${academyId}::uuid
+          WHERE gs.academy_id = ${academyId}::uuid
+            AND gs.class_type_id IS NOT NULL
+          GROUP BY ct.id, ct.name, gr.id, gr.name, gr.color_class, gr.display_order
           ORDER BY ct.name, gr.display_order
+        `),
+
+        // Alunos ativos matriculados na modalidade mas SEM graduação registrada
+        // — sinal de cadastro incompleto, exibido ao final da lista no dashboard
+        db.execute(sql`
+          SELECT
+            e.class_type_id AS class_type_id,
+            COUNT(*)::int   AS count
+          FROM student_modality_enrollments e
+          JOIN users u ON u.id = e.student_id
+          WHERE e.academy_id = ${academyId}::uuid
+            AND e.active = true
+            AND u.active = true
+            AND NOT EXISTS (
+              SELECT 1 FROM student_modality_ranks smr
+              WHERE smr.student_id = e.student_id
+                AND smr.class_type_id = e.class_type_id
+            )
+          GROUP BY e.class_type_id
         `),
       ]);
 
@@ -222,10 +250,16 @@ router.get('/charts',
           count: Number(r.count),
         })),
         modalityRankDistribution: modalityRows.rows.map(r => ({
+          classTypeId: r.class_type_id as string,
           modality: r.modality as string,
+          rankId: r.rank_id as string,
           rank: r.rank as string,
           colorClass: r.color_class as string,
           displayOrder: Number(r.display_order),
+          count: Number(r.count),
+        })),
+        modalityUnranked: unrankedRows.rows.map(r => ({
+          classTypeId: r.class_type_id as string,
           count: Number(r.count),
         })),
       });

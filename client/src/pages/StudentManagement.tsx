@@ -466,15 +466,21 @@ export default function StudentManagement() {
   const [permanentDeleteStudent, setPermanentDeleteStudent] = useState<Student | undefined>();
   const [graduateStudent, setGraduateStudent] = useState<Student | undefined>();
   
-  const [filters, setFilters] = useState<FilterOptions>({
-    status: "all",
-    belt: "",
-    classTypeId: "",
-    rankId: "",
-    dateFrom: "",
-    dateTo: "",
-    sortBy: "name",
-    sortOrder: "asc",
+  // Deep-link do dashboard: /dashboard/alunos?modalidade=<classTypeId>&graduacao=<rankId>
+  const [filters, setFilters] = useState<FilterOptions>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const classTypeId = params.get("modalidade") ?? "";
+    return {
+      status: "all",
+      belt: "",
+      classTypeId,
+      // graduação só faz sentido junto com a modalidade (o filtro exige ambos)
+      rankId: classTypeId ? (params.get("graduacao") ?? "") : "",
+      dateFrom: "",
+      dateTo: "",
+      sortBy: "name",
+      sortOrder: "asc",
+    };
   });
   const [inadimplentesActive, setInadimplentesActive] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
