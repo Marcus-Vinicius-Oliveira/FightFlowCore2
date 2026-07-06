@@ -22,6 +22,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -41,7 +51,8 @@ import {
   CalendarClock,
   ChevronDown,
   ChevronRight,
-  Search
+  Search,
+  Undo2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiClient, type Payment, type MembershipPlan, type Student } from "@/lib/api";
@@ -80,6 +91,16 @@ function normalizeSearch(s: string): string {
   return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 }
 
+/**
+ * Mesma convenção do servidor (server/lib/payments.ts): a mensalidade que
+ * vence hoje só é "atrasada" depois que o dia termina.
+ */
+function isOverdue(dueDate: string): boolean {
+  const cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
+  return new Date(dueDate) < cutoff;
+}
+
 function computeStatus(p: Payment): PaymentRecord['status'] {
   if (p.status === 'paid') return 'pago';
   if (p.status === 'overdue') return 'atrasado';
@@ -97,6 +118,7 @@ export default function FinancialControl() {
   const [dueDayInput, setDueDayInput] = useState('');
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
   const [detailPayment, setDetailPayment] = useState<Payment | null>(null);
+  const [isUndoConfirmOpen, setIsUndoConfirmOpen] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     valorPago: '',
     dataPagamento: '',
@@ -187,6 +209,28 @@ export default function FinancialControl() {
     },
     onError: (error: Error) => {
       toast({ title: 'Erro ao registrar pagamento', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Corrige clique errado em "Marcar como Pago": volta a mensalidade para
+  // pendente/atrasada (conforme o vencimento) e o servidor limpa data e meio
+  // de pagamento. Sem isso o gestor só conseguiria corrigir direto no banco.
+  const undoPaymentMutation = useMutation({
+    mutationFn: (payment: Payment) =>
+      apiClient.updatePayment(payment.id, {
+        status: isOverdue(payment.dueDate) ? 'overdue' : 'pending',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/payments'] });
+      toast({
+        title: 'Pagamento desfeito',
+        description: 'A mensalidade voltou para a lista de cobranças e saiu da receita do mês.',
+      });
+      setIsUndoConfirmOpen(false);
+      setDetailPayment(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Erro ao desfazer pagamento', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -1062,13 +1106,58 @@ export default function FinancialControl() {
               )}
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:justify-between">
+            {detailPayment?.status === 'paid' && (
+              <Button
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                onClick={() => setIsUndoConfirmOpen(true)}
+                data-testid="button-undo-payment"
+              >
+                <Undo2 className="h-4 w-4 mr-2" />
+                Desfazer pagamento
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setDetailPayment(null)} data-testid="button-close-details">
               Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmação do desfazer — mexe na receita do mês, não pode ser um clique só */}
+      <AlertDialog open={isUndoConfirmOpen} onOpenChange={setIsUndoConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desfazer este pagamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A mensalidade de{' '}
+              <strong>
+                {studentsData?.find(s => s.id === detailPayment?.studentId)?.name ?? 'aluno'}
+              </strong>{' '}
+              ({detailPayment ? formatPrice(detailPayment.amount) : ''}) voltará a constar como{' '}
+              {detailPayment && isOverdue(detailPayment.dueDate) ? 'atrasada' : 'pendente'}.
+              A data e o meio de pagamento registrados serão apagados e o valor sairá da receita do mês.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-undo">Manter como pago</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={undoPaymentMutation.isPending}
+              onClick={(e) => {
+                // Radix fecha o AlertDialog no clique; segura aberto até a API
+                // responder para o erro não passar despercebido
+                e.preventDefault();
+                if (detailPayment) undoPaymentMutation.mutate(detailPayment);
+              }}
+              data-testid="button-confirm-undo"
+            >
+              {undoPaymentMutation.isPending ? 'Desfazendo...' : 'Desfazer pagamento'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

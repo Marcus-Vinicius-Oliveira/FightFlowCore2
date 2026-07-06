@@ -133,8 +133,15 @@ router.patch('/payments/:id',
         updateData.paidDate = new Date();
       }
 
+      // Desfazer pagamento: sem limpar paid_date/payment_method, o registro
+      // revertido continuaria exibindo "pago em ..." e voltaria com dados
+      // fantasma se marcado como pago de novo.
+      const revertingPaid =
+        payment.status === 'paid' && updateData.status && updateData.status !== 'paid';
+
       const updated = await storage.updatePayment(req.params.id, {
         ...updateData,
+        ...(revertingPaid ? { paidDate: null, paymentMethod: null } : {}),
         updatedBy: req.user!.id,
       });
 
