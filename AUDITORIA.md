@@ -295,3 +295,51 @@ Verificação headless dos três: ordem crescente confirmada, badge outline com 
 - Empty state do Atrasados diferenciado: "todos em dia 🎉" vs. "nenhum inadimplente para a busca".
 
 Verificação headless: 2 devedores agrupados (linha com total R$ 240,00 e desde 05/06/2026), expansão com 2 mensalidades em ordem e botões de pagamento, busca "patricia" → só Patricia Luz no Atrasados e no Todos; typecheck + 96/96; screenshot conferido.
+
+---
+
+## 13. Fix — card "Instrutores" do dashboard não refletia cadastro (05/07/2026)
+
+**Sintoma:** cadastrar instrutor atualizava a lista (3 de 3), mas o card do Painel seguia mostrando 2.
+
+**Causa raiz:** cache do client, não contagem no banco. O card é alimentado por `/api/dashboard/info`, mas as mutations de `InstructorManagement.tsx` só invalidavam `/api/instructors`, `/api/users` e `/api/students`. Com `staleTime` de 5 min e `refetchOnWindowFocus: false`, voltar ao Painel servia o valor velho. O helper `invalidateAfterInstructorChange` (cache-helpers.ts) existia exatamente para isso — a tela de alunos usava o equivalente; a de instrutores, não.
+
+**Fix:** as 5 mutations de instrutor (criar, editar, desativar, reativar, excluir permanentemente) passam a chamar o helper. Verificação: typecheck + 96/96. — `da81537`
+
+---
+
+## 14. Entrega — Graduações por Modalidade como ferramenta de gestão (05/07/2026)
+
+Reforma do card do dashboard em 5 prioridades decididas com o fundador, transformando a "lista de barras" em instrumento de decisão. — `7ec7387`
+
+- **Barra honesta:** largura proporcional ao **total de graduados da modalidade** (antes: relativa ao máximo da lista — 1 aluno preenchia meia tela). Rótulo "N alunos · X%", piso visual de 3%.
+- **Click-through:** cada faixa navega para a lista de Alunos já filtrada (`/dashboard/alunos?modalidade=<classTypeId>&graduacao=<rankId>`); o `StudentManagement` inicializa os filtros a partir da URL (deep-link, com as tags removíveis normais). O endpoint `/api/dashboard/charts` passou a incluir os IDs.
+- **Visão-resumo:** barra 100% empilhada acima da lista (um segmento colorido por faixa, gap de 2px, tooltip nativo, `aria-label`); lista em 2 colunas no desktop (corta a altura ~pela metade).
+- **Faixas zeradas visíveis:** a query partiu de `student_modality_ranks` para `graduation_systems`→`graduation_ranks` com LEFT JOIN — faixa sem aluno aparece apagada (informação de pipeline). Subtítulo com ocupação: "BJJ · 13 alunos graduados · 8 de 11 faixas". Linha tracejada **"Sem graduação registrada · N alunos"** ao final (matriculados ativos na modalidade sem rank — sinal de cadastro incompleto), clicável para a lista da modalidade.
+- **Seletor:** tabs com contagem por modalidade no desktop (com overflow-x de segurança); no mobile, Select de largura total no padrão de filtro do app (label dinâmico no trigger, sem SelectValue). Auto-scroll ao trocar de modalidade estendido a todos os breakpoints (a restrição `< 1024px` assumia card sempre visível em desktop, premissa quebrada com o card no fim da página).
+
+**Mudanças de comportamento intencionais:** modalidades com sistema de graduação e zero graduados agora aparecem nas abas (lista toda apagada); o clique em "Sem graduação registrada" leva à lista da modalidade inteira (a tela de Alunos ainda não tem filtro "sem graduação").
+
+**Verificação:** typecheck + 96/96 a cada etapa. **Recomendações futuras:** opção "Sem graduação" no filtro de Graduação (deixa o link exato); contagem "graduados/matriculados" nas tabs (ex.: 13/15) se a linha de cadastro incompleto ganhar peso na operação.
+
+---
+
+## 15. Entrega — Controle de Pagamentos em cards no mobile (05/07/2026)
+
+As duas tabelas do Financeiro (padrão de 7 colunas e agrupada de inadimplentes do §12) viviam num `overflow-x-auto` com `min-w-[640px]` — no celular o gestor arrastava para o lado e perdia justamente Status, Valor e o botão de ação. — `f094ecb`
+
+- **Abaixo de 768px**, cada linha vira card empilhado com hierarquia de leitura: nome + badge de dívida + status no topo; plano/vencimento como linha secundária; valor em destaque com data de pagamento; ação em botão de largura total (alvo de toque adequado). "Ver Detalhes" quando pago, "Marcar como Pago" caso contrário — mesmos modais de sempre.
+- **Visão Atrasados:** card por devedor (total em vermelho, "desde <data>", badge de contagem), expansível para as mensalidades com seus botões — reutiliza o estado `expandedStudents` do §12.
+- Estados de loading/vazio com versão card; **desktop intacto** (`hidden md:block`); `data-testid` próprios nos cards (`card-payment-*`, `card-debtor-*`) para nunca duplicar IDs com a tabela oculta.
+
+**Verificação:** typecheck + 96/96; validação visual em viewport estreito. **Pendência correlata (§9):** a tabela de Gestão de Aulas ainda usa scroll horizontal no mobile — candidata ao mesmo padrão de cards.
+
+---
+
+## 16. Fix — menu lateral recolhido vazava textos sobre o conteúdo (05/07/2026)
+
+**Sintoma:** em desktop/tablet, recolher a sidebar deixava "Fight Club App" quebrado em coluna por cima do cabeçalho da página, iniciais dos itens de menu visíveis e "Sair da Conta" estourando o trilho.
+
+**Causa raiz:** o sidebar usa o modo `collapsible="icon"` do shadcn (trilho de ~48px, estado exposto via `group-data-[collapsible=icon]`); os componentes base se ajustam, mas o conteúdo customizado do `AppSidebar` (logo com texto, bloco do usuário, botão sair, labels) não usava as variantes.
+
+**Fix (só classes, expandido nada muda):** recolhido = logo centralizada sem texto; itens só com ícone (tooltips com o nome já existiam no `SidebarMenuButton`); avatar 32px centralizado sem nome/e-mail; "Sair" vira botão só de ícone. Verificação: typecheck limpo + conferência visual nos dois estados. — `3ccdf18`
