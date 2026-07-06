@@ -343,3 +343,17 @@ As duas tabelas do Financeiro (padrão de 7 colunas e agrupada de inadimplentes 
 **Causa raiz:** o sidebar usa o modo `collapsible="icon"` do shadcn (trilho de ~48px, estado exposto via `group-data-[collapsible=icon]`); os componentes base se ajustam, mas o conteúdo customizado do `AppSidebar` (logo com texto, bloco do usuário, botão sair, labels) não usava as variantes.
 
 **Fix (só classes, expandido nada muda):** recolhido = logo centralizada sem texto; itens só com ícone (tooltips com o nome já existiam no `SidebarMenuButton`); avatar 32px centralizado sem nome/e-mail; "Sair" vira botão só de ícone. Verificação: typecheck limpo + conferência visual nos dois estados. — `3ccdf18`
+
+---
+
+## 17. Entrega — Desfazer pagamento marcado por engano (06/07/2026)
+
+Lacuna apontada pelo fundador: "Marcar como Pago" era irreversível pela UI — um clique errado só se corrigia direto no banco. — `90529d2`
+
+- **UI:** o modal "Ver Detalhes" (única ação disponível num pagamento pago) ganha o botão **"Desfazer pagamento"**, com AlertDialog de confirmação que nomeia aluno, valor e para qual status a mensalidade voltará — decisão que mexe na receita do mês não pode ser um clique só. O diálogo segura aberto até a API responder (Radix fecha no clique por padrão), para erro não passar despercebido.
+- **Status de retorno:** recalculado no client com a mesma convenção do servidor (`overdueCutoff` — vencida só após o fim do dia do vencimento): `overdue` se o vencimento passou, senão `pending`. Helper `isOverdue` documenta o espelhamento.
+- **Backend (`PATCH /api/payments/:id`):** reverter um pagamento `paid` limpa `paid_date` e `payment_method` automaticamente. Sem isso o registro revertido continuava exibindo "pago em ..." (o card mobile mostra a data quando existe) e, ao ser marcado como pago de novo, ressuscitava o meio de pagamento da operação desfeita. Os KPIs de receita já filtravam por `status = 'paid'`, então a reversão do status corrige receita do mês e gráfico de 6 meses sem mudança extra.
+
+**Verificação:** typecheck + 96/96; **e2e Playwright contra instância isolada (porta 5001)** com fixtures temporárias no banco (`@verify.tmp`, removidas ao final): login → marcar atrasada como paga → desfazer pela UI → badge volta a "Atrasado", data "-", API confirma `{status: overdue, paidDate: null, paymentMethod: null}`. Probes: reverter pagamento não-pago é troca de status normal; re-marcar como pago após undo recebe `paidDate` novo sem dados fantasma. Receita de verificação persistida em `.claude/skills/verify/SKILL.md`.
+
+**Bug pré-existente encontrado na verificação (não corrigido aqui):** datas date-only (`YYYY-MM-DD`) enviadas ao backend são parseadas como meia-noite UTC e exibidas com `toLocaleDateString` local (UTC-3) — pagamento registrado dia 06/07 aparece "pago em 05/07". Afeta a exibição de `paidDate`/`dueDate` em geral; candidato a fix dedicado.
