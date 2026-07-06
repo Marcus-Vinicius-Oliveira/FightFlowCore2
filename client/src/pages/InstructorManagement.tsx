@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Search, Edit, Mail, Phone, Calendar, MoreHorizontal, Trash2, Eye, UserX, UserCheck, GraduationCap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { invalidateAfterInstructorChange } from "@/lib/cache-helpers";
 import { z } from "zod";
 import { AdvancedFilters, FilterOptions, applyFilters } from "@/components/AdvancedFilters";
 
@@ -52,8 +53,7 @@ function InstructorForm({ instructor, onClose }: InstructorFormProps) {
     mutationFn: (data: InstructorFormData) => apiRequest('POST', '/api/students', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      invalidateAfterInstructorChange(queryClient);
       toast({
         title: "Instrutor cadastrado com sucesso!",
         description: `${formData.name} foi adicionado à academia.`,
@@ -73,8 +73,7 @@ function InstructorForm({ instructor, onClose }: InstructorFormProps) {
     mutationFn: (data: InstructorFormData) => apiRequest('PATCH', `/api/instructors/${instructor!.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/students'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      invalidateAfterInstructorChange(queryClient);
       toast({
         title: "Instrutor atualizado com sucesso!",
         description: `Dados de ${formData.name} foram atualizados.`,
@@ -229,7 +228,7 @@ export default function InstructorManagement() {
   const deleteMutation = useMutation({
     mutationFn: (instructorId: string) => apiRequest('DELETE', `/api/instructors/${instructorId}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
+      invalidateAfterInstructorChange(queryClient);
       toast({
         title: "Instrutor removido com sucesso!",
         description: `${deleteInstructor?.name} foi removido da academia.`,
@@ -249,7 +248,7 @@ export default function InstructorManagement() {
   const activateMutation = useMutation({
     mutationFn: (instructorId: string) => apiRequest('PATCH', `/api/instructors/${instructorId}`, { active: true }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
+      invalidateAfterInstructorChange(queryClient);
       toast({
         title: "Instrutor ativado com sucesso!",
         description: `${activateInstructor?.name} foi reativado na academia.`,
@@ -274,7 +273,7 @@ export default function InstructorManagement() {
         .then(result => ({ ...result, instructorName }));
     },
     onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/instructors'] });
+      invalidateAfterInstructorChange(queryClient);
       toast({
         title: "Instrutor excluído permanentemente!",
         description: `${data.instructorName} foi removido definitivamente do sistema.`,
