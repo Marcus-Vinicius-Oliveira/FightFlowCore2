@@ -195,9 +195,10 @@ export function AppSidebar({
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center space-x-2 p-2">
-          <img src={logoIcon} alt="Fight Club App" className="h-8 w-8" />
-          <div className="flex flex-col">
+        {/* Recolhido (modo ícone): só a logo, centralizada no trilho */}
+        <div className="flex items-center space-x-2 p-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:space-x-0 group-data-[collapsible=icon]:p-0">
+          <img src={logoIcon} alt="Fight Club App" className="h-8 w-8 shrink-0" />
+          <div className="flex flex-col group-data-[collapsible=icon]:hidden">
             <span className="font-bold text-sidebar-foreground">Fight Club App</span>
             <span className="text-xs text-sidebar-foreground/60">{userInfo.academy}</span>
           </div>
@@ -218,7 +219,7 @@ export function AppSidebar({
                   >
                     <Link href={item.url} className="w-full justify-start" onClick={closeMobileMenu}>
                       <item.icon className="h-4 w-4 shrink-0" />
-                      <span>{item.title}</span>
+                      <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -229,15 +230,16 @@ export function AppSidebar({
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border">
-        <div className="p-4 space-y-3">
-          <div className="flex items-center space-x-3">
-            <Avatar className="h-10 w-10">
+        {/* Recolhido: avatar menor centralizado + botão sair só com ícone */}
+        <div className="p-4 space-y-3 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:space-y-2">
+          <div className="flex items-center space-x-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:space-x-0">
+            <Avatar className="h-10 w-10 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8">
               <AvatarImage src={userInfo.avatar} alt={userInfo.name} />
               <AvatarFallback className="text-sm">
                 {getInitials(userInfo.name)}
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
               <p className="text-sm font-medium text-sidebar-foreground truncate">
                 {userInfo.name}
               </p>
@@ -249,20 +251,20 @@ export function AppSidebar({
               </p>
             </div>
           </div>
-          
+
           {/* Logout Button */}
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="sm"
-            className="w-full justify-start text-sidebar-foreground/60 hover:text-sidebar-foreground"
+            className="w-full justify-start text-sidebar-foreground/60 hover:text-sidebar-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
             onClick={() => {
               logout();
               setLocation('/');
             }}
             data-testid="button-logout"
           >
-            <LogOut className="mr-2 h-4 w-4" />
-            Sair da Conta
+            <LogOut className="mr-2 h-4 w-4 group-data-[collapsible=icon]:mr-0" />
+            <span className="group-data-[collapsible=icon]:hidden">Sair da Conta</span>
           </Button>
         </div>
       </SidebarFooter>
