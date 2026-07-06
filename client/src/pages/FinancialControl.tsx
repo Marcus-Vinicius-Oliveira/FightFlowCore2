@@ -1,4 +1,5 @@
 import { Fragment, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,11 +59,16 @@ import {
   ChevronDown,
   ChevronRight,
   Search,
-  Undo2
+  Undo2,
+  FileText,
+  FileDown,
+  Printer
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { apiClient, type Payment, type MembershipPlan, type Student } from "@/lib/api";
 import { apiRequest } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 
 interface PaymentRecord {
   id: string;
@@ -68,6 +80,7 @@ interface PaymentRecord {
   vencimentoMs: number;
   status: 'pago' | 'atrasado' | 'proximo' | 'pendente';
   dataPagamento: string;
+  meioPagamento: string;
   valor: number;
   /** Total de mensalidades em atraso do aluno (dívida acumulada, não só esta linha) */
   atrasosDoAluno: number;
@@ -91,6 +104,31 @@ function normalizeSearch(s: string): string {
   return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 }
 
+/** Chave de mês do filtro de período (ex.: "2026-07"), no fuso local */
+function monthKeyOf(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** "2026-07" → "julho de 2026" (minúsculo, para meio de frase) */
+function monthLabelOf(key: string): string {
+  const [y, m] = key.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+}
+
+/** "2026-07" → "Julho de 2026" — só a inicial; CSS capitalize daria "Julho De 2026" */
+function monthLabelCapOf(key: string): string {
+  const label = monthLabelOf(key);
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+const STATUS_LABELS: Record<PaymentRecord['status'], string> = {
+  pago: 'Pago',
+  atrasado: 'Atrasado',
+  proximo: 'Próximo',
+  pendente: 'Pendente',
+};
+
 /**
  * Mesma convenção do servidor (server/lib/payments.ts): a mensalidade que
  * vence hoje só é "atrasada" depois que o dia termina.
@@ -111,6 +149,8 @@ function computeStatus(p: Payment): PaymentRecord['status'] {
 
 export default function FinancialControl() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('todos');
+  // 'todos' ou chave "YYYY-MM" — os meses ofertados vêm dos vencimentos existentes
+  const [periodFilter, setPeriodFilter] = useState('todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -126,6 +166,7 @@ export default function FinancialControl() {
     observacoes: ''
   });
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   // queryKeys no padrão do app (['/api/...'] + queryFn default) para a
@@ -276,14 +317,27 @@ export default function FinancialControl() {
       vencimentoMs: new Date(p.dueDate).getTime(),
       status: computeStatus(p),
       dataPagamento: p.paidDate ? new Date(p.paidDate).toLocaleDateString('pt-BR') : '-',
+      meioPagamento: p.paymentMethod ?? '',
       valor: p.amount,
       atrasosDoAluno: overdueCountByStudent.get(p.studentId) ?? 0,
     };
   });
 
-  // Receita do mês corrente — só pagamentos pagos com paid_date neste mês
+  // Meses ofertados no filtro de período — só os que existem nos vencimentos,
+  // mais recente primeiro (ir a "março" é 1 clique, não rolagem)
+  const availableMonths = [...new Set(payments.map(p => monthKeyOf(p.vencimentoMs)))]
+    .sort()
+    .reverse();
+
+  // Período não se aplica em Atrasados: inadimplência é dívida acumulada —
+  // filtrar por mês esconderia a mensalidade antiga que originou o débito
+  const periodApplied = periodFilter !== 'todos' && activeFilter !== 'atrasados';
+
+  // KPIs acompanham o período selecionado (a tela conta uma história só):
+  // sem período = comportamento clássico (caixa do mês corrente + a receber
+  // total); com período = competência (mensalidades daquele mês)
   const now = new Date();
-  const receitaMes = (paymentsData ?? [])
+  const receitaMesCorrente = (paymentsData ?? [])
     .filter(p => {
       if (p.status !== 'paid' || !p.paidDate) return false;
       const paid = new Date(p.paidDate);
@@ -291,9 +345,19 @@ export default function FinancialControl() {
     })
     .reduce((sum, p) => sum + p.amount, 0);
 
-  const aReceber = payments
+  const periodPaymentsAll = periodFilter !== 'todos'
+    ? payments.filter(p => monthKeyOf(p.vencimentoMs) === periodFilter)
+    : payments;
+
+  const receita = periodFilter === 'todos'
+    ? receitaMesCorrente
+    : periodPaymentsAll.filter(p => p.status === 'pago').reduce((sum, p) => sum + p.valor, 0);
+
+  const aReceber = periodPaymentsAll
     .filter(p => p.status !== 'pago')
     .reduce((sum, p) => sum + p.valor, 0);
+
+  const periodLabel = periodFilter !== 'todos' ? monthLabelOf(periodFilter) : null;
 
   // Alunos distintos — um aluno pode ter mais de uma mensalidade em atraso,
   // e o card promete "Nº de alunos" (alinha com o chip da lista de Alunos)
@@ -306,7 +370,11 @@ export default function FinancialControl() {
     ? payments.filter(p => normalizeSearch(p.aluno).includes(searchNorm))
     : payments;
 
-  const filteredPayments = searchedPayments.filter(payment => {
+  const periodFilteredPayments = periodApplied
+    ? searchedPayments.filter(p => monthKeyOf(p.vencimentoMs) === periodFilter)
+    : searchedPayments;
+
+  const filteredPayments = periodFilteredPayments.filter(payment => {
     switch (activeFilter) {
       case 'pagos': return payment.status === 'pago';
       case 'atrasados': return payment.status === 'atrasado';
@@ -343,6 +411,79 @@ export default function FinancialControl() {
       if (next.has(studentId)) next.delete(studentId); else next.add(studentId);
       return next;
     });
+  };
+
+  // ── Relatórios: sempre sobre o que está na tela (período + status + busca) ──
+
+  // Em Atrasados, segue a ordem da visão agrupada (devedor mais antigo primeiro)
+  const reportRows = activeFilter === 'atrasados'
+    ? debtorGroups.flatMap(g => g.payments)
+    : filteredPayments;
+
+  const reportTotalCents = reportRows.reduce((sum, r) => sum + r.valor, 0);
+
+  const FILTER_LABELS: Record<FilterType, string> = {
+    todos: 'Todos os status',
+    pagos: 'Pagos',
+    atrasados: 'Atrasados (dívida acumulada)',
+    proximos: 'Próximos ao Vencimento',
+  };
+
+  const reportPeriodLabel = periodApplied
+    ? monthLabelCapOf(periodFilter)
+    : 'Todos os meses';
+
+  // Fechamento por meio de pagamento (só pagos do recorte) — dado que o
+  // gestor não vê em nenhum outro lugar do app
+  const paidByMethod = new Map<string, { count: number; totalCents: number }>();
+  for (const r of reportRows) {
+    if (r.status !== 'pago') continue;
+    const key = r.meioPagamento || 'Não informado';
+    const entry = paidByMethod.get(key) ?? { count: 0, totalCents: 0 };
+    entry.count += 1;
+    entry.totalCents += r.valor;
+    paidByMethod.set(key, entry);
+  }
+
+  const handleExportCsv = () => {
+    if (reportRows.length === 0) {
+      toast({ title: 'Nada para exportar', description: 'Nenhuma mensalidade no filtro atual.', variant: 'destructive' });
+      return;
+    }
+    // Excel pt-BR: BOM para acentuação + ";" como separador (vírgula é decimal)
+    const BOM = '\u{FEFF}';
+    const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const header = ['Aluno', 'Plano', 'Vencimento', 'Status', 'Data do Pagamento', 'Meio de Pagamento', 'Valor (R$)'];
+    const lines = reportRows.map(r => [
+      r.aluno,
+      r.plano,
+      r.vencimento,
+      STATUS_LABELS[r.status],
+      r.dataPagamento === '-' ? '' : r.dataPagamento,
+      r.meioPagamento,
+      (r.valor / 100).toFixed(2).replace('.', ','),
+    ]);
+    const csv = BOM + [header, ...lines].map(row => row.map(esc).join(';')).join('\r\n');
+
+    const period = periodApplied ? periodFilter : 'todos-os-meses';
+    const suffix = activeFilter !== 'todos' ? `-${activeFilter}` : '';
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `financeiro-${period}${suffix}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'CSV exportado', description: `${reportRows.length} mensalidade${reportRows.length > 1 ? 's' : ''} — abra no Excel.` });
+  };
+
+  const handlePrintReport = () => {
+    if (reportRows.length === 0) {
+      toast({ title: 'Nada para imprimir', description: 'Nenhuma mensalidade no filtro atual.', variant: 'destructive' });
+      return;
+    }
+    // Deixa o dropdown fechar antes de congelar a página no diálogo de impressão
+    setTimeout(() => window.print(), 150);
   };
 
   const getStatusBadge = (status: string) => {
@@ -478,30 +619,34 @@ export default function FinancialControl() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receita do Mês (Pago)</CardTitle>
+            <CardTitle className="text-sm font-medium" data-testid="kpi-receita-titulo">
+              {periodLabel ? `Receita de ${periodLabel}` : 'Receita do Mês (Pago)'}
+            </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {formatPrice(receitaMes)}
+            <div className="text-2xl font-bold text-green-600" data-testid="kpi-receita-valor">
+              {formatPrice(receita)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Pagamentos confirmados
+              {periodLabel ? 'Mensalidades do período pagas' : 'Pagamentos confirmados'}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">A Receber (Pendente + Atrasado)</CardTitle>
+            <CardTitle className="text-sm font-medium" data-testid="kpi-areceber-titulo">
+              {periodLabel ? `A Receber de ${periodLabel}` : 'A Receber (Pendente + Atrasado)'}
+            </CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
+            <div className="text-2xl font-bold text-orange-600" data-testid="kpi-areceber-valor">
               {formatPrice(aReceber)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Aguardando pagamento
+              {periodLabel ? 'Mensalidades do período em aberto' : 'Aguardando pagamento'}
             </p>
           </CardContent>
         </Card>
@@ -565,6 +710,25 @@ export default function FinancialControl() {
           🟡 Próximos ao Vencimento
         </Button>
 
+        <Select value={periodFilter} onValueChange={setPeriodFilter}>
+          <SelectTrigger
+            className={cn("w-[180px] h-9", periodFilter !== 'todos' && "border-primary")}
+            data-testid="select-periodo"
+          >
+            <span className={cn("truncate text-sm", periodFilter === 'todos' && "text-muted-foreground")}>
+              {periodFilter === 'todos' ? 'Período: todos' : monthLabelCapOf(periodFilter)}
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os meses</SelectItem>
+            {availableMonths.map(key => (
+              <SelectItem key={key} value={key}>
+                {monthLabelCapOf(key)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <div className="relative w-full sm:w-64 sm:ml-auto">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -575,7 +739,34 @@ export default function FinancialControl() {
             data-testid="input-search-financeiro"
           />
         </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" data-testid="button-relatorio">
+              <FileText className="h-4 w-4 mr-2" />
+              Relatório
+              <ChevronDown className="h-4 w-4 ml-1" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleExportCsv} data-testid="menu-export-csv">
+              <FileDown className="h-4 w-4 mr-2" />
+              Exportar CSV (Excel)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handlePrintReport} data-testid="menu-print-pdf">
+              <Printer className="h-4 w-4 mr-2" />
+              Imprimir / Salvar PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+
+      {/* Período selecionado + filtro Atrasados: avisa que a dívida acumulada ignora o mês */}
+      {activeFilter === 'atrasados' && periodFilter !== 'todos' && (
+        <p className="text-xs text-muted-foreground -mt-4" data-testid="aviso-periodo-atrasados">
+          O filtro de período não se aplica em Atrasados — a visão de inadimplência considera a dívida acumulada de todos os meses.
+        </p>
+      )}
 
       {/* Financial Records Table */}
       <Card>
@@ -1158,6 +1349,98 @@ export default function FinancialControl() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/*
+        Relatório imprimível — portal direto no <body> para escapar dos
+        contêineres com overflow do layout (que cortam a impressão na 1ª página).
+        Invisível na tela; o CSS de @media print em index.css esconde o app e
+        exibe só este bloco. "Salvar como PDF" do navegador gera o arquivo.
+      */}
+      {createPortal(
+        <div id="print-financeiro" aria-hidden="true">
+          <h1>Relatório Financeiro</h1>
+          <p className="print-sub">
+            {user?.academy?.name ? `${user.academy.name} — ` : ''}
+            {reportPeriodLabel}
+            {activeFilter !== 'todos' ? ` · ${FILTER_LABELS[activeFilter]}` : ''}
+            {searchTerm.trim() ? ` · busca: "${searchTerm.trim()}"` : ''}
+          </p>
+          <p className="print-sub">
+            Gerado em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+          </p>
+
+          <div className="print-kpis">
+            <div>
+              <span className="print-kpi-label">
+                {periodLabel ? `Receita de ${periodLabel}` : 'Receita do mês corrente'}
+              </span>
+              <span className="print-kpi-value">{formatPrice(receita)}</span>
+            </div>
+            <div>
+              <span className="print-kpi-label">
+                {periodLabel ? `A receber de ${periodLabel}` : 'A receber (total)'}
+              </span>
+              <span className="print-kpi-value">{formatPrice(aReceber)}</span>
+            </div>
+            <div>
+              <span className="print-kpi-label">Alunos inadimplentes</span>
+              <span className="print-kpi-value">{inadimplentes}</span>
+            </div>
+          </div>
+
+          {paidByMethod.size > 0 && (
+            <>
+              <h2>Fechamento por meio de pagamento</h2>
+              <table>
+                <thead>
+                  <tr><th>Meio</th><th>Mensalidades</th><th>Total</th></tr>
+                </thead>
+                <tbody>
+                  {[...paidByMethod.entries()].sort((a, b) => b[1].totalCents - a[1].totalCents).map(([meio, e]) => (
+                    <tr key={meio}>
+                      <td>{meio}</td>
+                      <td>{e.count}</td>
+                      <td>{formatPrice(e.totalCents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+
+          <h2>Mensalidades ({reportRows.length})</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Aluno</th><th>Plano</th><th>Vencimento</th><th>Status</th>
+                <th>Pagamento</th><th>Meio</th><th>Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reportRows.map(r => (
+                <tr key={r.id}>
+                  <td>{r.aluno}</td>
+                  <td>{r.plano}</td>
+                  <td>{r.vencimento}</td>
+                  <td>{STATUS_LABELS[r.status]}</td>
+                  <td>{r.dataPagamento === '-' ? '—' : r.dataPagamento}</td>
+                  <td>{r.meioPagamento || '—'}</td>
+                  <td>{formatPrice(r.valor)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={6}>Total do recorte</td>
+                <td>{formatPrice(reportTotalCents)}</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <p className="print-footer">Fight Club App — Controle Financeiro</p>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

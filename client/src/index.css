@@ -369,3 +369,105 @@
   height: 32px !important;
   width: 32px !important;
 }
+/* ── Relatório imprimível do Financeiro (#print-financeiro) ──
+   O portal vive como filho direto do <body> (fora do #root) para escapar dos
+   contêineres com overflow do layout, que cortariam a impressão na 1ª página.
+   Na tela fica oculto; ao imprimir, esconde-se todo o resto e exibe-se só ele. */
+#print-financeiro {
+  display: none;
+}
+
+@media print {
+  body > *:not(#print-financeiro) {
+    display: none !important;
+  }
+
+  #print-financeiro {
+    display: block;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #000;
+    background: #fff;
+  }
+
+  #print-financeiro h1 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+
+  #print-financeiro h2 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 16px 0 4px;
+  }
+
+  #print-financeiro .print-sub {
+    color: #444;
+    margin: 0;
+  }
+
+  #print-financeiro .print-kpis {
+    display: flex;
+    gap: 24px;
+    margin: 12px 0 4px;
+  }
+
+  #print-financeiro .print-kpis > div {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px 12px;
+    flex: 1;
+  }
+
+  #print-financeiro .print-kpi-label {
+    font-size: 11px;
+    color: #444;
+  }
+
+  #print-financeiro .print-kpi-value {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  #print-financeiro table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 4px;
+  }
+
+  #print-financeiro th,
+  #print-financeiro td {
+    border: 1px solid #ccc;
+    padding: 4px 8px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  #print-financeiro th {
+    background: #f2f2f2;
+    font-weight: 600;
+  }
+
+  #print-financeiro tfoot td {
+    font-weight: 700;
+    background: #fafafa;
+  }
+
+  #print-financeiro tr {
+    break-inside: avoid;
+  }
+
+  #print-financeiro .print-footer {
+    margin-top: 16px;
+    font-size: 10px;
+    color: #777;
+  }
+
+  @page {
+    margin: 14mm;
+  }
+}
