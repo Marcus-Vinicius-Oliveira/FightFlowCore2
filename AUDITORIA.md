@@ -357,3 +357,17 @@ Lacuna apontada pelo fundador: "Marcar como Pago" era irreversível pela UI — 
 **Verificação:** typecheck + 96/96; **e2e Playwright contra instância isolada (porta 5001)** com fixtures temporárias no banco (`@verify.tmp`, removidas ao final): login → marcar atrasada como paga → desfazer pela UI → badge volta a "Atrasado", data "-", API confirma `{status: overdue, paidDate: null, paymentMethod: null}`. Probes: reverter pagamento não-pago é troca de status normal; re-marcar como pago após undo recebe `paidDate` novo sem dados fantasma. Receita de verificação persistida em `.claude/skills/verify/SKILL.md`.
 
 **Bug pré-existente encontrado na verificação (não corrigido aqui):** datas date-only (`YYYY-MM-DD`) enviadas ao backend são parseadas como meia-noite UTC e exibidas com `toLocaleDateString` local (UTC-3) — pagamento registrado dia 06/07 aparece "pago em 05/07". Afeta a exibição de `paidDate`/`dueDate` em geral; candidato a fix dedicado.
+
+---
+
+## 18. Entrega — Relatórios do Financeiro: período, CSV e PDF (06/07/2026)
+
+Necessidade do fundador: fechar o mês e prestar contas fora do app (contador, sócio), sem sair copiando linha por linha da tela.
+
+- **Filtro de período:** novo `Select` que oferece só os meses que existem nos vencimentos (mais recente primeiro), no padrão de filtro validado do app (label dinâmico no `SelectTrigger`, borda `primary` quando ativo). Com um mês selecionado a tela conta uma história só: os KPIs viram competência daquele mês ("Receita de julho de 2026" = mensalidades do mês pagas; "A Receber de julho" = as em aberto do mês); sem período, mantêm o comportamento clássico (caixa do mês corrente + a receber total).
+- **Exceção em Atrasados:** período não se aplica no filtro Atrasados — inadimplência é dívida acumulada, e recortar por mês esconderia a mensalidade antiga que originou o débito. Um aviso abaixo dos filtros explica isso quando os dois estão ativos.
+- **Exportar CSV (Excel):** gera sobre o recorte atual (período + status + busca), com BOM e separador `;` para o Excel pt-BR abrir com acentuação e colunas corretas; valores com vírgula decimal. Nome do arquivo carrega o recorte (`financeiro-2026-07-pagos.csv`).
+- **Imprimir / Salvar PDF:** relatório imprimível renderizado num `createPortal` direto no `<body>` (escapa dos contêineres com `overflow` do layout que cortariam a impressão na 1ª página); `@media print` em `index.css` esconde o app e mostra só ele. Inclui cabeçalho com academia/período/filtro, os 3 KPIs, um **fechamento por meio de pagamento** (dado que não existia em nenhuma outra tela) e a tabela de mensalidades com total do recorte.
+- **Backend:** nenhuma mudança — `paymentMethod` já vinha na API; tudo é derivado no client a partir dos dados já carregados.
+
+**Verificação:** typecheck limpo + **96/96 Vitest**; **e2e Playwright contra instância isolada (porta 5001)** com fixtures temporárias no banco (`@verify.tmp`: Alfa em dia com maio/junho/julho pagos em PIX/Dinheiro/PIX, Beta devedor de junho e julho — removidas ao final). Confirmado: KPIs sem período (R$150 / R$300), período maio (R$150 / R$0), período julho (R$150 / R$150); portal de impressão com título, "Fechamento por meio de pagamento" e "Mensalidades (2)"; CSV `financeiro-2026-07.csv` com BOM, `;` e linhas corretas (Beta Atrasado / Alfa Pago PIX); aviso de período+Atrasados visível. Sem erros de console novos (só um warning pré-existente de `forwardRef` no `Badge` dentro do Tooltip da tabela).
