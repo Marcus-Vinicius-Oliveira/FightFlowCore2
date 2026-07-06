@@ -545,7 +545,168 @@ export default function FinancialControl() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          {/*
+            Mobile: lista de cards empilhados — em tela estreita a tabela larga
+            forçava scroll horizontal escondendo Status, Valor e o botão de ação.
+            Cada linha vira um card com hierarquia visual (quem/estado → contexto
+            → valor → ação em largura total, alvo de toque adequado).
+          */}
+          <div className="md:hidden space-y-3">
+            {isLoadingPayments ? (
+              <div className="flex flex-col items-center gap-2 py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+                <div className="text-sm text-muted-foreground">Carregando pagamentos...</div>
+              </div>
+            ) : activeFilter === 'atrasados' ? (
+              debtorGroups.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-8">
+                  <DollarSign className="h-8 w-8 text-muted-foreground" />
+                  <div className="text-sm text-muted-foreground text-center">
+                    {searchNorm
+                      ? 'Nenhum aluno inadimplente encontrado para a busca'
+                      : 'Nenhuma mensalidade em atraso — todos em dia! 🎉'}
+                  </div>
+                </div>
+              ) : (
+                debtorGroups.map(group => {
+                  const expanded = expandedStudents.has(group.studentId);
+                  return (
+                    <div
+                      key={group.studentId}
+                      className="rounded-lg border bg-card overflow-hidden"
+                      data-testid={`card-debtor-${group.studentId}`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleStudent(group.studentId)}
+                        aria-expanded={expanded ? 'true' : 'false'}
+                        className="w-full p-3 text-left space-y-2"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="flex items-center gap-1.5 font-medium min-w-0">
+                            {expanded
+                              ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+                              : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />}
+                            <span className="truncate">{group.aluno}</span>
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="border-red-300 text-red-700 dark:border-red-800 dark:text-red-400 whitespace-nowrap gap-1 shrink-0"
+                          >
+                            <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                            {group.payments.length} em atraso
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 pl-[22px]">
+                          <span className="font-mono font-semibold text-red-700 dark:text-red-400">
+                            {formatPrice(group.totalCents)}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            desde {new Date(group.oldestMs).toLocaleDateString('pt-BR')}
+                          </span>
+                        </div>
+                      </button>
+                      {expanded && (
+                        <div className="border-t divide-y bg-muted/40">
+                          {group.payments.map(payment => (
+                            <div key={payment.id} className="p-3 space-y-2" data-testid={`card-payment-${payment.id}`}>
+                              <div className="flex items-center justify-between gap-2 text-sm">
+                                <span className="min-w-0 truncate">
+                                  <span className="font-medium">{payment.vencimento}</span>
+                                  <span className="text-muted-foreground"> · {payment.plano}</span>
+                                </span>
+                                <span className="font-mono shrink-0">{formatPrice(payment.valor)}</span>
+                              </div>
+                              <Button
+                                variant="default"
+                                className="w-full btn-marcar-pago"
+                                onClick={() => handleMarcarPago(payment.id)}
+                                data-testid={`button-card-mark-paid-${payment.id}`}
+                              >
+                                Marcar como Pago
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )
+            ) : filteredPayments.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-8">
+                <DollarSign className="h-8 w-8 text-muted-foreground" />
+                <div className="text-sm text-muted-foreground text-center">
+                  Nenhum registro encontrado para o filtro selecionado
+                </div>
+              </div>
+            ) : (
+              filteredPayments.map(payment => (
+                <div
+                  key={payment.id}
+                  className="rounded-lg border bg-card p-3 space-y-2"
+                  data-testid={`card-payment-${payment.id}`}
+                >
+                  {/* Quem + estado — a decisão de relance */}
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="flex items-center gap-2 font-medium min-w-0 flex-wrap">
+                      <span className="truncate">{payment.aluno}</span>
+                      {(payment.atrasosDoAluno >= 2 ||
+                        (payment.atrasosDoAluno >= 1 && payment.status !== 'atrasado')) && (
+                        <Badge
+                          variant="outline"
+                          className="border-red-300 text-red-700 dark:border-red-800 dark:text-red-400 whitespace-nowrap gap-1"
+                        >
+                          <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                          {payment.atrasosDoAluno} em atraso
+                        </Badge>
+                      )}
+                    </span>
+                    <span className="shrink-0">{getStatusBadge(payment.status)}</span>
+                  </div>
+
+                  {/* Contexto secundário */}
+                  <div className="text-sm text-muted-foreground truncate">
+                    {payment.plano} · vence {payment.vencimento}
+                  </div>
+
+                  {/* O número que importa + quando foi pago */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono font-semibold">{formatPrice(payment.valor)}</span>
+                    {payment.dataPagamento !== '-' && (
+                      <span className="text-xs text-muted-foreground">
+                        pago em {payment.dataPagamento}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Ação em largura total — alvo de toque adequado */}
+                  {payment.status === 'pago' ? (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setDetailPayment(paymentsData?.find(p => p.id === payment.id) ?? null)}
+                      data-testid={`button-card-details-${payment.id}`}
+                    >
+                      Ver Detalhes
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="default"
+                      className="w-full btn-marcar-pago"
+                      onClick={() => handleMarcarPago(payment.id)}
+                      data-testid={`button-card-mark-paid-${payment.id}`}
+                    >
+                      Marcar como Pago
+                    </Button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop: tabelas originais (intactas) */}
+          <div className="hidden md:block overflow-x-auto">
             <div className="min-w-[640px]">
           {activeFilter === 'atrasados' ? (
           /*
