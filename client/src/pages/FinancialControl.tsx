@@ -886,8 +886,11 @@ export default function FinancialControl() {
                   <div className="flex items-start justify-between gap-2">
                     <span className="flex items-center gap-2 font-medium min-w-0 flex-wrap">
                       <span className="truncate">{payment.aluno}</span>
-                      {(payment.atrasosDoAluno >= 2 ||
-                        (payment.atrasosDoAluno >= 1 && payment.status !== 'atrasado')) && (
+                      {/* Nunca numa linha paga: "Pago" + "em atraso" se contradizem.
+                          A dívida do aluno aparece nas linhas em aberto e em Atrasados. */}
+                      {payment.status !== 'pago' &&
+                        (payment.atrasosDoAluno >= 2 ||
+                          (payment.atrasosDoAluno >= 1 && payment.status !== 'atrasado')) && (
                         <Badge
                           variant="outline"
                           className="border-red-300 text-red-700 dark:border-red-800 dark:text-red-400 whitespace-nowrap gap-1"
@@ -1067,11 +1070,15 @@ export default function FinancialControl() {
                         Dívida acumulada: só quando acrescenta informação além da
                         própria linha — 2+ atrasos, ou 1 atraso visto de uma linha
                         que não é a atrasada (na única linha atrasada do aluno, a
-                        coluna Status já comunica). Outline (não sólido) para não
-                        competir com o chip de Status; tooltip responde "quanto".
+                        coluna Status já comunica). Nunca numa linha paga: "Pago" +
+                        "em atraso" se contradizem (a dívida do aluno segue visível
+                        nas linhas em aberto e na visão de Atrasados). Outline (não
+                        sólido) para não competir com o chip de Status; tooltip
+                        responde "quanto".
                       */}
-                      {(payment.atrasosDoAluno >= 2 ||
-                        (payment.atrasosDoAluno >= 1 && payment.status !== 'atrasado')) && (
+                      {payment.status !== 'pago' &&
+                        (payment.atrasosDoAluno >= 2 ||
+                          (payment.atrasosDoAluno >= 1 && payment.status !== 'atrasado')) && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Badge
