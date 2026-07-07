@@ -691,17 +691,19 @@ export default function ClassManagement() {
               </PopoverTrigger>
               <PopoverContent className="w-[160px] p-2" align="start">
                 {DAYS_OF_WEEK.map(day => (
-                  <div
+                  // <label> encaminha o clique (inclusive no texto) ao checkbox uma
+                  // única vez. Com onClick no div + onCheckedChange no checkbox, clicar
+                  // no próprio quadradinho disparava os dois e cancelava o toggle.
+                  <label
                     key={day.value}
                     className="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-accent cursor-pointer select-none"
-                    onClick={() => toggleFilterDay(day.value)}
                   >
                     <Checkbox
                       checked={filters.daysOfWeek.includes(day.value)}
                       onCheckedChange={() => toggleFilterDay(day.value)}
                     />
                     <span className="text-sm">{day.label}</span>
-                  </div>
+                  </label>
                 ))}
               </PopoverContent>
             </Popover>

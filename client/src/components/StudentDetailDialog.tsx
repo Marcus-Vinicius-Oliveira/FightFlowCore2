@@ -661,10 +661,12 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
               </div>
             )}
 
-            {/* Mensalidade com desconto individual */}
+            {/* Mensalidade (com desconto individual opcional).
+                Rótulo neutro: "com Desconto" fixo dava "Mensalidade com Desconto:
+                Valor do plano" quando não havia desconto — contraditório. */}
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <Banknote className="h-3.5 w-3.5" /> Mensalidade com Desconto
+                <Banknote className="h-3.5 w-3.5" /> Mensalidade
               </Label>
               {isEditing ? (
                 <div className="space-y-1">
