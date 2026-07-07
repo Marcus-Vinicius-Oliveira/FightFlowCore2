@@ -97,6 +97,8 @@ export interface IStorage {
 
   // Membership plan operations
   getMembershipPlansByAcademy(academyId: string): Promise<MembershipPlan[]>;
+  /** Todos os planos (ativos e inativos) + contagem de alunos ativos — para a tela de gestão. */
+  getMembershipPlansForManagement(academyId: string): Promise<(MembershipPlan & { activeStudents: number })[]>;
   getMembershipPlan(id: string): Promise<MembershipPlan | undefined>;
   createMembershipPlan(plan: InsertMembershipPlan): Promise<MembershipPlan>;
   updateMembershipPlan(id: string, updates: Partial<InsertMembershipPlan>): Promise<MembershipPlan | undefined>;
@@ -325,6 +327,35 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(membershipPlans)
       .where(and(eq(membershipPlans.academyId, academyId), eq(membershipPlans.active, true)));
+  }
+
+  async getMembershipPlansForManagement(academyId: string): Promise<(MembershipPlan & { activeStudents: number })[]> {
+    // Todos os planos da academia (inclui inativos, para o "Reativar"), ativos primeiro e em ordem alfabética.
+    const plans = await db
+      .select()
+      .from(membershipPlans)
+      .where(eq(membershipPlans.academyId, academyId))
+      .orderBy(desc(membershipPlans.active), asc(membershipPlans.name));
+
+    // Alunos ativos por plano: alunos ativos com matrícula ativa, sem duplicar
+    // o aluno que faz mais de uma turma no mesmo plano.
+    const counts = await db
+      .select({
+        planId: enrollments.membershipPlanId,
+        total: sql<number>`count(distinct ${enrollments.studentId})`,
+      })
+      .from(enrollments)
+      .innerJoin(users, eq(users.id, enrollments.studentId))
+      .innerJoin(membershipPlans, eq(membershipPlans.id, enrollments.membershipPlanId))
+      .where(and(
+        eq(membershipPlans.academyId, academyId),
+        eq(enrollments.active, true),
+        eq(users.active, true),
+      ))
+      .groupBy(enrollments.membershipPlanId);
+    const countByPlan = new Map(counts.map(c => [c.planId, Number(c.total)]));
+
+    return plans.map(p => ({ ...p, activeStudents: countByPlan.get(p.id) ?? 0 }));
   }
 
   async getMembershipPlan(id: string): Promise<MembershipPlan | undefined> {

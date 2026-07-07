@@ -208,6 +208,11 @@ router.get('/membership-plans',
     try {
       const academyId = req.user!.academyId;
       if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório' });
+      // Tela de gestão pede todos os planos (com inativos) + contagem de alunos;
+      // os modais de matrícula usam o padrão (só ativos, sem contagem).
+      if (req.query.includeInactive === 'true') {
+        return res.json(await storage.getMembershipPlansForManagement(academyId));
+      }
       const plans = await storage.getMembershipPlansByAcademy(academyId);
       res.json(plans);
     } catch (error) {

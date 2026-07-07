@@ -97,6 +97,8 @@ export interface MembershipPlan {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Só vem na listagem de gestão (?includeInactive=true) */
+  activeStudents?: number;
 }
 
 export interface Payment {

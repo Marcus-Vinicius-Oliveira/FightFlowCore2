@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   Table,
   TableBody,
   TableCell,
@@ -11,52 +12,62 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
-  CreditCard, 
-  Users, 
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  CreditCard,
+  Users,
   Plus,
-  Edit,
-  Power
+  Power,
+  PowerOff,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { MembershipPlan } from "@/lib/api";
 
-interface AcademyPlan {
-  id: string;
-  nome: string;
-  valor: number;
-  periodicidade: string;
-  alunosAtivos: number;
-  status: 'ativo' | 'inativo';
+const PLANS_KEY = ['/api/membership-plans', { includeInactive: true }] as const;
+
+/** duration (dias) → periodicidade legível. Inverso do mapa de CreatePlan. */
+function periodicityLabel(durationDays: number): string {
+  const map: Record<number, string> = { 30: 'Mensal', 60: 'Bimestral', 90: 'Trimestral', 180: 'Semestral', 365: 'Anual' };
+  return map[durationDays] ?? `${durationDays} dias`;
+}
+
+function formatPrice(priceInCents: number): string {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(priceInCents / 100);
 }
 
 export default function PlanManagement() {
   const [, setLocation] = useLocation();
-  
-  // Sample data for the table
-  const [plans] = useState<AcademyPlan[]>([
-    {
-      id: "1",
-      nome: "Jiu-Jitsu - 3x Semana",
-      valor: 15000, // R$ 150,00 in cents
-      periodicidade: "Mensal",
-      alunosAtivos: 25,
-      status: "ativo"
-    },
-    {
-      id: "2", 
-      nome: "Plano Antigo 2024",
-      valor: 13000, // R$ 130,00 in cents
-      periodicidade: "Mensal",
-      alunosAtivos: 0,
-      status: "inativo"
-    }
-  ]);
+  const { toast } = useToast();
+  const [planToDeactivate, setPlanToDeactivate] = useState<MembershipPlan | null>(null);
 
-  const formatPrice = (priceInCents: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(priceInCents / 100);
-  };
+  const { data: plans = [], isLoading, isError, refetch } = useQuery<MembershipPlan[]>({
+    queryKey: PLANS_KEY,
+    queryFn: () => apiRequest('GET', '/api/membership-plans?includeInactive=true').then(r => r.json()),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) =>
+      apiRequest('PATCH', `/api/membership-plans/${id}`, { active }),
+    onSuccess: (_data, { active }) => {
+      // Invalida também a lista de planos ativos que os modais de matrícula usam.
+      queryClient.invalidateQueries({ queryKey: ['/api/membership-plans'] });
+      toast({
+        title: active ? 'Plano reativado' : 'Plano desativado',
+        description: active
+          ? 'O plano voltou a ficar disponível para novas matrículas.'
+          : 'O plano não aparece mais para novas matrículas. Os alunos já matriculados não são afetados.',
+      });
+      setPlanToDeactivate(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Não foi possível alterar o plano', description: error.message, variant: 'destructive' });
+    },
+  });
 
   return (
     <div className="max-w-none w-full space-y-6">
@@ -68,7 +79,7 @@ export default function PlanManagement() {
             Gerencie os planos de matrícula oferecidos pela sua academia
           </p>
         </div>
-        <Button 
+        <Button
           className="flex items-center gap-2"
           onClick={() => setLocation("/dashboard/planos/novo")}
           data-testid="button-create-plan"
@@ -90,84 +101,121 @@ export default function PlanManagement() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome do Plano</TableHead>
-                <TableHead>Valor</TableHead>
-                <TableHead>Periodicidade</TableHead>
-                <TableHead>Alunos Ativos</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {plans.map((plan) => (
-                <TableRow key={plan.id} data-testid={`row-plan-${plan.id}`}>
-                  <TableCell className="font-medium">{plan.nome}</TableCell>
-                  <TableCell className="font-mono">
-                    {formatPrice(plan.valor)}
-                  </TableCell>
-                  <TableCell>{plan.periodicidade}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Users className="h-3 w-3" />
-                      {plan.alunosAtivos}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge 
-                      variant={plan.status === 'ativo' ? "default" : "secondary"}
-                      className={
-                        plan.status === 'ativo' 
-                          ? "status-ativo bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" 
-                          : "status-inativo bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
-                      }
-                    >
-                      {plan.status === 'ativo' ? 'Ativo' : 'Inativo'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {plan.status === 'ativo' ? (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          data-testid={`button-edit-plan-${plan.id}`}
-                        >
-                          <Edit className="h-4 w-4 mr-2" />
-                          Editar
-                        </Button>
-                      ) : (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          data-testid={`button-reactivate-plan-${plan.id}`}
-                        >
-                          <Power className="h-4 w-4 mr-2" />
-                          Reativar
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {plans.length === 0 && (
+          {isLoading ? (
+            <div className="space-y-3" data-testid="plans-loading">
+              {[0, 1, 2].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+            </div>
+          ) : isError ? (
+            <div className="text-center py-8 space-y-3">
+              <p className="text-sm text-muted-foreground">Não foi possível carregar os planos.</p>
+              <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-retry-plans">
+                Tentar novamente
+              </Button>
+            </div>
+          ) : plans.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-8" data-testid="plans-empty">
+              <CreditCard className="h-8 w-8 text-muted-foreground" />
+              <div className="text-sm text-muted-foreground">Nenhum plano cadastrado</div>
+              <Button variant="outline" size="sm" onClick={() => setLocation("/dashboard/planos/novo")}>
+                <Plus className="h-4 w-4 mr-2" />
+                Criar o primeiro plano
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
-                    <div className="flex flex-col items-center gap-2">
-                      <CreditCard className="h-8 w-8 text-muted-foreground" />
-                      <div className="text-sm text-muted-foreground">
-                        Nenhum plano cadastrado
-                      </div>
-                    </div>
-                  </TableCell>
+                  <TableHead>Nome do Plano</TableHead>
+                  <TableHead>Valor</TableHead>
+                  <TableHead>Periodicidade</TableHead>
+                  <TableHead>Alunos Ativos</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {plans.map((plan) => (
+                  <TableRow key={plan.id} data-testid={`row-plan-${plan.id}`}>
+                    <TableCell className="font-medium">{plan.name}</TableCell>
+                    <TableCell className="font-mono">{formatPrice(plan.price)}</TableCell>
+                    <TableCell>{periodicityLabel(plan.duration)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        {plan.activeStudents ?? 0}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={plan.active ? "default" : "secondary"}
+                        className={
+                          plan.active
+                            ? "status-ativo bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                            : "status-inativo bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                        }
+                      >
+                        {plan.active ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {plan.active ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPlanToDeactivate(plan)}
+                            disabled={toggleMutation.isPending}
+                            data-testid={`button-deactivate-plan-${plan.id}`}
+                          >
+                            <PowerOff className="h-4 w-4 mr-2" />
+                            Desativar
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleMutation.mutate({ id: plan.id, active: true })}
+                            disabled={toggleMutation.isPending}
+                            data-testid={`button-reactivate-plan-${plan.id}`}
+                          >
+                            <Power className="h-4 w-4 mr-2" />
+                            Reativar
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
+
+      {/* Confirmação de desativação */}
+      <AlertDialog open={!!planToDeactivate} onOpenChange={open => !open && setPlanToDeactivate(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desativar plano</AlertDialogTitle>
+            <AlertDialogDescription>
+              Desativar "{planToDeactivate?.name}"? Ele deixa de aparecer para novas matrículas.
+              {(planToDeactivate?.activeStudents ?? 0) > 0
+                ? ` Os ${planToDeactivate!.activeStudents} aluno(s) já matriculado(s) neste plano continuam sendo cobrados normalmente.`
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-deactivate">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => planToDeactivate && toggleMutation.mutate({ id: planToDeactivate.id, active: false })}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-deactivate"
+            >
+              {toggleMutation.isPending ? 'Desativando...' : 'Desativar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

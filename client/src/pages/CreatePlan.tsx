@@ -26,6 +26,7 @@ import {
 import { ArrowLeft, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiClient } from "@/lib/api";
+import { queryClient } from "@/lib/queryClient";
 
 const createPlanSchema = z.object({
   nome: z.string().min(1, "Nome do plano é obrigatório"),
@@ -70,6 +71,9 @@ export default function CreatePlan() {
         price: Math.round(data.valor * 100),
         duration: periodicidadeToDays[data.periodicidade],
       });
+      // Sem isto, o staleTime de 5min serviria a lista em cache e o plano recém-criado
+      // só apareceria depois — exatamente o sintoma relatado.
+      queryClient.invalidateQueries({ queryKey: ['/api/membership-plans'] });
       toast({
         title: "Plano criado com sucesso!",
         description: `O plano "${data.nome}" foi criado e está disponível para matrícula.`,
