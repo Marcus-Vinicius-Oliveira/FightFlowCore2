@@ -408,5 +408,21 @@ Na mesma análise: na ficha do aluno o rótulo fixo "Mensalidade com Desconto" a
 ### Backlog da análise de matrículas/aulas (a decidir o rumo antes de implementar)
 
 - **(2) Ocupação com duas linguagens** ("N alunos" vs "X/Y vagas") conforme a modalidade tenha ou não `maxCapacity`; raiz é capacidade opcional, e turma sem capacidade nunca fica "lotada" (aceita matrícula sem limite). Decidir: tornar capacidade obrigatória (linguagem única) ou unificar a exibição.
-- **(4) Matrícula exige plano por turma** — plano costuma ser da mensalidade do aluno (por pessoa), não por turma; hoje pede plano a cada matrícula e permite planos conflitantes. Definição de produto/modelagem pendente.
-- **(5) Modelo "turma = N registros (um por dia)"** gera N+1 de rede e matrícula não-atômica (POSTs parciais). Candidato a endpoint de grupo transacional; maior esforço.
+- ~~**(4) Matrícula exige plano por turma**~~ → resolvido no item 22 (o fundador confirmou: cobrança é por modalidade, então plano-por-matrícula é o modelo certo; o defeito estava no motor de cobrança).
+- **(5) Modelo "turma = N registros (um por dia)"** gera N+1 de rede e matrícula não-atômica (POSTs parciais). Candidato a endpoint de grupo transacional; maior esforço. (A cobrança já ficou imune à multiplicação por-dia no item 22, mas o N+1/atomicidade da matrícula continua em aberto.)
+
+---
+
+## 22. Entrega — Cobrança por modalidade: uma mensalidade por plano ativo do aluno (06/07/2026)
+
+Fecha o item (4) da análise. **Decisão de produto do fundador:** a academia cobra **por modalidade** — aluno de Muay Thai + BJJ paga as duas mensalidades — e cada modalidade é **uma mensalidade separada** (não uma fatura somada). Isso valida o plano-por-matrícula (a tela estava certa); o defeito estava no motor de cobrança, que gerava **uma** mensalidade por aluno usando só o plano da matrícula ativa mais recente.
+
+- **Motor de cobrança ([recurring.ts](server/lib/recurring.ts) + [recurringBilling.ts](server/jobs/recurringBilling.ts)):** a unidade de cobrança passou a ser o **plano distinto com matrícula ativa** (um por modalidade). `buildMonthlyCharges` emite uma cobrança por plano; o job monta os planos distintos das matrículas ativas do aluno.
+- **Idempotência agora é por aluno+plano** (antes por aluno). Sem isso, a 2ª modalidade nunca seria cobrada (o aluno "já tinha pagamento no mês").
+- **Imune à multiplicação por-dia (item 5):** as 3 linhas por-dia de uma turma "3x na semana" compartilham o mesmo plano → contam como **uma** modalidade → **uma** cobrança, não três. A dedup é por plano distinto.
+- **Desconto individual (`customMonthlyAmount`):** valor absoluto, só se aplica quando o aluno tem **uma única modalidade** (preserva o comportamento atual). Com 2+ modalidades, cada plano cobra o preço cheio — um valor fixo não se divide de forma óbvia. Bolsista com várias modalidades fica como caso a revisitar (desconto por modalidade, se necessário).
+- **Fallback legado mantido:** aluno sem matrícula ativa ainda usa o plano da última mensalidade (uma cobrança), para bases anteriores à UI de matrícula.
+
+**Mudança de comportamento em dados reais (atenção):** alunos multi-modalidade estavam sendo **sub-cobrados** — só a modalidade mais recente virava mensalidade. A partir do próximo ciclo eles passam a ser cobrados por **todas** as modalidades ativas, então o total mensal desses alunos aumenta para o valor correto. Nenhuma mudança de UI foi necessária (o Financeiro já lista por pagamento, então o aluno aparece em uma linha por modalidade).
+
+**Verificação:** typecheck limpo + **99/99 Vitest** (3 testes novos: 2 planos → 2 cobranças com preço cheio, idempotência por aluno+plano, desconto não se aplica com múltiplas modalidades). **Verificação isolada contra o banco** (`server/verify-billing.tmp.ts`, removido depois; sem inserir pagamentos, pois o job é global): aluno com 5 registros de matrícula (Muay 3 dias + BJJ 2 dias) resolve para 2 planos distintos → `buildMonthlyCharges` gera exatamente 2 cobranças (R$150 + R$120); 2ª rodada com Muay já cobrado gera só BJJ.
