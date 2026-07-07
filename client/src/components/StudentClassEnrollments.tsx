@@ -16,7 +16,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   groupStudentEnrollments,
   missingEnrollmentIds,
-  occupancy,
   occupancyText,
   formatDaysShort,
   type StudentEnrollmentRecord,
@@ -98,7 +97,7 @@ export function StudentClassEnrollments({ studentId, studentName }: StudentClass
 
   const enrollMutation = useMutation({
     mutationFn: async ({ group, planId }: { group: ClassGroupOption; planId: string }) => {
-      // Sequencial para parar na primeira falha (ex.: turma lotada)
+      // Sequencial para parar na primeira falha
       for (const id of missingEnrollmentIds(group.ids, [])) {
         await apiRequest('POST', `/api/classes/${id}/enrollments`, {
           studentId,
@@ -226,19 +225,16 @@ export function StudentClassEnrollments({ studentId, studentName }: StudentClass
               </span>
             </SelectTrigger>
             <SelectContent>
-              {availableGroups.map(g => {
-                const occ = occupancy(g.enrolledCount, g.classType?.maxCapacity);
-                return (
-                  <SelectItem key={g.id} value={g.id} disabled={occ.isFull} data-testid={`option-class-${g.id}`}>
-                    <span className="flex items-center gap-2">
-                      <span>{g.classType?.name} · {formatDaysShort(g.daysOfWeek)} {g.startTime}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {occ.isFull ? 'lotada' : occupancyText(g.enrolledCount, g.classType?.maxCapacity)}
-                      </span>
+              {availableGroups.map(g => (
+                <SelectItem key={g.id} value={g.id} data-testid={`option-class-${g.id}`}>
+                  <span className="flex items-center gap-2">
+                    <span>{g.classType?.name} · {formatDaysShort(g.daysOfWeek)} {g.startTime}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {occupancyText(g.enrolledCount)}
                     </span>
-                  </SelectItem>
-                );
-              })}
+                  </span>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 

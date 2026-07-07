@@ -10,12 +10,6 @@ import {
 
 const router = Router({ mergeParams: true });
 
-// maxCapacity null/undefined/0 significa "sem limite definido".
-export function hasCapacity(currentCount: number, maxCapacity: number | null | undefined): boolean {
-  if (!maxCapacity) return true;
-  return currentCount < maxCapacity;
-}
-
 // GET /api/classes/:classId/enrollments — alunos matriculados na turma
 router.get('/',
   authenticateToken,
@@ -91,13 +85,7 @@ router.post('/',
         return res.status(409).json({ error: 'Aluno já está matriculado nesta turma' });
       }
 
-      const activeEnrollments = await storage.getEnrollmentsByClass(classId);
-      if (!hasCapacity(activeEnrollments.length, existingClass.classType?.maxCapacity)) {
-        return res.status(409).json({
-          error: `Turma lotada: limite de ${existingClass.classType?.maxCapacity} aluno(s) atingido.`,
-        });
-      }
-
+      // Sem limite de vagas: a academia controla lotação por fora do app.
       const enrollment = await storage.createEnrollment({
         studentId: data.studentId,
         classId,

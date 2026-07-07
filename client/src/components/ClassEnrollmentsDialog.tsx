@@ -26,7 +26,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   mergeGroupEnrollments,
   missingEnrollmentIds,
-  occupancy,
   occupancyText,
   formatDaysShort,
   type ClassEnrollmentRecord,
@@ -140,8 +139,6 @@ export function ClassEnrollmentsDialog({ classData, open, onOpenChange }: ClassE
     );
   }, [enrolled, searchTerm]);
 
-  const occ = occupancy(enrolled.length, classData?.classType?.maxCapacity);
-
   // Pré-seleciona o plano da modalidade da turma quando o diálogo abre (o gestor
   // ainda pode trocar). Sem match (só planos gerais), deixa em branco.
   useEffect(() => {
@@ -153,7 +150,7 @@ export function ClassEnrollmentsDialog({ classData, open, onOpenChange }: ClassE
   const enrollMutation = useMutation({
     mutationFn: async ({ studentId, planId }: { studentId: string; planId: string }) => {
       // Matricula em todos os registros (dias) do grupo em que o aluno ainda
-      // não está — sequencial para parar na primeira falha (ex.: turma lotada).
+      // não está — sequencial para parar na primeira falha.
       const already = enrolled.find(e => e.studentId === studentId)?.enrolledClassIds ?? [];
       for (const id of missingEnrollmentIds(groupIds, already)) {
         await apiRequest('POST', `/api/classes/${id}/enrollments`, {
@@ -218,11 +215,8 @@ export function ClassEnrollmentsDialog({ classData, open, onOpenChange }: ClassE
             <DialogTitle className="flex flex-wrap items-center gap-2">
               <Users className="h-5 w-5 shrink-0" />
               Matrículas — {title}
-              <Badge
-                variant={occ.isFull ? "destructive" : "secondary"}
-                data-testid="badge-occupancy"
-              >
-                {occupancyText(enrolled.length, classData?.classType?.maxCapacity)}
+              <Badge variant="secondary" data-testid="badge-occupancy">
+                {occupancyText(enrolled.length)}
               </Badge>
             </DialogTitle>
             <DialogDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -235,12 +229,6 @@ export function ClassEnrollmentsDialog({ classData, open, onOpenChange }: ClassE
             </DialogDescription>
           </DialogHeader>
 
-          {occ.isFull && (
-            <p className="rounded-md bg-destructive/10 text-destructive text-sm px-3 py-2">
-              Turma lotada — remova uma matrícula ou aumente a capacidade da modalidade para matricular novos alunos.
-            </p>
-          )}
-
           {/* ── Matricular aluno ── */}
           <div className="flex flex-col sm:flex-row gap-2">
             <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
@@ -250,7 +238,6 @@ export function ClassEnrollmentsDialog({ classData, open, onOpenChange }: ClassE
                   role="combobox"
                   aria-expanded={pickerOpen}
                   className="flex-1 justify-between font-normal"
-                  disabled={occ.isFull}
                   data-testid="button-pick-student"
                 >
                   <span className={cn("truncate", !selectedStudent && "text-muted-foreground")}>
@@ -291,7 +278,6 @@ export function ClassEnrollmentsDialog({ classData, open, onOpenChange }: ClassE
             <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
               <SelectTrigger
                 className="sm:w-[170px]"
-                disabled={occ.isFull}
                 data-testid="select-enrollment-plan"
               >
                 <span className={cn("truncate text-sm", !selectedPlanId && "text-muted-foreground")}>
@@ -307,7 +293,7 @@ export function ClassEnrollmentsDialog({ classData, open, onOpenChange }: ClassE
 
             <Button
               onClick={handleEnroll}
-              disabled={occ.isFull || enrollMutation.isPending}
+              disabled={enrollMutation.isPending}
               data-testid="button-enroll-student"
             >
               <UserPlus className="h-4 w-4 mr-2" />

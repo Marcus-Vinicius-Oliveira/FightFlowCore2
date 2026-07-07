@@ -42,29 +42,10 @@ export function missingEnrollmentIds(groupIds: string[], enrolledClassIds: strin
   return groupIds.filter(id => !enrolled.has(id));
 }
 
-export interface Occupancy {
-  label: string;
-  isFull: boolean;
-  hasLimit: boolean;
-}
-
-// maxCapacity null/undefined/0 significa "sem limite definido" (mesma regra do servidor).
-export function occupancy(enrolledCount: number, maxCapacity: number | null | undefined): Occupancy {
-  if (!maxCapacity) {
-    return { label: String(enrolledCount), isFull: false, hasLimit: false };
-  }
-  return {
-    label: `${enrolledCount}/${maxCapacity}`,
-    isFull: enrolledCount >= maxCapacity,
-    hasLimit: true,
-  };
-}
-
-/** Texto de exibição da ocupação: "X/Y vagas" com limite, "X aluno(s)" sem limite —
- *  nunca um número solto ou vazio, para toda turma mostrar sua ocupação real. */
-export function occupancyText(enrolledCount: number, maxCapacity: number | null | undefined): string {
-  const occ = occupancy(enrolledCount, maxCapacity);
-  if (occ.hasLimit) return `${occ.label} vagas`;
+/** Texto da ocupação: apenas a contagem de matriculados ("N aluno(s)").
+ *  O app não usa limite de vagas — cada academia controla lotação por fora;
+ *  a ocupação é puramente informativa (quantos alunos há na turma). */
+export function occupancyText(enrolledCount: number): string {
   return `${enrolledCount} aluno${enrolledCount === 1 ? '' : 's'}`;
 }
 

@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
 import { ClassEnrollmentsDialog } from "@/components/ClassEnrollmentsDialog";
-import { occupancy, occupancyText } from "@/lib/enrollments";
+import { occupancyText } from "@/lib/enrollments";
 
 interface ClassType {
   id: string;
@@ -794,26 +794,18 @@ export default function ClassManagement() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {(() => {
-                        const occ = occupancy(classData.enrolledCount, classData.classType?.maxCapacity);
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => handleEnrollments(classData)}
-                            title="Ver matrículas da turma"
-                            className="inline-flex"
-                            data-testid={`button-occupancy-${classData.id}`}
-                          >
-                            <Badge
-                              variant={occ.isFull ? "destructive" : "secondary"}
-                              className="cursor-pointer hover:opacity-80"
-                            >
-                              <Users className="h-3 w-3 mr-1" />
-                              {occupancyText(classData.enrolledCount, classData.classType?.maxCapacity)}
-                            </Badge>
-                          </button>
-                        );
-                      })()}
+                      <button
+                        type="button"
+                        onClick={() => handleEnrollments(classData)}
+                        title="Ver matrículas da turma"
+                        className="inline-flex"
+                        data-testid={`button-occupancy-${classData.id}`}
+                      >
+                        <Badge variant="secondary" className="cursor-pointer hover:opacity-80">
+                          <Users className="h-3 w-3 mr-1" />
+                          {occupancyText(classData.enrolledCount)}
+                        </Badge>
+                      </button>
                     </TableCell>
                     <TableCell>
                       <Badge variant={classData.active ? "default" : "secondary"}>
