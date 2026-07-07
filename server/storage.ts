@@ -105,6 +105,8 @@ export interface IStorage {
 
   // Class type operations
   getClassTypesByAcademy(academyId: string): Promise<ClassType[]>;
+  /** Resumo por modalidade: alunos ativos distintos e nº de turmas (grupos), para a tela de Aulas. */
+  getModalityEnrollmentSummary(academyId: string): Promise<{ classTypeId: string; name: string; students: number; classes: number }[]>;
   getClassType(id: string): Promise<ClassType | undefined>;
   getClassTypeByName(academyId: string, name: string): Promise<ClassType | undefined>;
   createClassType(classType: InsertClassType): Promise<ClassType>;
@@ -389,6 +391,51 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(classTypes)
       .where(and(eq(classTypes.academyId, academyId), eq(classTypes.active, true)));
+  }
+
+  async getModalityEnrollmentSummary(academyId: string): Promise<{ classTypeId: string; name: string; students: number; classes: number }[]> {
+    const cts = await db
+      .select({ id: classTypes.id, name: classTypes.name })
+      .from(classTypes)
+      .where(and(eq(classTypes.academyId, academyId), eq(classTypes.active, true)));
+
+    // Alunos ativos distintos por modalidade (não duplica quem faz várias turmas da mesma).
+    const studentRows = await db
+      .select({
+        classTypeId: classes.classTypeId,
+        total: sql<number>`count(distinct ${enrollments.studentId})`,
+      })
+      .from(enrollments)
+      .innerJoin(classes, eq(classes.id, enrollments.classId))
+      .innerJoin(users, eq(users.id, enrollments.studentId))
+      .where(and(
+        eq(classes.academyId, academyId),
+        eq(classes.active, true),
+        eq(enrollments.active, true),
+        eq(users.active, true),
+      ))
+      .groupBy(classes.classTypeId);
+    const studentsByCt = new Map(studentRows.map(r => [r.classTypeId, Number(r.total)]));
+
+    // Turmas (grupos) ativas por modalidade — distinta combinação professor+horário.
+    const classRows = await db
+      .select({
+        classTypeId: classes.classTypeId,
+        total: sql<number>`count(distinct (${classes.instructorId}, ${classes.startTime}, ${classes.endTime}))`,
+      })
+      .from(classes)
+      .where(and(eq(classes.academyId, academyId), eq(classes.active, true)))
+      .groupBy(classes.classTypeId);
+    const classesByCt = new Map(classRows.map(r => [r.classTypeId, Number(r.total)]));
+
+    return cts
+      .map(ct => ({
+        classTypeId: ct.id,
+        name: ct.name,
+        students: studentsByCt.get(ct.id) ?? 0,
+        classes: classesByCt.get(ct.id) ?? 0,
+      }))
+      .sort((a, b) => b.students - a.students || a.name.localeCompare(b.name, 'pt-BR'));
   }
 
   async getClassType(id: string): Promise<ClassType | undefined> {

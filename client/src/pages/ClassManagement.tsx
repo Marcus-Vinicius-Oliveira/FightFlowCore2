@@ -35,6 +35,13 @@ interface Instructor {
   email: string;
 }
 
+interface ModalitySummary {
+  classTypeId: string;
+  name: string;
+  students: number;
+  classes: number;
+}
+
 interface ClassData {
   id: string;
   ids: string[];
@@ -464,6 +471,12 @@ export default function ClassManagement() {
   const { data: filterClassTypes = [] } = useQuery<ClassType[]>({ queryKey: ['/api/classes/class-types'] });
   const { data: filterInstructors = [] } = useQuery<Instructor[]>({ queryKey: ['/api/instructors'] });
 
+  // Resumo por modalidade. Key filha de ['/api/classes'] → a invalidação das
+  // matrículas (que usa esse prefixo) atualiza o painel sozinha.
+  const { data: modalitySummary = [] } = useQuery<ModalitySummary[]>({
+    queryKey: ['/api/classes', 'modality-summary'],
+  });
+
   const { data: classes = [], isLoading, error } = useQuery<ClassData[]>({
     queryKey: ['/api/classes', filters],
     queryFn: async () => {
@@ -605,6 +618,38 @@ export default function ClassManagement() {
           </Button>
         </div>
       </div>
+
+      {/* Resumo por modalidade — quantos alunos e turmas em cada uma */}
+      {modalitySummary.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="h-4 w-4" />
+              Alunos por modalidade
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              {modalitySummary.map(m => (
+                <div
+                  key={m.classTypeId}
+                  className="rounded-lg border bg-card px-4 py-3 min-w-[130px]"
+                  data-testid={`modality-summary-${m.classTypeId}`}
+                >
+                  <div className="text-sm font-medium truncate">{m.name}</div>
+                  <div className="mt-1 flex items-baseline gap-1">
+                    <span className="text-2xl font-bold">{m.students}</span>
+                    <span className="text-xs text-muted-foreground">{m.students === 1 ? 'aluno' : 'alunos'}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {m.classes} turma{m.classes === 1 ? '' : 's'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

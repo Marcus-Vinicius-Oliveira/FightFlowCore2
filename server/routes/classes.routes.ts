@@ -39,6 +39,23 @@ router.get('/class-types',
   }
 );
 
+// GET /api/classes/modality-summary — alunos ativos distintos e nº de turmas por modalidade
+router.get('/modality-summary',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+  requireSameAcademy,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório' });
+      res.json(await storage.getModalityEnrollmentSummary(academyId));
+    } catch (error) {
+      console.error('Get modality summary error:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
 // POST /api/class-types
 router.post('/class-types',
   authenticateToken,
