@@ -382,3 +382,31 @@ Contradição apontada pelo fundador: uma linha com status "Pago" exibia, ao lad
 - **A dívida do aluno segue visível** onde não há contradição: no filtro Atrasados (tela dedicada), na visão Todos pela própria linha atrasada (status vermelho) e nas linhas em aberto (pendente/próximo) de quem também deve outro mês. A consequência esperada é que, olhando só o filtro Pagos, a pendência de outro mês deixa de aparecer — coerente, já que "Pagos" é a visão do que foi quitado.
 
 **Verificação:** typecheck limpo.
+
+---
+
+## 20. Fix — filtro "Dia da semana" da Gestão de Aulas cancelava o próprio clique (06/07/2026)
+
+Encontrado numa análise de UX das telas de matrícula/aulas pedida pelo fundador. Cada linha do popover de dias era um `<div onClick={toggleFilterDay}>` com um `<Checkbox onCheckedChange={toggleFilterDay}>` dentro: clicar exatamente no quadradinho disparava os dois handlers (o do checkbox + o clique borbulhando pro div), alternando duas vezes e resultando em efeito líquido zero — parecia que o filtro não funcionava. Clicar no texto do dia funcionava (só o div disparava), o que tornava o bug intermitente e confuso.
+
+- **Fix:** `<div onClick>` virou `<label>`, que encaminha o clique (inclusive no texto) ao checkbox uma única vez. Sem toggle duplo e com o rótulo associado ao controle (mais acessível).
+
+**Verificação:** typecheck limpo + 96/96 Vitest.
+
+---
+
+## 21. Fix — rótulo "Mensalidade com Desconto" se contradizia sem desconto (06/07/2026)
+
+Na mesma análise: na ficha do aluno o rótulo fixo "Mensalidade com Desconto" aparecia mesmo sem desconto, com o valor "Valor do plano" — lendo "Mensalidade com Desconto: Valor do plano", como se houvesse um desconto cujo valor fosse o próprio valor do plano.
+
+- **Fix:** rótulo neutralizado para "Mensalidade". Lê corretamente nos dois casos: "Mensalidade: Valor do plano" (sem desconto) e "Mensalidade: R$ 99,90 (desconto individual)" (com desconto). O modo de edição mantém o texto de ajuda que explica a semântica do desconto.
+
+**Verificação:** typecheck limpo + 96/96 Vitest.
+
+---
+
+### Backlog da análise de matrículas/aulas (a decidir o rumo antes de implementar)
+
+- **(2) Ocupação com duas linguagens** ("N alunos" vs "X/Y vagas") conforme a modalidade tenha ou não `maxCapacity`; raiz é capacidade opcional, e turma sem capacidade nunca fica "lotada" (aceita matrícula sem limite). Decidir: tornar capacidade obrigatória (linguagem única) ou unificar a exibição.
+- **(4) Matrícula exige plano por turma** — plano costuma ser da mensalidade do aluno (por pessoa), não por turma; hoje pede plano a cada matrícula e permite planos conflitantes. Definição de produto/modelagem pendente.
+- **(5) Modelo "turma = N registros (um por dia)"** gera N+1 de rede e matrícula não-atômica (POSTs parciais). Candidato a endpoint de grupo transacional; maior esforço.
