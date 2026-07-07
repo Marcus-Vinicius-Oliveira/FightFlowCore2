@@ -371,3 +371,14 @@ Necessidade do fundador: fechar o mês e prestar contas fora do app (contador, s
 - **Backend:** nenhuma mudança — `paymentMethod` já vinha na API; tudo é derivado no client a partir dos dados já carregados.
 
 **Verificação:** typecheck limpo + **96/96 Vitest**; **e2e Playwright contra instância isolada (porta 5001)** com fixtures temporárias no banco (`@verify.tmp`: Alfa em dia com maio/junho/julho pagos em PIX/Dinheiro/PIX, Beta devedor de junho e julho — removidas ao final). Confirmado: KPIs sem período (R$150 / R$300), período maio (R$150 / R$0), período julho (R$150 / R$150); portal de impressão com título, "Fechamento por meio de pagamento" e "Mensalidades (2)"; CSV `financeiro-2026-07.csv` com BOM, `;` e linhas corretas (Beta Atrasado / Alfa Pago PIX); aviso de período+Atrasados visível. Sem erros de console novos (só um warning pré-existente de `forwardRef` no `Badge` dentro do Tooltip da tabela).
+
+---
+
+## 19. Fix — badge "em atraso" não aparece mais em mensalidade paga (06/07/2026)
+
+Contradição apontada pelo fundador: uma linha com status "Pago" exibia, ao lado do nome, o badge vermelho "⚠ N em atraso" (dívida acumulada do aluno em outro mês). "Pago" + "em atraso" na mesma linha se contradizem à primeira vista, independentemente do texto do badge.
+
+- **Fix:** o badge de dívida acumulada (`atrasosDoAluno`) ganhou o guard `status !== 'pago'` nos dois pontos onde é renderizado por linha — tabela desktop e cards mobile. A visão agrupada de Atrasados não muda (lá o contexto já é dívida).
+- **A dívida do aluno segue visível** onde não há contradição: no filtro Atrasados (tela dedicada), na visão Todos pela própria linha atrasada (status vermelho) e nas linhas em aberto (pendente/próximo) de quem também deve outro mês. A consequência esperada é que, olhando só o filtro Pagos, a pendência de outro mês deixa de aparecer — coerente, já que "Pagos" é a visão do que foi quitado.
+
+**Verificação:** typecheck limpo.
