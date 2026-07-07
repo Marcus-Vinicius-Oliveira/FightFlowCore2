@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { 
   Form,
@@ -28,16 +29,25 @@ import { useToast } from "@/hooks/use-toast";
 import { apiClient } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 
+// Sentinela do "Geral" — Radix SelectItem não aceita value vazio
+const GERAL = "__geral";
+
 const createPlanSchema = z.object({
   nome: z.string().min(1, "Nome do plano é obrigatório"),
   valor: z.number().min(0.01, "Valor deve ser maior que zero"),
   periodicidade: z.enum(["Mensal", "Bimestral", "Trimestral", "Semestral", "Anual"], {
     required_error: "Selecione a periodicidade",
   }),
+  classTypeId: z.string().optional(),
   descricao: z.string().optional(),
 });
 
 type CreatePlanForm = z.infer<typeof createPlanSchema>;
+
+interface ClassTypeOption {
+  id: string;
+  name: string;
+}
 
 export default function CreatePlan() {
   const [, setLocation] = useLocation();
@@ -50,8 +60,13 @@ export default function CreatePlan() {
       nome: "",
       valor: 0,
       periodicidade: undefined,
+      classTypeId: GERAL,
       descricao: "",
     },
+  });
+
+  const { data: classTypes = [] } = useQuery<ClassTypeOption[]>({
+    queryKey: ['/api/classes/class-types'],
   });
 
   const periodicidadeToDays: Record<string, number> = {
@@ -70,6 +85,7 @@ export default function CreatePlan() {
         description: data.descricao || undefined,
         price: Math.round(data.valor * 100),
         duration: periodicidadeToDays[data.periodicidade],
+        classTypeId: data.classTypeId && data.classTypeId !== GERAL ? data.classTypeId : undefined,
       });
       // Sem isto, o staleTime de 5min serviria a lista em cache e o plano recém-criado
       // só apareceria depois — exatamente o sintoma relatado.
@@ -185,6 +201,34 @@ export default function CreatePlan() {
                         <SelectItem value="Anual">Anual</SelectItem>
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Modalidade */}
+              <FormField
+                control={form.control}
+                name="classTypeId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Modalidade</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value ?? GERAL}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-plan-modality">
+                          <SelectValue placeholder="Selecione a modalidade" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={GERAL}>Geral (todas as modalidades)</SelectItem>
+                        {classTypes.map(ct => (
+                          <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[13px] text-muted-foreground">
+                      Liga o plano a uma modalidade — na matrícula em turma dessa modalidade, o plano já vem sugerido. "Geral" para planos como passe livre.
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}

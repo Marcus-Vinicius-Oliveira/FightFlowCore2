@@ -94,11 +94,14 @@ export interface MembershipPlan {
   price: number;
   duration: number;
   classesPerWeek: number | null;
+  /** Modalidade do plano; null = geral / todas as modalidades */
+  classTypeId: string | null;
   active: boolean;
   createdAt: string;
   updatedAt: string;
-  /** Só vem na listagem de gestão (?includeInactive=true) */
+  /** Só vêm na listagem de gestão (?includeInactive=true) */
   activeStudents?: number;
+  classTypeName?: string | null;
 }
 
 export interface Payment {
@@ -305,6 +308,7 @@ class ApiClient {
     price: number;
     duration: number;
     classesPerWeek?: number;
+    classTypeId?: string;
   }): Promise<MembershipPlan> {
     return this.request<MembershipPlan>('/membership-plans', {
       method: 'POST',

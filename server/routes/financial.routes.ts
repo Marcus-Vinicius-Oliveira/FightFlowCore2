@@ -235,10 +235,19 @@ router.post('/membership-plans',
         price: z.number().int().nonnegative('Valor deve ser zero ou positivo (em centavos)'),
         duration: z.number().int().positive('Duração deve ser positiva (em dias)'),
         classesPerWeek: z.number().int().positive().optional(),
+        classTypeId: z.string().uuid().optional(),
       });
 
       const data = createSchema.parse(req.body);
       const academyId = req.user!.academyId!;
+
+      // Modalidade, se informada, precisa ser da própria academia.
+      if (data.classTypeId) {
+        const ct = await storage.getClassType(data.classTypeId);
+        if (!ct || ct.academyId !== academyId) {
+          return res.status(400).json({ error: 'Modalidade inválida' });
+        }
+      }
 
       const plan = await storage.createMembershipPlan({ ...data, academyId });
       res.status(201).json(plan);
@@ -265,6 +274,7 @@ router.patch('/membership-plans/:id',
         price: z.number().int().nonnegative().optional(),
         duration: z.number().int().positive().optional(),
         classesPerWeek: z.number().int().positive().optional(),
+        classTypeId: z.string().uuid().nullable().optional(),
         active: z.boolean().optional(),
       });
 
@@ -273,6 +283,14 @@ router.patch('/membership-plans/:id',
       const existing = await storage.getMembershipPlan(req.params.id);
       if (!existing || existing.academyId !== req.user!.academyId) {
         return res.status(404).json({ error: 'Plano não encontrado' });
+      }
+
+      // Modalidade, se informada (e não-nula), precisa ser da própria academia.
+      if (updateData.classTypeId) {
+        const ct = await storage.getClassType(updateData.classTypeId);
+        if (!ct || ct.academyId !== req.user!.academyId) {
+          return res.status(400).json({ error: 'Modalidade inválida' });
+        }
       }
 
       const updated = await storage.updateMembershipPlan(req.params.id, updateData);

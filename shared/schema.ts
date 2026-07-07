@@ -53,6 +53,8 @@ export const membershipPlans = pgTable("membership_plans", {
   price: integer("price").notNull(), // in cents
   duration: integer("duration").notNull(), // days
   classesPerWeek: integer("classes_per_week"),
+  // Modalidade do plano (cobrança por modalidade). null = geral / todas as modalidades (ex.: Passe Livre).
+  classTypeId: uuid("class_type_id").references(() => classTypes.id),
   active: boolean("active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),

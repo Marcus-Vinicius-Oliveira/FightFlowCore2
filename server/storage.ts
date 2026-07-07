@@ -97,8 +97,8 @@ export interface IStorage {
 
   // Membership plan operations
   getMembershipPlansByAcademy(academyId: string): Promise<MembershipPlan[]>;
-  /** Todos os planos (ativos e inativos) + contagem de alunos ativos — para a tela de gestão. */
-  getMembershipPlansForManagement(academyId: string): Promise<(MembershipPlan & { activeStudents: number })[]>;
+  /** Todos os planos (ativos e inativos) + contagem de alunos ativos + nome da modalidade — para a tela de gestão. */
+  getMembershipPlansForManagement(academyId: string): Promise<(MembershipPlan & { activeStudents: number; classTypeName: string | null })[]>;
   getMembershipPlan(id: string): Promise<MembershipPlan | undefined>;
   createMembershipPlan(plan: InsertMembershipPlan): Promise<MembershipPlan>;
   updateMembershipPlan(id: string, updates: Partial<InsertMembershipPlan>): Promise<MembershipPlan | undefined>;
@@ -329,13 +329,20 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(membershipPlans.academyId, academyId), eq(membershipPlans.active, true)));
   }
 
-  async getMembershipPlansForManagement(academyId: string): Promise<(MembershipPlan & { activeStudents: number })[]> {
+  async getMembershipPlansForManagement(academyId: string): Promise<(MembershipPlan & { activeStudents: number; classTypeName: string | null })[]> {
     // Todos os planos da academia (inclui inativos, para o "Reativar"), ativos primeiro e em ordem alfabética.
     const plans = await db
       .select()
       .from(membershipPlans)
       .where(eq(membershipPlans.academyId, academyId))
       .orderBy(desc(membershipPlans.active), asc(membershipPlans.name));
+
+    // Nome da modalidade de cada plano (null = geral / todas as modalidades).
+    const cts = await db
+      .select({ id: classTypes.id, name: classTypes.name })
+      .from(classTypes)
+      .where(eq(classTypes.academyId, academyId));
+    const nameByClassType = new Map(cts.map(c => [c.id, c.name]));
 
     // Alunos ativos por plano: alunos ativos com matrícula ativa, sem duplicar
     // o aluno que faz mais de uma turma no mesmo plano.
@@ -355,7 +362,11 @@ export class DatabaseStorage implements IStorage {
       .groupBy(enrollments.membershipPlanId);
     const countByPlan = new Map(counts.map(c => [c.planId, Number(c.total)]));
 
-    return plans.map(p => ({ ...p, activeStudents: countByPlan.get(p.id) ?? 0 }));
+    return plans.map(p => ({
+      ...p,
+      activeStudents: countByPlan.get(p.id) ?? 0,
+      classTypeName: p.classTypeId ? nameByClassType.get(p.classTypeId) ?? null : null,
+    }));
   }
 
   async getMembershipPlan(id: string): Promise<MembershipPlan | undefined> {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -38,6 +38,7 @@ interface ClassGroupOption {
 interface MembershipPlanOption {
   id: string;
   name: string;
+  classTypeId: string | null;
 }
 
 interface StudentClassEnrollmentsProps {
@@ -87,6 +88,13 @@ export function StudentClassEnrollments({ studentId, studentName }: StudentClass
   );
 
   const selectedGroup = classGroups.find(g => g.id === selectedGroupId);
+
+  // Ao escolher a turma, sugere o plano da modalidade dela (o gestor pode trocar).
+  useEffect(() => {
+    if (!selectedGroup) return;
+    const match = plans.find(p => p.classTypeId === selectedGroup.classTypeId);
+    setSelectedPlanId(match ? match.id : "");
+  }, [selectedGroupId, plans]);
 
   const enrollMutation = useMutation({
     mutationFn: async ({ group, planId }: { group: ClassGroupOption; planId: string }) => {

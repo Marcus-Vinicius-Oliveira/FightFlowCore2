@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
@@ -37,6 +37,7 @@ import {
 export interface EnrollmentsDialogClass {
   id: string;
   ids: string[];
+  classTypeId: string;
   startTime: string;
   endTime: string;
   daysOfWeek: number[];
@@ -54,6 +55,7 @@ interface StudentOption {
 interface MembershipPlanOption {
   id: string;
   name: string;
+  classTypeId: string | null;
 }
 
 interface ClassEnrollmentsDialogProps {
@@ -139,6 +141,14 @@ export function ClassEnrollmentsDialog({ classData, open, onOpenChange }: ClassE
   }, [enrolled, searchTerm]);
 
   const occ = occupancy(enrolled.length, classData?.classType?.maxCapacity);
+
+  // Pré-seleciona o plano da modalidade da turma quando o diálogo abre (o gestor
+  // ainda pode trocar). Sem match (só planos gerais), deixa em branco.
+  useEffect(() => {
+    if (!open || !classData) return;
+    const match = plans.find(p => p.classTypeId === classData.classTypeId);
+    setSelectedPlanId(match ? match.id : "");
+  }, [open, classData?.id, plans]);
 
   const enrollMutation = useMutation({
     mutationFn: async ({ studentId, planId }: { studentId: string; planId: string }) => {

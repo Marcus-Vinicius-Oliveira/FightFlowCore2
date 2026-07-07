@@ -126,6 +126,7 @@ export default function PlanManagement() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome do Plano</TableHead>
+                  <TableHead>Modalidade</TableHead>
                   <TableHead>Valor</TableHead>
                   <TableHead>Periodicidade</TableHead>
                   <TableHead>Alunos Ativos</TableHead>
@@ -137,6 +138,11 @@ export default function PlanManagement() {
                 {plans.map((plan) => (
                   <TableRow key={plan.id} data-testid={`row-plan-${plan.id}`}>
                     <TableCell className="font-medium">{plan.name}</TableCell>
+                    <TableCell>
+                      {plan.classTypeName
+                        ? <Badge variant="secondary" className="font-normal">{plan.classTypeName}</Badge>
+                        : <span className="text-muted-foreground text-sm">Geral</span>}
+                    </TableCell>
                     <TableCell className="font-mono">{formatPrice(plan.price)}</TableCell>
                     <TableCell>{periodicityLabel(plan.duration)}</TableCell>
                     <TableCell>
