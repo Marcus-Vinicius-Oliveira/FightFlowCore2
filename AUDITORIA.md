@@ -468,3 +468,16 @@ Fecha o item (2) do backlog. **Decisão do fundador:** as aulas **não** devem t
 **Verificação:** typecheck limpo + **87/87 Vitest** (removido o teste de `hasCapacity`; testes de `occupancyText` reduzidos à contagem). **e2e Playwright (porta 5001)** com turma de `maxCapacity=1` (legado) para provar que passa do "limite": ocupação mostra "0 alunos" (sem "/1", sem "vagas"); 1ª matrícula → "1 aluno"; **2ª matrícula passa do limite 1 → "2 alunos"**, sem aviso de lotada e com o botão habilitado. Sem erros de console.
 
 **Backlog:** resta (5) N+1/atomicidade da matrícula e a faxina dos planos "Plano E2E …".
+
+---
+
+## 26. Entrega — Resumo de alunos por modalidade na Gestão de Aulas (07/07/2026)
+
+Complemento do item 25, a pedido do fundador: "o importante é o gestor saber quantos alunos há em cada modalidade". A tela de Aulas mostrava só por aula (por linha); faltava o total por modalidade.
+
+- **Backend ([storage.ts](server/storage.ts) + [classes.routes.ts](server/routes/classes.routes.ts)):** novo `getModalityEnrollmentSummary` e `GET /api/classes/modality-summary` — por modalidade ativa, **alunos ativos distintos** (não duplica quem faz várias turmas da mesma modalidade) e **nº de turmas** (combinação distinta professor+horário), ordenado por mais alunos.
+- **Frontend ([ClassManagement](client/src/pages/ClassManagement.tsx)):** painel "Alunos por modalidade" acima da tabela, com um card por modalidade (nome, contagem de alunos, nº de turmas). A query usa a key `['/api/classes', 'modality-summary']` — filha do prefixo `['/api/classes']`, então matricular/remover **atualiza o painel sozinho** (as mutações de matrícula já invalidam esse prefixo).
+
+**Verificação:** typecheck limpo + **87/87 Vitest**. **Backend** (`server/verify-summary.tmp.ts`, removido): aluno em 2 turmas de Muay Thai + 1 de BJJ → Muay Thai {alunos:2 (distintos), turmas:2}, BJJ {alunos:1, turmas:1}, ordenado por alunos. **e2e Playwright (porta 5001)**: painel aparece com os cards corretos (Muay Thai "2 alunos / 2 turmas", BJJ "1 aluno / 1 turma"), Muay Thai primeiro. Sem erros de console.
+
+**Backlog:** resta (5) N+1/atomicidade da matrícula e a faxina dos planos "Plano E2E …".
