@@ -438,3 +438,18 @@ Reportado pelo fundador: criou o plano "BJJ" (toast de sucesso), mas ele não ap
 - **Causa-raiz do sintoma preservada:** [CreatePlan](client/src/pages/CreatePlan.tsx) passou a invalidar `['/api/membership-plans']` ao criar. Sem isso, o `staleTime` de 5min serviria a lista em cache e o plano novo só apareceria depois — reproduzindo o mesmo bug mesmo com a tela já ligada à API.
 
 **Verificação:** typecheck limpo. **Backend** (`server/verify-plans.tmp.ts`, removido depois): endpoint de gestão traz 2 planos (ativo primeiro), `activeStudents` 1 e 0 corretos; endpoint padrão traz só o ativo e sem contagem. **e2e Playwright (porta 5001)**: lista mostra plano ativo e inativo; **plano criado pela UI aparece na lista** (o sintoma relatado); desativar → status "Inativo" + botão Reativar; reativar → "Ativo". Sem erros de console.
+
+---
+
+## 24. Entrega — Plano vinculado à modalidade + pré-seleção na matrícula (07/07/2026)
+
+Melhoria (1) do backlog de matrículas/aulas, a que mais protege a cobrança por modalidade (item 22): o plano era texto livre, sem vínculo com a modalidade, então ao matricular numa turma de Muay Thai dava para escolher o plano de BJJ por engano e **cobrar errado**. Também criei planos de teste na academia demo (Anjo) para simular matrículas/financeiro: Judô, Karatê, Boxe, Capoeira, Passe Livre e BJJ Trimestral.
+
+- **Schema:** `membership_plans.class_type_id` (nullable, FK → `class_types`). Null = geral / todas as modalidades (ex.: Passe Livre). Projeto usa `db:push` (sem pasta de migrações) — coluna aplicada no dev via ALTER equivalente; **produção precisa de `npm run db:push`**. Planos existentes do Anjo foram vinculados por backfill casando nome do plano × nome da modalidade.
+- **Backend:** `POST`/`PATCH /membership-plans` aceitam `classTypeId` e validam que a modalidade é da própria academia (400 se não for). `getMembershipPlansForManagement` devolve `classTypeName` para a tela de gestão.
+- **Criar plano:** ganhou seletor **Modalidade** (com opção "Geral"), e a tela de Planos ganhou a coluna **Modalidade** (badge da modalidade ou "Geral").
+- **Pré-seleção (o ganho):** ao abrir a matrícula de uma turma ([ClassEnrollmentsDialog](client/src/components/ClassEnrollmentsDialog.tsx)) o plano já vem sugerido conforme a modalidade da turma; na ficha do aluno ([StudentClassEnrollments](client/src/components/StudentClassEnrollments.tsx)), ao escolher a turma o plano da modalidade é sugerido. O gestor ainda pode trocar; sem plano da modalidade (só gerais), fica em branco.
+
+**Verificação:** typecheck limpo + **99/99 Vitest**. **Backend** (`server/verify-modality.tmp.ts`, removido): gestão devolve `classTypeName` ("Muay Thai Verify" / null p/ geral); `POST` com modalidade de outra academia → 400; com modalidade própria → 201 com `classTypeId`. **e2e Playwright (porta 5001)**: coluna Modalidade mostra modalidade/"Geral"; **matrícula por turma pré-seleciona o plano da modalidade** ("Plano Muay Verify"); criar plano com modalidade pela UI persiste e exibe. Sem erros de console.
+
+**Backlog:** ainda abertos (2) ocupação e (5) N+1/atomicidade da matrícula. Anotado também: há planos órfãos "Plano E2E …" de testes antigos poluindo o banco — candidato a limpeza.
