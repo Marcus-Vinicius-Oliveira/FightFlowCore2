@@ -453,3 +453,18 @@ Melhoria (1) do backlog de matrículas/aulas, a que mais protege a cobrança por
 **Verificação:** typecheck limpo + **99/99 Vitest**. **Backend** (`server/verify-modality.tmp.ts`, removido): gestão devolve `classTypeName` ("Muay Thai Verify" / null p/ geral); `POST` com modalidade de outra academia → 400; com modalidade própria → 201 com `classTypeId`. **e2e Playwright (porta 5001)**: coluna Modalidade mostra modalidade/"Geral"; **matrícula por turma pré-seleciona o plano da modalidade** ("Plano Muay Verify"); criar plano com modalidade pela UI persiste e exibe. Sem erros de console.
 
 **Backlog:** ainda abertos (2) ocupação e (5) N+1/atomicidade da matrícula. Anotado também: há planos órfãos "Plano E2E …" de testes antigos poluindo o banco — candidato a limpeza.
+
+---
+
+## 25. Entrega — Ocupação como contagem pura; app deixa de ter limite de vagas (07/07/2026)
+
+Fecha o item (2) do backlog. **Decisão do fundador:** as aulas **não** devem ter limite de alunos — cada academia controla lotação por fora do app; o que importa é o gestor **saber quantos alunos** há em cada aula/modalidade/horário. (Isso reverteu uma primeira versão que ia no caminho de capacidade opcional + editor — descartada antes de commit.)
+
+- **Ocupação = contagem ([enrollments.ts](client/src/lib/enrollments.ts)):** `occupancyText` passou a devolver só "N aluno(s)". Removidas a função `occupancy` e a interface `Occupancy` (label/isFull/hasLimit) — não há mais conceito de lotação no app. Fim do "N alunos" vs "N/Y vagas": tudo vira contagem.
+- **Sem bloqueio no frontend ([ClassEnrollmentsDialog](client/src/components/ClassEnrollmentsDialog.tsx), [StudentClassEnrollments](client/src/components/StudentClassEnrollments.tsx), [ClassManagement](client/src/pages/ClassManagement.tsx)):** removidos o aviso "Turma lotada", os `disabled` por lotação, o "lotada" no dropdown e o badge vermelho de cheio. A ocupação vira badge neutro com a contagem.
+- **Sem enforcement no backend ([enrollments.routes.ts](server/routes/enrollments.routes.ts)):** removida a checagem `hasCapacity` que retornava 409 "Turma lotada" — era ela que, na verificação, barrava a matrícula mesmo com o front liberado. Função `hasCapacity` e seus testes removidos.
+- **`maxCapacity` fica vestigial:** a coluna e o campo permanecem no schema/seeds (o BJJ demo tem 20), mas **nada** no app lê ou impõe — sem migração destrutiva. Candidato a remoção futura.
+
+**Verificação:** typecheck limpo + **87/87 Vitest** (removido o teste de `hasCapacity`; testes de `occupancyText` reduzidos à contagem). **e2e Playwright (porta 5001)** com turma de `maxCapacity=1` (legado) para provar que passa do "limite": ocupação mostra "0 alunos" (sem "/1", sem "vagas"); 1ª matrícula → "1 aluno"; **2ª matrícula passa do limite 1 → "2 alunos"**, sem aviso de lotada e com o botão habilitado. Sem erros de console.
+
+**Backlog:** resta (5) N+1/atomicidade da matrícula e a faxina dos planos "Plano E2E …".
