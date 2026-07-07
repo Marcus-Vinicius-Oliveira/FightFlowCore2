@@ -37,16 +37,24 @@ export function hasPaymentInMonth(dueDates: Date[], reference: Date): boolean {
   });
 }
 
+/** Um plano cobrável do aluno (uma modalidade). */
+export interface CandidatePlan {
+  planId: string;
+  planPrice: number;
+}
+
 export interface ChargeCandidate {
   studentId: string;
   academyId: string;
   /** Quando o aluno entrou — matriculado depois do vencimento do mês só é cobrado a partir do mês seguinte */
   createdAt: Date;
   customMonthlyAmount: number | null;
-  /** Plano resolvido: matrícula ativa mais recente ou, na falta, o plano da última mensalidade */
-  planId: string | null;
-  planPrice: number | null;
-  hasPaymentThisMonth: boolean;
+  /** Planos distintos com matrícula ativa (um por modalidade). Cobra-se um por um.
+   *  Na falta de matrícula ativa, o job preenche com o plano da última mensalidade (base legada). */
+  plans: CandidatePlan[];
+  /** Planos que já têm mensalidade neste mês — idempotência por aluno+plano
+   *  (não mais por aluno, senão a 2ª modalidade nunca seria cobrada). */
+  chargedPlanIdsThisMonth: Set<string>;
 }
 
 export interface MonthlyCharge {
@@ -58,7 +66,8 @@ export interface MonthlyCharge {
   status: 'pending';
 }
 
-/** Decide quais mensalidades gerar no mês de referência. Pura: o job só monta os candidatos e insere. */
+/** Decide quais mensalidades gerar no mês de referência. Pura: o job só monta os candidatos e insere.
+ *  Cobrança por modalidade: uma mensalidade por plano ativo do aluno. */
 export function buildMonthlyCharges(
   candidates: ChargeCandidate[],
   reference: Date,
@@ -66,18 +75,23 @@ export function buildMonthlyCharges(
 ): MonthlyCharge[] {
   const charges: MonthlyCharge[] = [];
   for (const c of candidates) {
-    if (c.hasPaymentThisMonth) continue;               // idempotência — não duplicar
-    if (!c.planId || c.planPrice == null) continue;    // sem plano conhecido, sem cobrança automática
+    if (c.plans.length === 0) continue;                // sem plano conhecido, sem cobrança automática
     const dueDate = monthlyDueDate(reference, dueDayByAcademy.get(c.academyId) ?? 5);
     if (c.createdAt > dueDate) continue;               // entrou depois do vencimento — cobra do próximo mês
-    charges.push({
-      studentId: c.studentId,
-      academyId: c.academyId,
-      membershipPlanId: c.planId,
-      amount: resolveMonthlyAmount(c.planPrice, c.customMonthlyAmount),
-      dueDate,
-      status: 'pending',
-    });
+    // Desconto individual (valor absoluto) só se aplica quando há uma única
+    // modalidade; com várias, cada plano cobra o próprio preço cheio.
+    const single = c.plans.length === 1;
+    for (const p of c.plans) {
+      if (c.chargedPlanIdsThisMonth.has(p.planId)) continue;   // idempotência por aluno+plano
+      charges.push({
+        studentId: c.studentId,
+        academyId: c.academyId,
+        membershipPlanId: p.planId,
+        amount: single ? resolveMonthlyAmount(p.planPrice, c.customMonthlyAmount) : p.planPrice,
+        dueDate,
+        status: 'pending',
+      });
+    }
   }
   return charges;
 }

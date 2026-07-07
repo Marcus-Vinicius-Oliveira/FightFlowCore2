@@ -31,26 +31,35 @@ export async function generateMonthlyPayments(now: Date = new Date()): Promise<n
   const activeStudents = students.filter(s => s.academyId);
   if (activeStudents.length === 0) return 0;
 
-  // Idempotência: quem já tem pagamento (qualquer status) com vencimento neste mês
+  // Idempotência por aluno+plano: quais planos já têm pagamento (qualquer status)
+  // com vencimento neste mês. Cobra-se por modalidade, então a chave é o par.
   const existing = await db
-    .select({ studentId: payments.studentId })
+    .select({ studentId: payments.studentId, planId: payments.membershipPlanId })
     .from(payments)
     .where(and(gte(payments.dueDate, start), lt(payments.dueDate, end)));
-  const alreadyCharged = new Set(existing.map(r => r.studentId));
+  const chargedPlansByStudent = new Map<string, Set<string>>();
+  for (const r of existing) {
+    let set = chargedPlansByStudent.get(r.studentId);
+    if (!set) chargedPlansByStudent.set(r.studentId, (set = new Set()));
+    set.add(r.planId);
+  }
 
-  // Plano por aluno: matrícula ativa em turma mais recente...
+  // Planos por aluno: um por modalidade, distintos, das matrículas ativas.
+  // (As várias linhas por-dia de uma mesma turma compartilham o plano → 1 cobrança.)
   const enrollRows = await db
     .select({ studentId: enrollments.studentId, planId: enrollments.membershipPlanId })
     .from(enrollments)
-    .where(eq(enrollments.active, true))
-    .orderBy(desc(enrollments.createdAt));
-  const planByStudent = new Map<string, string>();
+    .where(eq(enrollments.active, true));
+  const plansByStudent = new Map<string, Set<string>>();
   for (const row of enrollRows) {
-    if (!planByStudent.has(row.studentId)) planByStudent.set(row.studentId, row.planId);
+    let set = plansByStudent.get(row.studentId);
+    if (!set) plansByStudent.set(row.studentId, (set = new Set()));
+    set.add(row.planId);
   }
 
-  // ...ou, na falta (bases anteriores à UI de matrícula), o plano da última mensalidade
-  const withoutPlan = activeStudents.filter(s => !planByStudent.has(s.id)).map(s => s.id);
+  // Fallback (bases anteriores à UI de matrícula): aluno sem matrícula ativa
+  // usa o plano da última mensalidade — uma cobrança só.
+  const withoutPlan = activeStudents.filter(s => !plansByStudent.has(s.id)).map(s => s.id);
   if (withoutPlan.length > 0) {
     const lastPayments = await db
       .select({ studentId: payments.studentId, planId: payments.membershipPlanId })
@@ -58,11 +67,11 @@ export async function generateMonthlyPayments(now: Date = new Date()): Promise<n
       .where(inArray(payments.studentId, withoutPlan))
       .orderBy(desc(payments.dueDate));
     for (const row of lastPayments) {
-      if (!planByStudent.has(row.studentId)) planByStudent.set(row.studentId, row.planId);
+      if (!plansByStudent.has(row.studentId)) plansByStudent.set(row.studentId, new Set([row.planId]));
     }
   }
 
-  const planIds = Array.from(new Set(planByStudent.values()));
+  const planIds = Array.from(new Set(Array.from(plansByStudent.values()).flatMap(s => Array.from(s))));
   const priceByPlan = new Map<string, number>();
   if (planIds.length > 0) {
     const plans = await db
@@ -78,15 +87,17 @@ export async function generateMonthlyPayments(now: Date = new Date()): Promise<n
   const dueDayByAcademy = new Map(academyRows.map(a => [a.id, a.dueDay]));
 
   const candidates: ChargeCandidate[] = activeStudents.map(s => {
-    const planId = planByStudent.get(s.id) ?? null;
+    const planIds = plansByStudent.get(s.id) ?? new Set<string>();
+    const plans = Array.from(planIds)
+      .map(planId => ({ planId, planPrice: priceByPlan.get(planId) }))
+      .filter((p): p is { planId: string; planPrice: number } => p.planPrice != null);
     return {
       studentId: s.id,
       academyId: s.academyId!,
       createdAt: s.createdAt ?? new Date(0),
       customMonthlyAmount: s.customMonthlyAmount,
-      planId,
-      planPrice: planId ? priceByPlan.get(planId) ?? null : null,
-      hasPaymentThisMonth: alreadyCharged.has(s.id),
+      plans,
+      chargedPlanIdsThisMonth: chargedPlansByStudent.get(s.id) ?? new Set<string>(),
     };
   });
 

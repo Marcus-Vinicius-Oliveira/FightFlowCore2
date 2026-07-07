@@ -14,9 +14,8 @@ function candidate(over: Partial<ChargeCandidate> = {}): ChargeCandidate {
     academyId: 'a1',
     createdAt: new Date(2026, 0, 10),
     customMonthlyAmount: null,
-    planId: 'p1',
-    planPrice: 15000,
-    hasPaymentThisMonth: false,
+    plans: [{ planId: 'p1', planPrice: 15000 }],
+    chargedPlanIdsThisMonth: new Set<string>(),
     ...over,
   };
 }
@@ -91,26 +90,63 @@ describe('buildMonthlyCharges — decisão de geração do mês', () => {
   });
 
   it('não duplica quem já tem pagamento no mês (idempotência)', () => {
-    const charges = buildMonthlyCharges([candidate({ hasPaymentThisMonth: true })], JUL, dueDays);
+    const charges = buildMonthlyCharges([candidate({ chargedPlanIdsThisMonth: new Set(['p1']) })], JUL, dueDays);
     expect(charges).toEqual([]);
   });
 
   it('rodar duas vezes no mesmo período não gera duplicata', () => {
     const first = buildMonthlyCharges([candidate()], JUL, dueDays);
     expect(first).toHaveLength(1);
-    // segunda rodada: o pagamento da primeira já existe no banco
-    const second = buildMonthlyCharges([candidate({ hasPaymentThisMonth: true })], JUL, dueDays);
+    // segunda rodada: o pagamento da primeira já existe no banco (plano p1 já cobrado)
+    const second = buildMonthlyCharges([candidate({ chargedPlanIdsThisMonth: new Set(['p1']) })], JUL, dueDays);
     expect(second).toEqual([]);
   });
 
-  it('aplica o desconto individual do aluno', () => {
+  it('aplica o desconto individual do aluno (modalidade única)', () => {
     const charges = buildMonthlyCharges([candidate({ customMonthlyAmount: 9900 })], JUL, dueDays);
     expect(charges[0].amount).toBe(9900);
   });
 
   it('pula aluno sem plano conhecido (sem matrícula e sem histórico)', () => {
-    const charges = buildMonthlyCharges([candidate({ planId: null, planPrice: null })], JUL, dueDays);
+    const charges = buildMonthlyCharges([candidate({ plans: [] })], JUL, dueDays);
     expect(charges).toEqual([]);
+  });
+
+  it('cobra uma mensalidade por modalidade (2 planos → 2 cobranças com preço cheio)', () => {
+    const charges = buildMonthlyCharges(
+      [candidate({ plans: [{ planId: 'p1', planPrice: 15000 }, { planId: 'p2', planPrice: 12000 }] })],
+      JUL, dueDays,
+    );
+    expect(charges).toHaveLength(2);
+    expect(charges.map(c => c.membershipPlanId).sort()).toEqual(['p1', 'p2']);
+    const byPlan = new Map(charges.map(c => [c.membershipPlanId, c.amount]));
+    expect(byPlan.get('p1')).toBe(15000);
+    expect(byPlan.get('p2')).toBe(12000);
+  });
+
+  it('idempotência por aluno+plano: gera só a modalidade ainda não cobrada no mês', () => {
+    const charges = buildMonthlyCharges(
+      [candidate({
+        plans: [{ planId: 'p1', planPrice: 15000 }, { planId: 'p2', planPrice: 12000 }],
+        chargedPlanIdsThisMonth: new Set(['p1']),
+      })],
+      JUL, dueDays,
+    );
+    expect(charges).toHaveLength(1);
+    expect(charges[0].membershipPlanId).toBe('p2');
+  });
+
+  it('desconto individual não se aplica quando há múltiplas modalidades', () => {
+    const charges = buildMonthlyCharges(
+      [candidate({
+        plans: [{ planId: 'p1', planPrice: 15000 }, { planId: 'p2', planPrice: 12000 }],
+        customMonthlyAmount: 9900,
+      })],
+      JUL, dueDays,
+    );
+    const byPlan = new Map(charges.map(c => [c.membershipPlanId, c.amount]));
+    expect(byPlan.get('p1')).toBe(15000);
+    expect(byPlan.get('p2')).toBe(12000);
   });
 
   it('pula aluno que entrou depois do vencimento do mês (primeira cobrança fica para o mês seguinte)', () => {
