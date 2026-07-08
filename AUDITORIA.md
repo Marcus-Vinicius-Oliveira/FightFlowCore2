@@ -587,3 +587,16 @@ Fecha o bug pré-existente do §18: pagamento registrado dia 06/07 aparecia "pag
 **Verificação:** typecheck limpo + **112/112 Vitest** + suíte Playwright **29 passed**. **e2e dirigido (fixture verify-tmp com aluno 40 dias sumido):** padrão = painel **não aparece** mesmo com aluno em risco no banco; ligar o toggle em Configurações → Painel (toast confirma) → Dashboard mostra o painel com o aluno; desligar → some de novo; **PATCH como professor → 403**. Sem erros de console.
 
 **Backlog:** inalterado (WhatsApp, multa/bloqueio, check-in QR, ranking de assiduidade, `maxCapacity`, borda do `overdueCutoff`); produção: `db:push` (agora inclui esta coluna) + `backfill:modalidades`.
+
+---
+
+## 34. Entrega — Sugestões de graduação também viram opt-in (toggle próprio) (08/07/2026)
+
+Extensão natural do §33: o painel de sugestões de graduação ganha **toggle próprio** na aba Configurações → Painel, também **desligado por padrão** — mesmo racional (não poluir o dashboard de academias grandes) e mesmo mecanismo.
+
+- **Schema:** `academies.dashboard_show_graduation_suggestions` (boolean, **default false**). Dev via ALTER; **produção: mesmo `db:push` já pendente**.
+- **Backend:** gate no `GET /graduation-suggestions` (desligado → `{ enabled: false }` sem query). `GET/PATCH /preferences` agora trafega os **dois** toggles; o PATCH aceita atualização parcial (`showRetention` e/ou `showGraduationSuggestions`, ao menos um).
+- **Configurações → Painel:** segundo card com Switch "Sugestões de graduação" (critério explicado no subtítulo). A mutação única invalida `preferences` + `retention` + `graduation-suggestions`.
+- **Dashboard:** `DashboardGraduationSuggestions` renderiza `null` com `enabled: false` (e continua sumindo quando ligado sem candidatos).
+
+**Verificação:** typecheck limpo + **112/112 Vitest** + suíte Playwright **29 passed**. **e2e dirigido (fixture com candidato pronto + aluno sumido):** padrão = **os dois painéis ocultos** mesmo com dados no banco; ligar só as sugestões exibe o candidato ("Aluno Pronto VT · Branca → Azul") **sem ligar a retenção** (independência provada); desligar esconde de novo. Sem erros de console.
