@@ -2,7 +2,7 @@
 // cada aluno ativo (idempotente — roda a cada hora com catch-up; nunca duplica
 // dentro do mês) e dispara o lembrete de vencimento D-N por e-mail.
 
-import { and, eq, gte, lt, isNull, inArray, desc } from "drizzle-orm";
+import { and, eq, gte, lt, isNull, inArray, desc, sql } from "drizzle-orm";
 import { db } from "../db";
 import { users, academies, enrollments, membershipPlans, payments } from "@shared/schema";
 import { log } from "../vite";
@@ -24,6 +24,7 @@ export async function generateMonthlyPayments(now: Date = new Date()): Promise<n
       academyId: users.academyId,
       createdAt: users.createdAt,
       customMonthlyAmount: users.customMonthlyAmount,
+      paymentDueDay: users.paymentDueDay,
     })
     .from(users)
     .where(and(eq(users.role, 'ALUNO'), eq(users.active, true)));
@@ -42,6 +43,21 @@ export async function generateMonthlyPayments(now: Date = new Date()): Promise<n
     let set = chargedPlansByStudent.get(r.studentId);
     if (!set) chargedPlansByStudent.set(r.studentId, (set = new Set()));
     set.add(r.planId);
+  }
+
+  // Âncora da regra dos 15 dias: vencimento mais recente por (aluno, plano),
+  // considerando todo o histórico (a 1ª mensalidade nasce na matrícula).
+  const anchorRows = await db
+    .select({
+      studentId: payments.studentId,
+      planId: payments.membershipPlanId,
+      lastDueDate: sql`max(${payments.dueDate})`.mapWith(payments.dueDate),
+    })
+    .from(payments)
+    .groupBy(payments.studentId, payments.membershipPlanId);
+  const lastDueByStudentPlan = new Map<string, Date>();
+  for (const r of anchorRows) {
+    if (r.lastDueDate) lastDueByStudentPlan.set(`${r.studentId}|${r.planId}`, r.lastDueDate);
   }
 
   // Planos por aluno: um por modalidade, distintos, das matrículas ativas.
@@ -89,13 +105,18 @@ export async function generateMonthlyPayments(now: Date = new Date()): Promise<n
   const candidates: ChargeCandidate[] = activeStudents.map(s => {
     const planIds = plansByStudent.get(s.id) ?? new Set<string>();
     const plans = Array.from(planIds)
-      .map(planId => ({ planId, planPrice: priceByPlan.get(planId) }))
-      .filter((p): p is { planId: string; planPrice: number } => p.planPrice != null);
+      .map(planId => ({
+        planId,
+        planPrice: priceByPlan.get(planId),
+        lastDueDate: lastDueByStudentPlan.get(`${s.id}|${planId}`) ?? null,
+      }))
+      .filter((p): p is { planId: string; planPrice: number; lastDueDate: Date | null } => p.planPrice != null);
     return {
       studentId: s.id,
       academyId: s.academyId!,
       createdAt: s.createdAt ?? new Date(0),
       customMonthlyAmount: s.customMonthlyAmount,
+      dueDay: s.paymentDueDay,
       plans,
       chargedPlanIdsThisMonth: chargedPlansByStudent.get(s.id) ?? new Set<string>(),
     };

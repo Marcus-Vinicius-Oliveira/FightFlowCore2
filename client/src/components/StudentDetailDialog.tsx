@@ -39,6 +39,8 @@ export interface DialogStudent {
   guardianRelationship?: string | null;
   /** Desconto individual em centavos (bolsa/família); null/undefined = valor do plano */
   customMonthlyAmount?: number | null;
+  /** Dia de vencimento escolhido pelo aluno (5/15/25); null = padrão da academia */
+  paymentDueDay?: number | null;
   active: boolean;
   createdAt: string;
 }
@@ -78,6 +80,8 @@ interface FormData {
   guardianRelationship: string;
   /** Mensalidade com desconto em reais ("150,00"); vazio = valor do plano */
   customMonthlyAmount: string;
+  /** "5" | "15" | "25" | "" (padrão da academia) */
+  paymentDueDay: string;
   active: boolean;
 }
 
@@ -210,7 +214,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
   const [formData, setFormData] = useState<FormData>({
     name: '', email: '', phone: '', dateOfBirth: '',
     guardianName: '', guardianPhone: '', guardianRelationship: '',
-    customMonthlyAmount: '', active: true,
+    customMonthlyAmount: '', paymentDueDay: '', active: true,
   });
   const [modalidadesForm, setModalidadesForm] = useState<ModalidadeFormRow[]>([]);
 
@@ -231,6 +235,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
       guardianPhone: student.guardianPhone ?? '',
       guardianRelationship: student.guardianRelationship ?? '',
       customMonthlyAmount: centsToBRLInput(student.customMonthlyAmount),
+      paymentDueDay: student.paymentDueDay != null ? String(student.paymentDueDay) : '',
       active: student.active,
     });
     const rankByClassType = new Map(modalityRanks.map(r => [r.classTypeId, r.rankId]));
@@ -321,6 +326,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
       guardianPhone: student.guardianPhone ?? '',
       guardianRelationship: student.guardianRelationship ?? '',
       customMonthlyAmount: centsToBRLInput(student.customMonthlyAmount),
+      paymentDueDay: student.paymentDueDay != null ? String(student.paymentDueDay) : '',
       active: student.active,
     });
     const rankByClassType = new Map(modalityRanks.map(r => [r.classTypeId, r.rankId]));
@@ -356,6 +362,7 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
         guardianPhone: formData.guardianPhone.trim() || null,
         guardianRelationship: formData.guardianRelationship.trim() || null,
         customMonthlyAmount: brlInputToCents(formData.customMonthlyAmount),
+        paymentDueDay: formData.paymentDueDay ? Number(formData.paymentDueDay) : null,
         active: formData.active,
       });
 
@@ -688,6 +695,34 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
                   {student?.customMonthlyAmount != null
                     ? `${formatBRL(student.customMonthlyAmount)} (desconto individual)`
                     : 'Valor do plano'}
+                </p>
+              )}
+            </div>
+
+            {/* Vencimento da mensalidade — dia escolhido pelo aluno (regra dos
+                15 dias garante a transição justa após a matrícula) */}
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5" /> Vencimento
+              </Label>
+              {isEditing ? (
+                <Select
+                  value={formData.paymentDueDay || 'padrao'}
+                  onValueChange={v => setFormData(p => ({ ...p, paymentDueDay: v === 'padrao' ? '' : v }))}
+                >
+                  <SelectTrigger className="h-8 text-sm" data-testid="select-payment-due-day">
+                    {formData.paymentDueDay ? `Dia ${formData.paymentDueDay}` : 'Padrão da academia'}
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="padrao">Padrão da academia</SelectItem>
+                    <SelectItem value="5">Dia 5 (início do mês)</SelectItem>
+                    <SelectItem value="15">Dia 15 (meados do mês)</SelectItem>
+                    <SelectItem value="25">Dia 25 (fim do mês)</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-50" data-testid="text-payment-due-day">
+                  {student?.paymentDueDay != null ? `Dia ${student.paymentDueDay}` : 'Padrão da academia'}
                 </p>
               )}
             </div>

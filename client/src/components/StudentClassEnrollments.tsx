@@ -150,16 +150,18 @@ export function StudentClassEnrollments({ studentId, studentName, modalities }: 
       return {
         modalityAdded: !!body?.modalityAdded,
         modalityName: (body?.modalityName ?? null) as string | null,
+        firstPaymentCreated: !!body?.firstPaymentCreated,
       };
     },
-    onSuccess: ({ modalityAdded, modalityName }, { group }) => {
+    onSuccess: ({ modalityAdded, modalityName, firstPaymentCreated }, { group }) => {
       invalidate();
       const className = group.classType?.name ?? 'turma';
+      const base = modalityAdded
+        ? `${studentName} foi matriculado em ${className} — modalidade ${modalityName ?? className} adicionada ao perfil.`
+        : `${studentName} foi matriculado em ${className}.`;
       toast({
         title: "Aluno matriculado!",
-        description: modalityAdded
-          ? `${studentName} foi matriculado em ${className} — modalidade ${modalityName ?? className} adicionada ao perfil.`
-          : `${studentName} foi matriculado em ${className}.`,
+        description: firstPaymentCreated ? `${base} 1ª mensalidade gerada no Financeiro.` : base,
       });
       setSelectedGroupId("");
     },
@@ -194,6 +196,8 @@ export function StudentClassEnrollments({ studentId, studentName, modalities }: 
     queryClient.invalidateQueries({ queryKey: ['/api/students', studentId, 'modality-enrollments'] });
     queryClient.invalidateQueries({ queryKey: ['/api/students', studentId, 'modality-ranks'] });
     queryClient.invalidateQueries({ queryKey: ['/api/students/academy-modality-enrollments'] });
+  // 1ª matrícula num plano gera a 1ª mensalidade — Financeiro precisa refletir
+  queryClient.invalidateQueries({ queryKey: ['/api/payments'] });
   }
 
   const handleEnroll = () => {

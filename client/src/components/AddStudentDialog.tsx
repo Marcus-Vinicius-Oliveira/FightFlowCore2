@@ -326,6 +326,23 @@ export function AddStudentDialog({ open, onOpenChange }: AddStudentDialogProps) 
             )}
 
             <div className="space-y-2">
+              <Label htmlFor="student-due-day">Vencimento da Mensalidade</Label>
+              {/* Select nativo — mesmo racional dos demais (robusto em toque no mobile).
+                  setValueAs converte para número; vazio = padrão da academia. */}
+              <select
+                id="student-due-day"
+                {...form.register("paymentDueDay", { setValueAs: v => (v === '' || v == null) ? null : Number(v) })}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:text-sm"
+                data-testid="select-student-due-day"
+              >
+                <option value="">Padrão da academia</option>
+                <option value="5">Dia 5 (início do mês)</option>
+                <option value="15">Dia 15 (meados do mês)</option>
+                <option value="25">Dia 25 (fim do mês)</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="student-password">Senha Temporária</Label>
               <Input
                 id="student-password"

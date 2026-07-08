@@ -82,6 +82,7 @@ router.post('/',
         ...result.created[0],
         modalityAdded: result.modalityAdded,
         modalityName: result.modalityName,
+        firstPaymentCreated: result.firstPaymentCreated,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {

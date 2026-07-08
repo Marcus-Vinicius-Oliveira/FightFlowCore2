@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   monthStart, nextMonthStart, monthlyDueDate, resolveMonthlyAmount,
   hasPaymentInMonth, buildMonthlyCharges, shouldRemind, reminderEmail,
-  formatBRL, type ChargeCandidate,
+  formatBRL, addMonthsClamped, ANCHOR_GRACE_DAYS, STUDENT_DUE_DAY_OPTIONS,
+  type ChargeCandidate,
 } from '../lib/recurring';
 
 // Mês de referência dos testes: julho/2026 (dia 15, meio do mês)
@@ -14,7 +15,8 @@ function candidate(over: Partial<ChargeCandidate> = {}): ChargeCandidate {
     academyId: 'a1',
     createdAt: new Date(2026, 0, 10),
     customMonthlyAmount: null,
-    plans: [{ planId: 'p1', planPrice: 15000 }],
+    dueDay: null,
+    plans: [{ planId: 'p1', planPrice: 15000, lastDueDate: null }],
     chargedPlanIdsThisMonth: new Set<string>(),
     ...over,
   };
@@ -114,7 +116,7 @@ describe('buildMonthlyCharges — decisão de geração do mês', () => {
 
   it('cobra uma mensalidade por modalidade (2 planos → 2 cobranças com preço cheio)', () => {
     const charges = buildMonthlyCharges(
-      [candidate({ plans: [{ planId: 'p1', planPrice: 15000 }, { planId: 'p2', planPrice: 12000 }] })],
+      [candidate({ plans: [{ planId: 'p1', planPrice: 15000, lastDueDate: null }, { planId: 'p2', planPrice: 12000, lastDueDate: null }] })],
       JUL, dueDays,
     );
     expect(charges).toHaveLength(2);
@@ -127,7 +129,7 @@ describe('buildMonthlyCharges — decisão de geração do mês', () => {
   it('idempotência por aluno+plano: gera só a modalidade ainda não cobrada no mês', () => {
     const charges = buildMonthlyCharges(
       [candidate({
-        plans: [{ planId: 'p1', planPrice: 15000 }, { planId: 'p2', planPrice: 12000 }],
+        plans: [{ planId: 'p1', planPrice: 15000, lastDueDate: null }, { planId: 'p2', planPrice: 12000, lastDueDate: null }],
         chargedPlanIdsThisMonth: new Set(['p1']),
       })],
       JUL, dueDays,
@@ -139,7 +141,7 @@ describe('buildMonthlyCharges — decisão de geração do mês', () => {
   it('desconto individual não se aplica quando há múltiplas modalidades', () => {
     const charges = buildMonthlyCharges(
       [candidate({
-        plans: [{ planId: 'p1', planPrice: 15000 }, { planId: 'p2', planPrice: 12000 }],
+        plans: [{ planId: 'p1', planPrice: 15000, lastDueDate: null }, { planId: 'p2', planPrice: 12000, lastDueDate: null }],
         customMonthlyAmount: 9900,
       })],
       JUL, dueDays,
@@ -237,5 +239,104 @@ describe('monthStart / nextMonthStart — janela do mês de referência', () => 
 
   it('vira o ano em dezembro', () => {
     expect(nextMonthStart(new Date(2026, 11, 20))).toEqual(new Date(2027, 0, 1));
+  });
+});
+
+describe('buildMonthlyCharges — dia de vencimento escolhido pelo aluno', () => {
+  const dueDays = new Map([['a1', 5]]);
+
+  it('dia do aluno (5/15/25) prevalece sobre o padrão da academia', () => {
+    const charges = buildMonthlyCharges([candidate({ dueDay: 25 })], JUL, dueDays);
+    expect(charges[0].dueDate.getDate()).toBe(25);
+  });
+
+  it('sem escolha (null) usa o dia da academia', () => {
+    const charges = buildMonthlyCharges([candidate({ dueDay: null })], JUL, dueDays);
+    expect(charges[0].dueDate.getDate()).toBe(5);
+  });
+
+  it('as opções oferecidas são início, meados e fim do mês', () => {
+    expect([...STUDENT_DUE_DAY_OPTIONS]).toEqual([5, 15, 25]);
+  });
+});
+
+describe('buildMonthlyCharges — âncora da matrícula e regra dos 15 dias', () => {
+  const dueDays = new Map([['a1', 5]]);
+  const plan = (lastDueDate: Date | null) => [{ planId: 'p1', planPrice: 15000, lastDueDate }];
+
+  it('matrícula dia 20/06 (vence dia 5): 2ª mensalidade cai em 05/07 (exatamente 15 dias antes do fim do mês corrido)', () => {
+    // mês corrido pago vai até 20/07; limiar = 20/07 − 15 = 05/07 → 05/07 qualifica
+    const charges = buildMonthlyCharges(
+      [candidate({ plans: plan(new Date(2026, 5, 20, 12, 0)) })], JUL, dueDays,
+    );
+    expect(charges).toHaveLength(1);
+    expect(charges[0].dueDate).toEqual(new Date(2026, 6, 5, 12, 0, 0, 0));
+  });
+
+  it('matrícula dia 25/06 (vence dia 5): 05/07 cairia a 20 dias do fim do mês corrido → pula para agosto', () => {
+    // mês corrido pago vai até 25/07; limiar = 10/07 → 05/07 não qualifica
+    const anchor = new Date(2026, 5, 25, 12, 0);
+    const july = buildMonthlyCharges([candidate({ plans: plan(anchor) })], JUL, dueDays);
+    expect(july).toEqual([]);
+    const august = buildMonthlyCharges(
+      [candidate({ plans: plan(anchor) })], new Date(2026, 7, 15), dueDays,
+    );
+    expect(august).toHaveLength(1);
+    expect(august[0].dueDate).toEqual(new Date(2026, 7, 5, 12, 0, 0, 0));
+  });
+
+  it('matrícula dia 02/06 (vence dia 5): junho é blindado pela idempotência do mês; julho cobra normal', () => {
+    // A âncora de 02/06 está no próprio junho — a idempotência por mês impede o 05/06 (cobrança dupla)
+    const anchor = new Date(2026, 5, 2, 12, 0);
+    const june = buildMonthlyCharges(
+      [candidate({ plans: plan(anchor), chargedPlanIdsThisMonth: new Set(['p1']) })],
+      new Date(2026, 5, 10), dueDays,
+    );
+    expect(june).toEqual([]);
+    const july = buildMonthlyCharges([candidate({ plans: plan(anchor) })], JUL, dueDays);
+    expect(july).toHaveLength(1);
+  });
+
+  it('catch-up: mês perdido (servidor fora do ar) cobra no mês corrente', () => {
+    // âncora antiga (março) — limiar há muito ultrapassado → julho cobra
+    const charges = buildMonthlyCharges(
+      [candidate({ plans: plan(new Date(2026, 2, 5, 12, 0)) })], JUL, dueDays,
+    );
+    expect(charges).toHaveLength(1);
+    expect(charges[0].dueDate.getMonth()).toBe(6);
+  });
+
+  it('regra da âncora é por plano: modalidade nova pula o mês, a antiga cobra', () => {
+    const charges = buildMonthlyCharges(
+      [candidate({
+        plans: [
+          { planId: 'antigo', planPrice: 15000, lastDueDate: new Date(2026, 5, 5, 12, 0) },  // recorrente normal
+          { planId: 'novo', planPrice: 12000, lastDueDate: new Date(2026, 5, 28, 12, 0) },   // matrícula recente → limiar 13/07
+        ],
+      })], JUL, dueDays,
+    );
+    expect(charges).toHaveLength(1);
+    expect(charges[0].membershipPlanId).toBe('antigo');
+  });
+
+  it('plano nunca cobrado (legado) mantém o comportamento antigo: entrou depois do vencimento → mês seguinte', () => {
+    const charges = buildMonthlyCharges(
+      [candidate({ createdAt: new Date(2026, 6, 20), plans: plan(null) })], JUL, dueDays,
+    );
+    expect(charges).toEqual([]);
+  });
+});
+
+describe('addMonthsClamped', () => {
+  it('soma um mês preservando o dia', () => {
+    expect(addMonthsClamped(new Date(2026, 5, 20, 12, 0), 1)).toEqual(new Date(2026, 6, 20, 12, 0));
+  });
+
+  it('clampa o dia em meses curtos (31/jan + 1 mês = 28/fev)', () => {
+    expect(addMonthsClamped(new Date(2026, 0, 31, 12, 0), 1)).toEqual(new Date(2026, 1, 28, 12, 0));
+  });
+
+  it('vira o ano', () => {
+    expect(addMonthsClamped(new Date(2026, 11, 15, 12, 0), 1)).toEqual(new Date(2027, 0, 15, 12, 0));
   });
 });

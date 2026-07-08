@@ -80,6 +80,8 @@ function invalidateAfterEnrollmentChange(studentId: string) {
   queryClient.invalidateQueries({ queryKey: ['/api/students', studentId, 'modality-enrollments'] });
   queryClient.invalidateQueries({ queryKey: ['/api/students', studentId, 'modality-ranks'] });
   queryClient.invalidateQueries({ queryKey: ['/api/students/academy-modality-enrollments'] });
+  // 1ª matrícula num plano gera a 1ª mensalidade — Financeiro precisa refletir
+  queryClient.invalidateQueries({ queryKey: ['/api/payments'] });
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -157,7 +159,7 @@ export function ClassEnrollmentsDialog({ classData, open, onOpenChange }: ClassE
       // não está — um request, transacional no servidor.
       const already = enrolled.find(e => e.studentId === studentId)?.enrolledClassIds ?? [];
       const classIds = missingEnrollmentIds(groupIds, already);
-      if (classIds.length === 0) return { modalityAdded: false, modalityName: null };
+      if (classIds.length === 0) return { modalityAdded: false, modalityName: null, firstPaymentCreated: false };
       const res = await apiRequest('POST', '/api/classes/enrollment-groups', {
         studentId,
         membershipPlanId: planId,
@@ -167,16 +169,18 @@ export function ClassEnrollmentsDialog({ classData, open, onOpenChange }: ClassE
       return {
         modalityAdded: !!body?.modalityAdded,
         modalityName: (body?.modalityName ?? null) as string | null,
+        firstPaymentCreated: !!body?.firstPaymentCreated,
       };
     },
-    onSuccess: ({ modalityAdded, modalityName }, { studentId }) => {
+    onSuccess: ({ modalityAdded, modalityName, firstPaymentCreated }, { studentId }) => {
       invalidateAfterEnrollmentChange(studentId);
       const student = students.find(s => s.id === studentId);
+      const base = modalityAdded
+        ? `${student?.name ?? 'O aluno'} foi matriculado na turma — modalidade${modalityName ? ` ${modalityName}` : ''} adicionada ao perfil.`
+        : `${student?.name ?? 'O aluno'} foi matriculado na turma.`;
       toast({
         title: "Aluno matriculado!",
-        description: modalityAdded
-          ? `${student?.name ?? 'O aluno'} foi matriculado na turma — modalidade${modalityName ? ` ${modalityName}` : ''} adicionada ao perfil.`
-          : `${student?.name ?? 'O aluno'} foi matriculado na turma.`,
+        description: firstPaymentCreated ? `${base} 1ª mensalidade gerada no Financeiro.` : base,
       });
       setSelectedStudentId("");
     },

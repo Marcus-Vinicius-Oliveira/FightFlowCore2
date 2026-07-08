@@ -35,6 +35,7 @@ export const users = pgTable("users", {
   dateOfBirth: timestamp("date_of_birth"),
   belt: text("belt").default('branca'),
   customMonthlyAmount: integer("custom_monthly_amount"), // centavos; desconto individual (bolsa/família) — null = valor do plano
+  paymentDueDay: integer("payment_due_day"), // dia de vencimento escolhido pelo aluno (5/15/25) — null = padrão da academia
   // Responsável legal — obrigatório quando o aluno é menor de idade (ver guardianRequirementError)
   guardianName: text("guardian_name"),
   guardianPhone: text("guardian_phone"),

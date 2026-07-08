@@ -995,8 +995,10 @@ export default function StudentManagement() {
           </AlertDialogContent>
         </AlertDialog>
 
+        {/* student: sempre a versão fresca da lista — o snapshot do clique
+            ficaria desatualizado após salvar edições na própria ficha */}
         <StudentDetailDialog
-          student={viewStudent}
+          student={viewStudent && (students.find(s => s.id === viewStudent.id) ?? viewStudent)}
           open={!!viewStudent}
           onOpenChange={(open) => !open && setViewStudent(undefined)}
         />

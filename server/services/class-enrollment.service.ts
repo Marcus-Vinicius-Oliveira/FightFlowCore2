@@ -1,7 +1,8 @@
 import { db } from "../db";
-import { and, eq, inArray } from "drizzle-orm";
-import { classes, enrollments, users, membershipPlans, type Enrollment } from "@shared/schema";
+import { and, eq, inArray, ne } from "drizzle-orm";
+import { classes, enrollments, users, membershipPlans, payments, type Enrollment } from "@shared/schema";
 import { ensureModalityEnrollment } from "./modality-enrollment.service";
+import { monthlyDueDate, resolveMonthlyAmount } from "../lib/recurring";
 
 /**
  * Matrícula/remoção em grupo: uma "turma" na UI é um grupo de registros no banco
@@ -17,6 +18,8 @@ export type GroupEnrollResult =
       skippedClassIds: string[];
       modalityAdded: boolean;
       modalityName: string | null;
+      /** true quando esta matrícula gerou a 1ª mensalidade do plano (âncora da cobrança) */
+      firstPaymentCreated: boolean;
     }
   | { ok: false; status: number; error: string };
 
@@ -71,6 +74,30 @@ export async function enrollStudentInClassGroup(params: {
   const toCreate = classIds.filter(id => !skipped.has(id));
   const startDate = params.startDate ?? new Date();
 
+  // Âncora da cobrança: se o aluno nunca teve mensalidade deste plano, a 1ª
+  // nasce na matrícula (valor cheio, vence hoje, cobre um mês corrido). A
+  // recorrência assume a partir da 2ª, no dia escolhido (regra dos 15 dias).
+  const [hasPayment] = await db.select({ id: payments.id })
+    .from(payments)
+    .where(and(eq(payments.studentId, studentId), eq(payments.membershipPlanId, membershipPlanId)))
+    .limit(1);
+  let firstCharge: { amount: number; dueDate: Date } | null = null;
+  if (!hasPayment && toCreate.length > 0) {
+    // Desconto individual só vale se este for o único plano ativo do aluno
+    const [otherPlan] = await db.select({ planId: enrollments.membershipPlanId })
+      .from(enrollments)
+      .where(and(
+        eq(enrollments.studentId, studentId),
+        eq(enrollments.active, true),
+        ne(enrollments.membershipPlanId, membershipPlanId),
+      ))
+      .limit(1);
+    firstCharge = {
+      amount: otherPlan ? plan.price : resolveMonthlyAmount(plan.price, student.customMonthlyAmount),
+      dueDate: monthlyDueDate(startDate, startDate.getDate()),
+    };
+  }
+
   const { created, modalityAdded } = await db.transaction(async tx => {
     const created = toCreate.length
       ? await tx.insert(enrollments)
@@ -95,6 +122,19 @@ export async function enrollStudentInClassGroup(params: {
       enrolledAt: startDate,
     }, tx);
 
+    if (firstCharge) {
+      await tx.insert(payments).values({
+        studentId,
+        academyId,
+        membershipPlanId,
+        amount: firstCharge.amount,
+        dueDate: firstCharge.dueDate,
+        status: 'pending',
+        notes: 'Primeira mensalidade (matrícula)',
+        updatedBy: actorId,
+      });
+    }
+
     return { created, modalityAdded: added };
   });
 
@@ -104,6 +144,7 @@ export async function enrollStudentInClassGroup(params: {
     skippedClassIds: [...skipped],
     modalityAdded,
     modalityName: classRows[0].classType?.name ?? null,
+    firstPaymentCreated: firstCharge !== null,
   };
 }
 

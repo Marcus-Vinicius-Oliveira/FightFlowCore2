@@ -49,6 +49,10 @@ router.get('/',
         guardianName: s.guardianName, guardianPhone: s.guardianPhone,
         guardianRelationship: s.guardianRelationship,
         belt: s.belt, active: s.active, createdAt: s.createdAt,
+        // A ficha (StudentDetailDialog) lê o aluno desta lista — campos de
+        // cobrança precisam vir junto ou a visualização mostra o fallback
+        customMonthlyAmount: s.customMonthlyAmount,
+        paymentDueDay: s.paymentDueDay,
       }));
 
       if (limit !== undefined) {
@@ -136,6 +140,8 @@ router.post('/',
         guardianRelationship: z.string().optional(),
         password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres").optional(),
         role: z.enum(['ALUNO', 'PROFESSOR']).default('ALUNO'),
+        // Vencimento escolhido pelo aluno (início/meados/fim do mês); null = padrão da academia
+        paymentDueDay: z.union([z.literal(5), z.literal(15), z.literal(25)]).nullable().optional(),
       });
 
       const userData = createSchema.parse(req.body);
@@ -197,6 +203,8 @@ router.patch('/:id',
         active: z.boolean().optional(),
         // Desconto individual em centavos (bolsa/família); null volta ao valor do plano
         customMonthlyAmount: z.number().int().nonnegative().nullable().optional(),
+        // Vencimento escolhido pelo aluno (5/15/25); null volta ao padrão da academia
+        paymentDueDay: z.union([z.literal(5), z.literal(15), z.literal(25)]).nullable().optional(),
       });
 
       const updateData = updateSchema.parse(req.body);
