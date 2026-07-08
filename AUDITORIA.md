@@ -497,3 +497,19 @@ Fecha a divergência entre as duas fontes de "aluno pratica a modalidade": os ba
 **Verificação:** typecheck limpo + **87/87 Vitest**. **e2e Playwright (porta 5001, fixture verify-tmp removida ao final):** ficha vazia ("Nenhuma modalidade ainda") → matricular na turma → toast "modalidade Kickboxing VT adicionada ao perfil", card com faixa **Branca** (graduação inicial automática) e turma aninhada; **remover turma mantém modalidade + graduação** ("Sem turma — matricule abaixo…"); `GET /api/classes/modality-summary` conta **1 praticante mesmo sem turma**; rematrícula com vínculo já ativo → toast simples. Sem erros de console. **Backfill provado** com lacuna artificial na fixture (2 matrículas-dia → 1 vínculo + 1 graduação + 1 histórico) e idempotente na 2ª execução (0). Faxina de academias e2e: 0 órfãs restantes (banco já limpo).
 
 **Backlog:** resta (5) N+1/atomicidade da matrícula (agora com mais uma escrita por request, reforça o caso para transação).
+
+---
+
+## 28. Entrega — Matrícula em grupo transacional: fim do N+1 (07/07/2026)
+
+Fecha o item (5) do backlog, o último da série de matrículas/aulas. O modelo "turma = N registros (um por dia)" gerava N requests por matrícula (POSTs sequenciais) e N por remoção (DELETEs paralelos), com risco de estado meio-matriculado quando um request do meio falhava.
+
+- **Serviço ([class-enrollment.service.ts](server/services/class-enrollment.service.ts)):** `enrollStudentInClassGroup` valida o grupo inteiro (turmas da academia, ativas, mesma modalidade; aluno ALUNO ativo; plano da academia) e grava tudo em **uma transação**: INSERT multi-linha das matrículas + vínculo de modalidade + graduação inicial. Rematrícula parcial é idempotente (`skippedClassIds`). `unenrollStudentFromClassGroup` encerra o grupo com **um único UPDATE** (atômico por construção).
+- **`ensureModalityEnrollment` ficou tx-aware:** trocou chamadas ao storage por queries Drizzle diretas e aceita um executor (transação) opcional — os 3 registros (vínculo + rank + histórico) nascem juntos. O `POST /students/:id/modality-enrollments` também passou a envolver em transação.
+- **Rotas ([classes.routes.ts](server/routes/classes.routes.ts)):** `POST /api/classes/enrollment-groups` (201 com `enrollments`, `skippedClassIds`, `modalityAdded`, `modalityName`) e `DELETE /api/classes/enrollment-groups` (body `{studentId, classIds}`, máx. 14). O **POST unitário** `/classes/:classId/enrollments` virou casca fina do serviço (grupo de 1) — mantém contrato (201/409) e agora também é transacional.
+- **Frontend ([ClassEnrollmentsDialog](client/src/components/ClassEnrollmentsDialog.tsx), [StudentClassEnrollments](client/src/components/StudentClassEnrollments.tsx)):** os loops de POST/DELETE viraram um request cada; toasts e invalidações inalterados.
+- **Spec e2e 05 consertada de tabela:** ainda esperava ocupação "0/20" do modelo pré-item 25 — atualizada para a contagem ("0 alunos"/"1 aluno"). O teste de `sanitize` ganhou mock de `../db` (a nova cadeia de import avalia `db.ts`).
+
+**Verificação:** typecheck limpo + **87/87 Vitest** + **suíte Playwright 14 passed / 15 skipped** (spec 05 inteira verde de novo). **e2e Playwright dirigido (porta 5001, fixture verify-tmp, contadores de rede):** grupo de 2 dias matriculado com **exatamente 1 POST** (0 legados) nas duas telas; remoção com **exatamente 1 DELETE**; card/toast/graduação inicial sem regressão. **API:** grupo com classId inexistente → 404 e **nenhuma matrícula parcial** (tudo-ou-nada); unitário legado 201 + 409 em duplicata; rematrícula parcial cria só o dia faltante e reporta `skippedClassIds`. Faxina pós-suíte: 0 academias e2e e 0 planos "Plano E2E …" restantes.
+
+**Backlog da série de matrículas: zerado.** Pendências gerais seguem: reescrever specs e2e 03/04, lembrete WhatsApp, multa/bloqueio por inadimplência, remoção futura do `maxCapacity` vestigial.
