@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeAll } from 'vitest';
 
 // Mock router-level dependencies so we can import the module without a real DB
 vi.mock('../storage', () => ({ storage: {} }));
+vi.mock('../db', () => ({ db: {} }));
 vi.mock('../auth', () => ({
   authenticateToken: vi.fn(),
   requireRole: vi.fn(() => vi.fn()),

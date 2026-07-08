@@ -1,5 +1,16 @@
-import { storage } from "../storage";
-import type { StudentModalityEnrollment } from "@shared/schema";
+import { db } from "../db";
+import { and, asc, eq } from "drizzle-orm";
+import {
+  studentModalityEnrollments,
+  studentModalityRanks,
+  studentRankHistory,
+  graduationSystems,
+  graduationRanks,
+  type StudentModalityEnrollment,
+} from "@shared/schema";
+
+/** Executor de queries: o `db` global ou uma transação aberta (mesma API). */
+export type Dbx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /**
  * Garante que o aluno tem vínculo ativo com a modalidade (student_modality_enrollments)
@@ -7,6 +18,8 @@ import type { StudentModalityEnrollment } from "@shared/schema";
  *
  * Regra de modelagem: toda matrícula em turma implica vínculo com a modalidade da
  * turma; o vínculo pode existir sem turma (aula particular, legado), nunca o inverso.
+ *
+ * Aceita uma transação como executor para compor operações atômicas.
  */
 export async function ensureModalityEnrollment(params: {
   studentId: string;
@@ -14,51 +27,61 @@ export async function ensureModalityEnrollment(params: {
   classTypeId: string;
   actorId: string;
   enrolledAt?: Date;
-}): Promise<{ enrollment: StudentModalityEnrollment; added: boolean }> {
+}, dbx: Dbx = db): Promise<{ enrollment: StudentModalityEnrollment; added: boolean }> {
   const { studentId, academyId, classTypeId, actorId } = params;
   const enrolledAt = params.enrolledAt ?? new Date();
 
-  const existing = await storage.getStudentModalityEnrollments(studentId);
-  const alreadyActive = existing.some(e => e.classTypeId === classTypeId);
+  const [alreadyActive] = await dbx.select({ id: studentModalityEnrollments.id })
+    .from(studentModalityEnrollments)
+    .where(and(
+      eq(studentModalityEnrollments.studentId, studentId),
+      eq(studentModalityEnrollments.classTypeId, classTypeId),
+      eq(studentModalityEnrollments.active, true),
+    ));
 
-  const enrollment = await storage.upsertStudentModalityEnrollment({
-    studentId,
-    academyId,
-    classTypeId,
-    enrolledAt,
-    active: true,
-  });
+  const [enrollment] = await dbx.insert(studentModalityEnrollments)
+    .values({ studentId, academyId, classTypeId, enrolledAt, active: true })
+    .onConflictDoUpdate({
+      target: [studentModalityEnrollments.studentId, studentModalityEnrollments.classTypeId],
+      set: { active: true, updatedAt: new Date() },
+    })
+    .returning();
 
-  const existingRanks = await storage.getStudentModalityRanks(studentId);
-  const hasRank = existingRanks.some(r => r.classTypeId === classTypeId);
+  const [hasRank] = await dbx.select({ id: studentModalityRanks.id })
+    .from(studentModalityRanks)
+    .where(and(
+      eq(studentModalityRanks.studentId, studentId),
+      eq(studentModalityRanks.classTypeId, classTypeId),
+    ));
+
   if (!hasRank) {
-    const systems = await storage.getGraduationSystemsByAcademy(academyId);
-    const system = systems.find(s => s.classTypeId === classTypeId);
-    if (system) {
-      const ranks = await storage.getGraduationRanksBySystem(system.id);
-      const firstRank = ranks.sort((a, b) => a.displayOrder - b.displayOrder)[0];
-      if (firstRank) {
-        await Promise.all([
-          storage.upsertStudentModalityRank({
-            studentId,
-            academyId,
-            classTypeId,
-            rankId: firstRank.id,
-            promotedAt: enrolledAt,
-            promotedBy: actorId,
-          }),
-          storage.createStudentRankHistory({
-            studentId,
-            academyId,
-            classTypeId,
-            rankBeforeId: null,
-            rankAfterId: firstRank.id,
-            promotedBy: actorId,
-            promotedAt: enrolledAt,
-            notes: 'Graduação inicial',
-          }),
-        ]);
-      }
+    const [firstRank] = await dbx.select({ id: graduationRanks.id })
+      .from(graduationRanks)
+      .innerJoin(graduationSystems, eq(graduationSystems.id, graduationRanks.systemId))
+      .where(and(
+        eq(graduationSystems.academyId, academyId),
+        eq(graduationSystems.classTypeId, classTypeId),
+      ))
+      .orderBy(asc(graduationRanks.displayOrder))
+      .limit(1);
+
+    if (firstRank) {
+      await dbx.insert(studentModalityRanks)
+        .values({ studentId, academyId, classTypeId, rankId: firstRank.id, promotedAt: enrolledAt, promotedBy: actorId })
+        .onConflictDoUpdate({
+          target: [studentModalityRanks.studentId, studentModalityRanks.classTypeId],
+          set: { rankId: firstRank.id, promotedAt: enrolledAt, promotedBy: actorId, updatedAt: new Date() },
+        });
+      await dbx.insert(studentRankHistory).values({
+        studentId,
+        academyId,
+        classTypeId,
+        rankBeforeId: null,
+        rankAfterId: firstRank.id,
+        promotedBy: actorId,
+        promotedAt: enrolledAt,
+        notes: 'Graduação inicial',
+      });
     }
   }
 

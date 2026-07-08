@@ -154,22 +154,20 @@ export function ClassEnrollmentsDialog({ classData, open, onOpenChange }: ClassE
   const enrollMutation = useMutation({
     mutationFn: async ({ studentId, planId }: { studentId: string; planId: string }) => {
       // Matricula em todos os registros (dias) do grupo em que o aluno ainda
-      // não está — sequencial para parar na primeira falha.
+      // não está — um request, transacional no servidor.
       const already = enrolled.find(e => e.studentId === studentId)?.enrolledClassIds ?? [];
-      let modalityAdded = false;
-      let modalityName: string | null = null;
-      for (const id of missingEnrollmentIds(groupIds, already)) {
-        const res = await apiRequest('POST', `/api/classes/${id}/enrollments`, {
-          studentId,
-          membershipPlanId: planId,
-        });
-        const body = await res.json().catch(() => null);
-        if (body?.modalityAdded) {
-          modalityAdded = true;
-          modalityName = body.modalityName ?? null;
-        }
-      }
-      return { modalityAdded, modalityName };
+      const classIds = missingEnrollmentIds(groupIds, already);
+      if (classIds.length === 0) return { modalityAdded: false, modalityName: null };
+      const res = await apiRequest('POST', '/api/classes/enrollment-groups', {
+        studentId,
+        membershipPlanId: planId,
+        classIds,
+      });
+      const body = await res.json().catch(() => null);
+      return {
+        modalityAdded: !!body?.modalityAdded,
+        modalityName: (body?.modalityName ?? null) as string | null,
+      };
     },
     onSuccess: ({ modalityAdded, modalityName }, { studentId }) => {
       invalidateAfterEnrollmentChange(studentId);
@@ -183,7 +181,6 @@ export function ClassEnrollmentsDialog({ classData, open, onOpenChange }: ClassE
       setSelectedStudentId("");
     },
     onError: (error: Error, { studentId }) => {
-      // POSTs parciais podem ter sido aplicados — atualiza para refletir o estado real
       invalidateAfterEnrollmentChange(studentId);
       toast({ title: "Não foi possível matricular", description: error.message, variant: "destructive" });
     },
@@ -191,9 +188,11 @@ export function ClassEnrollmentsDialog({ classData, open, onOpenChange }: ClassE
 
   const removeMutation = useMutation({
     mutationFn: async ({ studentId, enrolledClassIds }: { studentId: string; enrolledClassIds: string[] }) => {
-      await Promise.all(
-        enrolledClassIds.map(id => apiRequest('DELETE', `/api/classes/${id}/enrollments/${studentId}`))
-      );
+      // Um request encerra o grupo inteiro (UPDATE único no servidor)
+      await apiRequest('DELETE', '/api/classes/enrollment-groups', {
+        studentId,
+        classIds: enrolledClassIds,
+      });
     },
     onSuccess: (_data, { studentId }) => {
       invalidateAfterEnrollmentChange(studentId);

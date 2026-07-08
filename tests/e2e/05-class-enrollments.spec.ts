@@ -106,7 +106,7 @@ test.describe('5. Matrícula em turma — fluxo completo pela interface', () => 
 
     const occupancyBadge = page.getByTestId(`button-occupancy-${ctx.classId}`);
     await expect(occupancyBadge).toBeVisible();
-    await expect(occupancyBadge).toContainText('0/20');
+    await expect(occupancyBadge).toContainText('0 alunos');
     await occupancyBadge.click();
 
     // ── Matricular o aluno ────────────────────────────────────────────────
@@ -126,9 +126,9 @@ test.describe('5. Matrícula em turma — fluxo completo pela interface', () => 
     await expect(page.getByTestId(`enrollment-row-${ctx.studentId}`)).toBeVisible();
 
     // ── Ocupação atualiza (dialog e tabela) ───────────────────────────────
-    await expect(page.getByTestId('badge-occupancy')).toContainText('1/20');
+    await expect(page.getByTestId('badge-occupancy')).toContainText('1 aluno');
     await page.keyboard.press('Escape');
-    await expect(page.getByTestId(`button-occupancy-${ctx.classId}`)).toContainText('1/20');
+    await expect(page.getByTestId(`button-occupancy-${ctx.classId}`)).toContainText('1 aluno');
 
     // ── Registrar presença do aluno matriculado ───────────────────────────
     await page.goto(`/dashboard/presenca/${ctx.classId}`);
@@ -149,7 +149,7 @@ test.describe('5. Matrícula em turma — fluxo completo pela interface', () => 
 
     await expect(page.getByText('Matrícula removida').first()).toBeVisible();
     await expect(page.getByTestId('enrollments-empty')).toBeVisible();
-    await expect(page.getByTestId('badge-occupancy')).toContainText('0/20');
+    await expect(page.getByTestId('badge-occupancy')).toContainText('0 alunos');
 
     // ── Limpeza (best-effort): desativa a turma criada ────────────────────
     await request.delete(`/api/classes/${ctx.classId}`, {

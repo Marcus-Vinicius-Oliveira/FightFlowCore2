@@ -140,21 +140,17 @@ export function StudentClassEnrollments({ studentId, studentName, modalities }: 
 
   const enrollMutation = useMutation({
     mutationFn: async ({ group, planId }: { group: ClassGroupOption; planId: string }) => {
-      // Sequencial para parar na primeira falha
-      let modalityAdded = false;
-      let modalityName: string | null = null;
-      for (const id of missingEnrollmentIds(group.ids, [])) {
-        const res = await apiRequest('POST', `/api/classes/${id}/enrollments`, {
-          studentId,
-          membershipPlanId: planId,
-        });
-        const body = await res.json().catch(() => null);
-        if (body?.modalityAdded) {
-          modalityAdded = true;
-          modalityName = body.modalityName ?? null;
-        }
-      }
-      return { modalityAdded, modalityName };
+      // Um request matricula no grupo inteiro — transacional no servidor
+      const res = await apiRequest('POST', '/api/classes/enrollment-groups', {
+        studentId,
+        membershipPlanId: planId,
+        classIds: missingEnrollmentIds(group.ids, []),
+      });
+      const body = await res.json().catch(() => null);
+      return {
+        modalityAdded: !!body?.modalityAdded,
+        modalityName: (body?.modalityName ?? null) as string | null,
+      };
     },
     onSuccess: ({ modalityAdded, modalityName }, { group }) => {
       invalidate();
@@ -175,9 +171,8 @@ export function StudentClassEnrollments({ studentId, studentName, modalities }: 
 
   const removeMutation = useMutation({
     mutationFn: async ({ classIds }: { classIds: string[] }) => {
-      await Promise.all(
-        classIds.map(id => apiRequest('DELETE', `/api/classes/${id}/enrollments/${studentId}`))
-      );
+      // Um request encerra o grupo inteiro (UPDATE único no servidor)
+      await apiRequest('DELETE', '/api/classes/enrollment-groups', { studentId, classIds });
     },
     onSuccess: () => {
       invalidate();

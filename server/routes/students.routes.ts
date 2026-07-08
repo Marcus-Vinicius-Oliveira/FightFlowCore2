@@ -11,6 +11,7 @@ import {
 } from "../auth";
 import { guardianRequirementError, type User } from "@shared/schema";
 import { ensureModalityEnrollment } from "../services/modality-enrollment.service";
+import { db } from "../db";
 
 const router = Router();
 
@@ -540,12 +541,13 @@ router.post('/:id/modality-enrollments',
 
       const { classTypeId } = z.object({ classTypeId: z.string().uuid() }).parse(req.body);
 
-      const { enrollment } = await ensureModalityEnrollment({
+      // Transação: vínculo + graduação inicial + histórico nascem juntos
+      const { enrollment } = await db.transaction(tx => ensureModalityEnrollment({
         studentId: student.id,
         academyId,
         classTypeId,
         actorId: req.user!.id,
-      });
+      }, tx));
 
       res.status(201).json(enrollment);
     } catch (error) {

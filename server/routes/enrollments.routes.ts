@@ -7,7 +7,7 @@ import {
   requireSameAcademy,
   type AuthenticatedRequest,
 } from "../auth";
-import { ensureModalityEnrollment } from "../services/modality-enrollment.service";
+import { enrollStudentInClassGroup } from "../services/class-enrollment.service";
 
 const router = Router({ mergeParams: true });
 
@@ -60,55 +60,28 @@ router.post('/',
       });
       const data = createSchema.parse(req.body);
 
-      const existingClass = await storage.getClass(classId);
-      if (!existingClass || existingClass.academyId !== academyId) {
-        return res.status(404).json({ error: 'Turma não encontrada' });
-      }
-      if (!existingClass.active) {
-        return res.status(400).json({ error: 'Não é possível matricular em uma turma desativada' });
-      }
-
-      const student = await storage.getUser(data.studentId);
-      if (!student || student.academyId !== academyId || student.role !== 'ALUNO') {
-        return res.status(400).json({ error: 'Aluno não encontrado ou não pertence à sua academia' });
-      }
-      if (!student.active) {
-        return res.status(400).json({ error: 'Aluno desativado não pode ser matriculado' });
-      }
-
-      const plan = await storage.getMembershipPlan(data.membershipPlanId);
-      if (!plan || plan.academyId !== academyId) {
-        return res.status(400).json({ error: 'Plano de mensalidade não encontrado na sua academia' });
-      }
-
       const alreadyEnrolled = await storage.getEnrollmentByStudentAndClass(data.studentId, classId);
       if (alreadyEnrolled) {
         return res.status(409).json({ error: 'Aluno já está matriculado nesta turma' });
       }
 
       // Sem limite de vagas: a academia controla lotação por fora do app.
-      const enrollment = await storage.createEnrollment({
+      // Delegado ao serviço de grupo (grupo de 1): validações + matrícula +
+      // vínculo de modalidade em uma única transação.
+      const result = await enrollStudentInClassGroup({
         studentId: data.studentId,
-        classId,
         membershipPlanId: data.membershipPlanId,
-        startDate: data.startDate ?? new Date(),
-        active: true,
-        updatedBy: req.user!.id,
-      });
-
-      // Matrícula em turma implica vínculo com a modalidade da turma
-      // (cria graduação inicial se o aluno ainda não tem rank nela).
-      const { added: modalityAdded } = await ensureModalityEnrollment({
-        studentId: data.studentId,
+        classIds: [classId],
         academyId,
-        classTypeId: existingClass.classTypeId,
         actorId: req.user!.id,
+        startDate: data.startDate,
       });
+      if (!result.ok) return res.status(result.status).json({ error: result.error });
 
       res.status(201).json({
-        ...enrollment,
-        modalityAdded,
-        modalityName: existingClass.classType?.name ?? null,
+        ...result.created[0],
+        modalityAdded: result.modalityAdded,
+        modalityName: result.modalityName,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {

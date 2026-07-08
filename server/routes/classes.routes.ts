@@ -10,6 +10,7 @@ import {
 import { insertClassSchema, insertClassTypeSchema } from "@shared/schema";
 import { generateSchedulePDF } from "../services/schedule-pdf.service";
 import { isValidTimeFormat, findInstructorConflict } from "../lib/schedule";
+import { enrollStudentInClassGroup, unenrollStudentFromClassGroup } from "../services/class-enrollment.service";
 
 const router = Router();
 
@@ -51,6 +52,75 @@ router.get('/modality-summary',
       res.json(await storage.getModalityEnrollmentSummary(academyId));
     } catch (error) {
       console.error('Get modality summary error:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+// POST /api/classes/enrollment-groups — matricula o aluno em todos os registros
+// (dias) do grupo em uma única transação (nada de matrícula pela metade).
+router.post('/enrollment-groups',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA']),
+  requireSameAcademy,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const data = z.object({
+        studentId: z.string().uuid(),
+        membershipPlanId: z.string().uuid(),
+        classIds: z.array(z.string().uuid()).min(1).max(14),
+        startDate: z.coerce.date().optional(),
+      }).parse(req.body);
+
+      const result = await enrollStudentInClassGroup({
+        ...data,
+        academyId: req.user!.academyId!,
+        actorId: req.user!.id,
+      });
+      if (!result.ok) return res.status(result.status).json({ error: result.error });
+
+      res.status(201).json({
+        enrollments: result.created,
+        skippedClassIds: result.skippedClassIds,
+        modalityAdded: result.modalityAdded,
+        modalityName: result.modalityName,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Erro de validação', details: error.errors });
+      }
+      console.error('Enroll class group error:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+// DELETE /api/classes/enrollment-groups — encerra a matrícula (soft) em todos os
+// registros do grupo com um único UPDATE.
+router.delete('/enrollment-groups',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA']),
+  requireSameAcademy,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const data = z.object({
+        studentId: z.string().uuid(),
+        classIds: z.array(z.string().uuid()).min(1).max(14),
+      }).parse(req.body);
+
+      const result = await unenrollStudentFromClassGroup({
+        ...data,
+        academyId: req.user!.academyId!,
+        actorId: req.user!.id,
+      });
+      if (!result.ok) return res.status(result.status).json({ error: result.error });
+
+      res.json({ message: 'Matrícula encerrada com sucesso', removed: result.removed });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Erro de validação', details: error.errors });
+      }
+      console.error('Unenroll class group error:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
