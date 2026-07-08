@@ -1,4 +1,5 @@
 import { Fragment, useState } from "react";
+import { formatDateOnly, formatMonthYear, monthKeyOf, monthLabelOf, monthLabelCapOf } from "@/lib/dates";
 import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -102,24 +103,6 @@ interface DebtorGroup {
 function normalizeSearch(s: string): string {
   // NFD separa os diacríticos; \p{M} (marcas combinantes) os remove
   return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-}
-
-/** Chave de mês do filtro de período (ex.: "2026-07"), no fuso local */
-function monthKeyOf(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
-/** "2026-07" → "julho de 2026" (minúsculo, para meio de frase) */
-function monthLabelOf(key: string): string {
-  const [y, m] = key.split('-').map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-}
-
-/** "2026-07" → "Julho de 2026" — só a inicial; CSS capitalize daria "Julho De 2026" */
-function monthLabelCapOf(key: string): string {
-  const label = monthLabelOf(key);
-  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 const STATUS_LABELS: Record<PaymentRecord['status'], string> = {
@@ -234,7 +217,7 @@ export default function FinancialControl() {
       if (outrasAtrasadas.length > 0) {
         const student = studentsData?.find(s => s.id === paid!.studentId);
         const meses = outrasAtrasadas
-          .map(p => new Date(p.dueDate).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }))
+          .map(p => formatMonthYear(p.dueDate))
           .join(', ');
         toast({
           title: 'Pagamento registrado!',
@@ -299,7 +282,7 @@ export default function FinancialControl() {
       overdueCountByStudent.set(studentId, entry.dates.length);
       const meses = entry.dates
         .sort((a, b) => a.getTime() - b.getTime())
-        .map(d => d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }))
+        .map(d => formatMonthYear(d))
         .join(', ');
       overdueTooltipByStudent.set(studentId, `${meses} — ${formatPrice(entry.totalCents)} no total`);
     }
@@ -313,10 +296,10 @@ export default function FinancialControl() {
       studentId: p.studentId,
       aluno: student?.name ?? 'Aluno',
       plano: plan?.name ?? 'Plano',
-      vencimento: new Date(p.dueDate).toLocaleDateString('pt-BR'),
+      vencimento: formatDateOnly(p.dueDate),
       vencimentoMs: new Date(p.dueDate).getTime(),
       status: computeStatus(p),
-      dataPagamento: p.paidDate ? new Date(p.paidDate).toLocaleDateString('pt-BR') : '-',
+      dataPagamento: p.paidDate ? formatDateOnly(p.paidDate) : '-',
       meioPagamento: p.paymentMethod ?? '',
       valor: p.amount,
       atrasosDoAluno: overdueCountByStudent.get(p.studentId) ?? 0,
@@ -837,7 +820,7 @@ export default function FinancialControl() {
                             {formatPrice(group.totalCents)}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            desde {new Date(group.oldestMs).toLocaleDateString('pt-BR')}
+                            desde {formatDateOnly(group.oldestMs)}
                           </span>
                         </div>
                       </button>
@@ -992,7 +975,7 @@ export default function FinancialControl() {
                       <TableCell className="font-mono font-semibold text-red-700 dark:text-red-400">
                         {formatPrice(group.totalCents)}
                       </TableCell>
-                      <TableCell>{new Date(group.oldestMs).toLocaleDateString('pt-BR')}</TableCell>
+                      <TableCell>{formatDateOnly(group.oldestMs)}</TableCell>
                       <TableCell className="text-right text-xs text-muted-foreground">
                         {expanded ? 'Recolher' : `Ver ${group.payments.length} mensalidade${group.payments.length > 1 ? 's' : ''}`}
                       </TableCell>
@@ -1286,11 +1269,11 @@ export default function FinancialControl() {
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Vencimento</span>
-                <span>{new Date(detailPayment.dueDate).toLocaleDateString('pt-BR')}</span>
+                <span>{formatDateOnly(detailPayment.dueDate)}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Data do pagamento</span>
-                <span>{detailPayment.paidDate ? new Date(detailPayment.paidDate).toLocaleDateString('pt-BR') : '—'}</span>
+                <span>{detailPayment.paidDate ? formatDateOnly(detailPayment.paidDate) : '—'}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Meio de pagamento</span>
