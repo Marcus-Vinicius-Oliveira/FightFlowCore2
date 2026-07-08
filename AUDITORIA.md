@@ -513,3 +513,18 @@ Fecha o item (5) do backlog, o último da série de matrículas/aulas. O modelo 
 **Verificação:** typecheck limpo + **87/87 Vitest** + **suíte Playwright 14 passed / 15 skipped** (spec 05 inteira verde de novo). **e2e Playwright dirigido (porta 5001, fixture verify-tmp, contadores de rede):** grupo de 2 dias matriculado com **exatamente 1 POST** (0 legados) nas duas telas; remoção com **exatamente 1 DELETE**; card/toast/graduação inicial sem regressão. **API:** grupo com classId inexistente → 404 e **nenhuma matrícula parcial** (tudo-ou-nada); unitário legado 201 + 409 em duplicata; rematrícula parcial cria só o dia faltante e reporta `skippedClassIds`. Faxina pós-suíte: 0 academias e2e e 0 planos "Plano E2E …" restantes.
 
 **Backlog da série de matrículas: zerado.** Pendências gerais seguem: reescrever specs e2e 03/04, lembrete WhatsApp, multa/bloqueio por inadimplência, remoção futura do `maxCapacity` vestigial.
+
+---
+
+## 29. Entrega — Specs e2e 03/04 reescritos contra a UI atual (07/07/2026)
+
+Fecha a pendência mais antiga da suíte (aberta em 03/07): os specs 03 (fluxos de UI) e 04 (performance/integração) estavam em `describe.skip` porque navegavam pela primeira versão da interface (testids `nav-alunos`, `tab-modalidades`, `metric-students`… extintos). Reescritos do zero preservando a intenção de cada teste.
+
+- **Spec 03 — Fluxos principais (7 testes):** cadastro de academia pela UI (landing → /cadastro → dashboard), ciclo de alunos (criar pelo dialog, buscar, limpar busca), modalidade via Configurações (chips de esportes) + agendamento de aula pelo dialog, grade horária com 3 aulas, login/logout (com limpeza do token), validação de formulários (cadastro vazio, medidor de força de senha, login inválido) e responsividade mobile (bottom nav + formulário em 375px).
+- **Spec 04 — Performance e integração (8 testes):** orçamento de carga do dashboard e da lista com 20 alunos (teto de 5s — regressão grosseira, não SLO), sincronia API↔UI nos dois sentidos, refresh reflete mudanças externas, fluxo completo modalidade→aula→grade→API (GET /classes devolve grupos com `daysOfWeek`), falha de rede no POST preserva o formulário e mostra toast de erro, XSS (nome `<script>` renderiza escapado; listener de dialog falha o teste se executar) e acessibilidade (nomes acessíveis na sidebar, `label[for]` nos inputs do dialog, Escape fecha).
+- **Helpers:** `createTestAcademy` agora guarda o payload do usuário (`rawUser`) — o client exige `localStorage[user]` além do token (padrão do spec 05). Armadilhas da UI atual documentadas nos specs: layout desktop+mobile renderizam juntos (asserts filtram por `visible: true`) e testids duplicados entre os dois layouts.
+- **Convenção de faxina:** nomes de academia dos specs contêm "E2E" para o slug casar com a limpeza `slug ~ e2e`.
+
+**Verificação:** typecheck limpo + **suíte Playwright completa 29 passed / 0 skipped** (primeira vez sem skips; antes: 14 passed / 15 skipped). Faxina pós-suíte: 64 academias de teste removidas, 0 restantes.
+
+**Backlog:** pendências gerais seguem: lembrete WhatsApp, multa/bloqueio por inadimplência, remoção do `maxCapacity` vestigial. Da suíte e2e, nada pendente.
