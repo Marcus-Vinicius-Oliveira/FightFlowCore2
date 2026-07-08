@@ -528,3 +528,32 @@ Fecha a pendência mais antiga da suíte (aberta em 03/07): os specs 03 (fluxos 
 **Verificação:** typecheck limpo + **suíte Playwright completa 29 passed / 0 skipped** (primeira vez sem skips; antes: 14 passed / 15 skipped). Faxina pós-suíte: 64 academias de teste removidas, 0 restantes.
 
 **Backlog:** pendências gerais seguem: lembrete WhatsApp, multa/bloqueio por inadimplência, remoção do `maxCapacity` vestigial. Da suíte e2e, nada pendente.
+
+---
+
+## 30. Entrega — Relatório de retenção/churn no Dashboard (07/07/2026)
+
+Item de maior valor do roadmap da auditoria (§5.3): alerta proativo de alunos sumindo, usando dados que já existem em `attendance` — sem mudança de schema.
+
+- **Lógica pura ([retention.ts](server/lib/retention.ts), 9 testes):** baseline = última presença com status `presente` (**falta não conta como "veio"**); quem nunca veio usa a data de cadastro (aluno novo não é "em risco" no dia 1). Buckets: atenção ≥ 14 dias, risco ≥ 30, ordenado piores-primeiro.
+- **Storage `getRetentionRows`:** 1 query (LEFT JOIN + `max() filter`). Armadilha encontrada: o `max()` cru devolve timestamp *naive* do Postgres e `new Date(string)` parseia como hora local — errava a contagem por 1 dia. `mapWith(attendance.date)` decodifica com o mesmo decoder da coluna (UTC).
+- **`GET /api/dashboard/retention`** devolve limiares, contagens por bucket e só quem precisa de ação.
+- **Painel ([DashboardRetention](client/src/components/DashboardRetention.tsx)):** "Retenção — presença em queda" entre as métricas e as tendências: contadores (vermelho/âmbar), até 8 linhas ("sem treinar há N dias" / "nunca veio · há N dias na academia"), clique abre a ficha, "mostrar mais" expande. Vazio: "Todos os alunos ativos treinaram nos últimos 14 dias."
+
+**Verificação:** typecheck limpo + **104/104 Vitest** + suíte Playwright **29 passed**. **e2e dirigido (porta 5001, fixture verify-tmp com 4 alunos):** contadores "2 em risco / 1 em atenção"; linhas com 45/40/20 dias corretos — inclusive prova de que **falta recente não zera o contador** (aluno com falta há 5 dias segue "sem treinar há 45"); assíduo (2 dias) fora da lista; ordenação piores-primeiro; clique navega à ficha. Sem erros de console.
+
+---
+
+## 31. Entrega — Fix de fuso: datas date-only não deslocam mais um dia (07/07/2026)
+
+Fecha o bug pré-existente do §18: pagamento registrado dia 06/07 aparecia "pago em 05/07", e vencimento de 01/08 caía no filtro de **julho**.
+
+- **Causa:** duas famílias de timestamps no banco — formulários enviam `YYYY-MM-DD` (vira meia-noite UTC) e a cobrança recorrente grava meio-dia local. Exibir no fuso do browser (UTC-3) desloca as de meia-noite UTC um dia para trás; **exibir em UTC acerta as duas**.
+- **[dates.ts](client/src/lib/dates.ts) (8 testes):** `formatDateOnly`, `formatMonthYear`, `monthKeyOf`/`monthLabelOf` com partes UTC. FinancialControl migrado em 8 pontos (tabela, CSV, dialog de detalhe, "desde" dos devedores, agrupamento/filtro de período).
+- **Fora do escopo (anotado):** `overdueCutoff` (meia-noite local, convenção compartilhada client/servidor) tem borda do mesmo tipo — pagamento de meia-noite UTC pode virar "atrasado" às 21h da véspera. Mexer só de um lado criaria divergência; fica para tratamento conjunto.
+
+**Verificação e2e (fixture com pagamentos de meia-noite UTC):** "pago em 06/07/2026" exibe **06/07** (e "05/07/2026" não aparece em lugar nenhum da tela); vencimento de 01/08 gera o mês **"Agosto de 2026"** no filtro de período. Sem erros de console.
+
+**Operacional:** faxina e2e virou script permanente (`npm run e2e:clean`, guardado por slug ~ e2e). **Pendências para o deploy em produção** (sem credencial local — rodar lá): `npm run db:push` e `npm run backfill:modalidades`.
+
+**Backlog:** lembrete WhatsApp, multa/bloqueio por inadimplência, `maxCapacity` vestigial, borda do `overdueCutoff`, ranking de assiduidade, check-in QR, sugestão de graduação.
