@@ -572,3 +572,18 @@ Fecha o bug pré-existente do §18: pagamento registrado dia 06/07 aparecia "pag
 **Verificação:** typecheck limpo + **112/112 Vitest** + suíte Playwright **29 passed**. **e2e dirigido (porta 5001, fixture verify-tmp com 4 cenários):** só o aluno pronto (100 dias, 25 presenças) é sugerido, com "Kickboxing VT · Branca → Azul · **25 presenças** · há 100 dias na faixa" — as 5 presenças **anteriores à promoção** e as 2 **faltas** não contam; recém-promovido (10 dias/30 presenças), poucas presenças (120 dias/3) e faixa máxima (Azul, sem próxima) ficam de fora; clique navega à ficha. Sem erros de console. Faxina pós-suíte: 15 academias e2e removidas, 0 restantes.
 
 **Backlog:** lembrete WhatsApp (aguarda decisão de provedor), multa/bloqueio por inadimplência, check-in QR, ranking de assiduidade, `maxCapacity` vestigial, borda do `overdueCutoff`; produção: `db:push` + `backfill:modalidades` no deploy.
+
+---
+
+## 33. Entrega — Painel de retenção vira opt-in (Configurações → Painel) (08/07/2026)
+
+**Decisão do fundador:** em academias com muitos alunos a lista de retenção pode poluir o Dashboard — o painel passa a vir **oculto por padrão**, ativável em Configurações.
+
+- **Schema:** `academies.dashboard_show_retention` (boolean, **default false**). Aplicada no dev via ALTER equivalente; **produção: `npm run db:push` no deploy** (mesmo passo já pendente das colunas anteriores).
+- **Backend:** `GET /api/dashboard/retention` ganhou gate — preferência desligada devolve só `{ enabled: false }` **sem rodar a query**. Novo par `GET/PATCH /api/dashboard/preferences` (`{ showRetention }`); PATCH só para ADMIN_ACADEMIA (professor → 403).
+- **Configurações:** nova aba **Painel** ao lado de "Modalidades & Graduações", com Switch "Retenção — presença em queda" + explicação do porquê de vir desligado. Mutação invalida `preferences` e `retention` (o Dashboard reage sem reload).
+- **Dashboard:** `DashboardRetention` renderiza `null` quando `enabled: false`.
+
+**Verificação:** typecheck limpo + **112/112 Vitest** + suíte Playwright **29 passed**. **e2e dirigido (fixture verify-tmp com aluno 40 dias sumido):** padrão = painel **não aparece** mesmo com aluno em risco no banco; ligar o toggle em Configurações → Painel (toast confirma) → Dashboard mostra o painel com o aluno; desligar → some de novo; **PATCH como professor → 403**. Sem erros de console.
+
+**Backlog:** inalterado (WhatsApp, multa/bloqueio, check-in QR, ranking de assiduidade, `maxCapacity`, borda do `overdueCutoff`); produção: `db:push` (agora inclui esta coluna) + `backfill:modalidades`.
