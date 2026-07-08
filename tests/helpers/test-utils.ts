@@ -10,6 +10,8 @@ export interface TestUser {
   academyName?: string;
   token?: string;
   createdByAdminToken?: string; // Track which admin token was used to create this user
+  /** Payload do usuário retornado pelo signup — o client espera localStorage['user'] */
+  rawUser?: unknown;
 }
 
 export interface TestAcademy {
@@ -56,6 +58,7 @@ export class TestHelpers {
 
     academyData.admin.token = token;
     academyData.admin.id = user?.id;
+    academyData.admin.rawUser = user;
     academyData.id = user?.academyId;
 
     // Track for cleanup

@@ -1,13 +1,34 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
 import { TestHelpers, TestAcademy } from '../helpers/test-utils';
 
-// SKIP (03/07/2026): este spec navega pela UI original do projeto, que foi
-// redesenhada — os data-testids que ele usa (link-signup, nav-alunos,
-// tab-modalidades, button-add-modality, user-menu etc.) não existem mais no
-// client. Nunca rodou verde contra a UI atual (a auditoria registrou os e2e
-// como não executados). Precisa de reescrita contra a interface atual; o
-// fluxo de matrícula já é coberto pelo spec 05.
-test.describe.skip('Fluxos Principais da Aplicação', () => {
+/**
+ * 3. Fluxos principais da aplicação (UI atual)
+ *
+ * Reescrito em 07/07/2026 contra a interface atual (o original navegava pela
+ * UI da primeira versão, com testids que não existem mais).
+ *
+ * Convenção: nomes de academia contêm "E2E" para o slug casar com a faxina
+ * de dados de teste (slug ~ 'e2e').
+ */
+
+/** Injeta token + user no localStorage (o client exige os dois) antes de navegar. */
+async function authenticate(page: Page, academy: TestAcademy) {
+  await page.addInitScript(([token, user]) => {
+    localStorage.setItem('auth_token', token as string);
+    localStorage.setItem('user', JSON.stringify(user));
+  }, [academy.admin.token!, academy.admin.rawUser] as const);
+}
+
+function e2eData(prefix: string) {
+  return TestHelpers.generateTestData(`E2E ${prefix}`);
+}
+
+/** Primeira ocorrência VISÍVEL do texto (páginas renderizam layout desktop + mobile). */
+function visibleText(page: Page, text: string) {
+  return page.getByText(text).filter({ visible: true }).first();
+}
+
+test.describe('3. Fluxos principais da aplicação', () => {
   let helpers: TestHelpers;
   let academy: TestAcademy;
 
@@ -15,273 +36,202 @@ test.describe.skip('Fluxos Principais da Aplicação', () => {
     helpers = new TestHelpers(page, request);
   });
 
-  test.afterEach(async () => {
-    await helpers.cleanup();
-  });
+  test('Fluxo 3.1: Cadastro de academia pela UI e primeiro acesso ao dashboard', async ({ page }) => {
+    const ts = Date.now();
 
-  test('Fluxo 3.1: Cadastro completo de academia e primeiro acesso ao dashboard', async ({ page }) => {
-    const testData = TestHelpers.generateTestData('FLOW');
-    
-    // Navigate to homepage
+    // Landing → botão de cadastro do Navbar
     await page.goto('/');
-    await expect(page).toHaveTitle(/Centro de Lutas/);
-
-    // Access signup page
-    await page.click('[data-testid="link-signup"]');
+    await page.getByTestId('button-signup').click();
     await expect(page).toHaveURL('/cadastro');
 
-    // Fill signup form
-    await page.fill('[data-testid="input-name"]', testData.academyA.admin.name);
-    await page.fill('[data-testid="input-email"]', testData.academyA.admin.email);
-    await page.fill('[data-testid="input-password"]', testData.academyA.admin.password);
-    await page.fill('[data-testid="input-academy-name"]', testData.academyA.name);
+    // Formulário de cadastro (campo de academia só aparece para o role admin)
+    await page.getByTestId('input-signup-name').fill(`Admin Fluxo ${ts}`);
+    await page.getByTestId('input-signup-email').fill(`admin-fluxo-${ts}@test.com`);
+    await page.getByTestId('select-role').click();
+    await page.getByRole('option', { name: 'Administrador da Academia' }).click();
+    await page.getByTestId('input-academy-name').fill(`Academia E2E Fluxo ${ts}`);
+    await page.getByTestId('input-signup-password').fill('Senha@123');
+    await page.getByTestId('input-confirm-password').fill('Senha@123');
+    await page.getByTestId('button-signup-submit').click();
 
-    // Submit signup
-    await page.click('[data-testid="button-signup"]');
-
-    // Should redirect to dashboard
-    await expect(page).toHaveURL('/dashboard');
-    
-    // Dashboard should show welcome information
+    // Deve cair autenticado no dashboard
+    await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
     await expect(page.locator('h1')).toContainText('Painel da Academia');
-    
-    // Check if navigation items are visible
-    await expect(page.locator('[data-testid="nav-alunos"]')).toBeVisible();
-    await expect(page.locator('[data-testid="nav-aulas"]')).toBeVisible();
+
+    // Métricas e navegação lateral visíveis
+    await expect(page.getByTestId('stat-alunos-ativos')).toBeVisible();
+    await expect(page.getByTestId('stat-aulas-ativas')).toBeVisible();
+    await expect(page.getByTestId('sidebar-alunos')).toBeVisible();
+    await expect(page.getByTestId('sidebar-grade-de-aulas')).toBeVisible();
   });
 
-  test('Fluxo 3.2: Ciclo completo de gerenciamento de alunos', async ({ page }) => {
-    // Setup academy
-    const testData = TestHelpers.generateTestData('STUDENTS');
-    academy = await helpers.createTestAcademy(testData.academyA);
-    
-    // Navigate to student management
+  test('Fluxo 3.2: Ciclo de gerenciamento de alunos (criar, listar, buscar)', async ({ page }) => {
+    academy = await helpers.createTestAcademy(e2eData('Alunos').academyA);
+    await authenticate(page, academy);
+
     await page.goto('/dashboard/alunos');
     await expect(page.locator('h1')).toContainText('Gerenciamento de Alunos');
 
-    // Add new student
-    await page.click('[data-testid="button-add-student"]');
-    
-    // Fill student form
-    const studentName = `Test Student ${Date.now()}`;
-    const studentEmail = `student-${Date.now()}@test.com`;
-    
-    await page.fill('[data-testid="input-name"]', studentName);
-    await page.fill('[data-testid="input-email"]', studentEmail);
-    await page.fill('[data-testid="input-phone"]', '(11) 99999-9999');
+    // Adicionar aluno pelo dialog
+    const ts = Date.now();
+    const studentName = `Aluno Fluxo ${ts}`;
+    await page.getByTestId('button-add-student').click();
+    await page.getByTestId('input-student-name').fill(studentName);
+    await page.getByTestId('input-student-email').fill(`aluno-fluxo-${ts}@test.com`);
+    await page.getByTestId('input-student-phone').fill('(11) 99999-9999');
+    await page.getByTestId('input-student-password').fill('Senha@123');
+    await page.getByTestId('button-submit-student').click();
 
-    // Submit form
-    await page.click('[data-testid="button-submit"]');
-    
-    // Should show success message
-    await expect(page.locator('.toast')).toContainText('cadastrado com sucesso');
-    
-    // Student should appear in the list
-    await expect(page.locator(`text=${studentName}`)).toBeVisible();
-    await expect(page.locator(`text=${studentEmail}`)).toBeVisible();
+    await expect(page.getByText('Aluno Adicionado').first()).toBeVisible();
+    await expect(visibleText(page, studentName)).toBeVisible();
 
-    // Test search functionality
-    await page.fill('[data-testid="input-search"]', studentName);
-    await expect(page.locator(`text=${studentName}`)).toBeVisible();
-    
-    // Clear search
-    await page.fill('[data-testid="input-search"]', '');
+    // Buscar filtra a lista; limpar a busca volta a exibir
+    await page.getByTestId('input-search-students').filter({ visible: true }).first().fill(studentName);
+    await expect(visibleText(page, studentName)).toBeVisible();
+    await page.getByTestId('input-search-students').filter({ visible: true }).first().fill('nome-que-nao-existe-xyz');
+    await expect(visibleText(page, 'Nenhum aluno encontrado com esse termo.')).toBeVisible();
+    await page.getByTestId('input-search-students').filter({ visible: true }).first().fill('');
+    await expect(visibleText(page, studentName)).toBeVisible();
   });
 
-  test('Fluxo 3.3: Criação de modalidades e agendamento de aulas', async ({ page }) => {
-    // Setup academy
-    const testData = TestHelpers.generateTestData('CLASSES');
-    academy = await helpers.createTestAcademy(testData.academyA);
-    
-    // Create instructor first via API
+  test('Fluxo 3.3: Criação de modalidade (Configurações) e agendamento de aula', async ({ page }) => {
+    academy = await helpers.createTestAcademy(e2eData('Aulas').academyA);
     const instructor = await helpers.createUser({
-      name: `Professor Test ${Date.now()}`,
-      email: `professor-${Date.now()}@test.com`,
-      password: '123456',
-      role: 'PROFESSOR'
+      name: `Professor Fluxo ${Date.now()}`,
+      email: `prof-fluxo-${Date.now()}@test.com`,
+      password: 'Senha@123',
+      role: 'PROFESSOR',
     }, academy.admin.token!);
+    await authenticate(page, academy);
 
-    // Navigate to class management
+    // Modalidades são criadas em Configurações (chips de esportes comuns)
+    await page.goto('/settings');
+    await page.getByRole('button', { name: 'Muay Thai' }).first().click();
+    await expect(page.getByText('Modalidade "Muay Thai" adicionada!').first()).toBeVisible();
+
+    // Agendar aula na Gestão de Aulas
     await page.goto('/dashboard/aulas');
-    
-    // Test creating class type first
-    await page.click('[data-testid="tab-modalidades"]');
-    await page.click('[data-testid="button-add-modality"]');
-    
-    const modalityName = `Muay Thai ${Date.now()}`;
-    await page.fill('[data-testid="input-name"]', modalityName);
-    await page.fill('[data-testid="input-description"]', 'Arte marcial tailandesa');
-    await page.fill('[data-testid="input-duration"]', '60');
-    
-    await page.click('[data-testid="button-submit"]');
-    
-    // Should show success message
-    await expect(page.locator('.toast')).toContainText('criada com sucesso');
-    
-    // Now create a class
-    await page.click('[data-testid="tab-cronograma"]');
-    await page.click('[data-testid="button-schedule-class"]');
-    
-    // Fill class form
-    await page.click('[data-testid="select-modality"]');
-    await page.click(`text=${modalityName}`);
-    
-    await page.click('[data-testid="select-instructor"]');
-    await page.click(`text=${instructor.name}`);
-    
-    await page.selectOption('[data-testid="select-day"]', '1'); // Monday
-    await page.fill('[data-testid="input-start-time"]', '18:00');
-    await page.fill('[data-testid="input-end-time"]', '19:00');
-    
-    await page.click('[data-testid="button-submit"]');
-    
-    // Should show success message
-    await expect(page.locator('.toast')).toContainText('criada com sucesso');
-    
-    // Class should appear in schedule
-    await expect(page.locator('text=18:00')).toBeVisible();
+    await page.getByTestId('button-add-class').click();
+
+    await page.getByText('Selecione o tipo de aula').click();
+    await page.getByRole('option', { name: 'Muay Thai' }).click();
+    await page.getByText('Selecione o professor').click();
+    await page.getByRole('option', { name: instructor.name }).click();
+    await page.locator('button[title="Segunda-feira"]').click();
+    await page.getByTestId('input-start-time').fill('18:00');
+    await page.getByTestId('input-end-time').fill('19:00');
+    await page.getByTestId('button-submit').click();
+
+    // A turma aparece na listagem com horário e modalidade
+    await expect(page.getByText('18:00').first()).toBeVisible();
+    await expect(page.getByText('Muay Thai').first()).toBeVisible();
   });
 
   test('Fluxo 3.4: Visualização da grade horária semanal', async ({ page }) => {
-    // Setup academy with class
-    const testData = TestHelpers.generateTestData('SCHEDULE');
-    academy = await helpers.createTestAcademy(testData.academyA);
-    
-    // Create class type and instructor via API for faster setup
-    const classTypeResult = await helpers.apiRequest(
-      'POST',
-      '/classes/class-types',
-      academy.admin.token!,
-      {
-        name: `BJJ Schedule ${Date.now()}`,
-        description: 'Brazilian Jiu-Jitsu',
-        duration: 90
-      }
-    );
+    academy = await helpers.createTestAcademy(e2eData('Grade').academyA);
+    const ts = Date.now();
 
+    const classType = await helpers.apiRequest('POST', '/classes/class-types', academy.admin.token!, {
+      name: `BJJ Grade ${ts}`,
+      description: 'Brazilian Jiu-Jitsu',
+      duration: 90,
+    });
     const instructor = await helpers.createUser({
-      name: `Schedule Prof ${Date.now()}`,
-      email: `schedule-prof-${Date.now()}@test.com`,
-      password: '123456',
-      role: 'PROFESSOR'
+      name: `Prof Grade ${ts}`,
+      email: `prof-grade-${ts}@test.com`,
+      password: 'Senha@123',
+      role: 'PROFESSOR',
     }, academy.admin.token!);
 
-    // Create multiple classes for schedule visualization
-    const classesData = [
-      { day: 1, start: '08:00', end: '09:30' }, // Monday morning
-      { day: 1, start: '18:00', end: '19:30' }, // Monday evening
-      { day: 3, start: '19:00', end: '20:30' }, // Wednesday evening
-      { day: 5, start: '07:00', end: '08:30' }, // Friday morning
-    ];
-
-    for (const classData of classesData) {
-      await helpers.apiRequest(
-        'POST',
-        '/classes',
-        academy.admin.token!,
-        {
-          classTypeId: classTypeResult.data.id,
-          instructorId: instructor.id,
-          dayOfWeek: classData.day,
-          startTime: classData.start,
-          endTime: classData.end
-        }
-      );
+    // Aulas em dias/horários variados para popular a grade
+    for (const c of [
+      { day: 1, start: '08:00', end: '09:30' },
+      { day: 3, start: '19:00', end: '20:30' },
+      { day: 5, start: '07:00', end: '08:30' },
+    ]) {
+      await helpers.apiRequest('POST', '/classes', academy.admin.token!, {
+        classTypeId: classType.data.id,
+        instructorId: instructor.id,
+        dayOfWeek: c.day,
+        startTime: c.start,
+        endTime: c.end,
+      });
     }
 
-    // Navigate to schedule
+    await authenticate(page, academy);
     await page.goto('/dashboard/grade');
-    
-    // Should show weekly schedule grid
-    await expect(page.locator('h1')).toContainText('Grade Horária');
-    
-    // Check for days of week
-    await expect(page.locator('text=Segunda-feira')).toBeVisible();
-    await expect(page.locator('text=Quarta-feira')).toBeVisible();
-    await expect(page.locator('text=Sexta-feira')).toBeVisible();
-    
-    // Check for class times
-    await expect(page.locator('text=08:00')).toBeVisible();
-    await expect(page.locator('text=18:00')).toBeVisible();
-    await expect(page.locator('text=19:00')).toBeVisible();
-    
-    // Check for class information
-    await expect(page.locator(`text=${classTypeResult.data.name}`)).toBeVisible();
-    await expect(page.locator(`text=${instructor.name}`)).toBeVisible();
+
+    await expect(page.locator('h1')).toContainText('Grade de Aulas');
+
+    // Cards das aulas na grade, com modalidade, professor e horários
+    const cards = page.locator('[data-testid^="class-card-"]');
+    await expect(cards.first()).toBeVisible();
+    expect(await cards.count()).toBe(3);
+    await expect(page.getByText(`BJJ Grade ${ts}`).first()).toBeVisible();
+    await expect(page.getByText(instructor.name).first()).toBeVisible();
+    await expect(page.getByText('08:00').first()).toBeVisible();
+    await expect(page.getByText('19:00').first()).toBeVisible();
   });
 
   test('Fluxo 3.5: Login e logout de usuário existente', async ({ page }) => {
-    // Setup academy
-    const testData = TestHelpers.generateTestData('LOGIN');
-    academy = await helpers.createTestAcademy(testData.academyA);
-    
-    // Logout
-    await helpers.cleanup();
-    
-    // Go to login page
+    academy = await helpers.createTestAcademy(e2eData('Login').academyA);
+
+    // Login pela UI
     await page.goto('/login');
-    
-    // Fill login form
-    await page.fill('[data-testid="input-email"]', academy.admin.email);
-    await page.fill('[data-testid="input-password"]', academy.admin.password);
-    
-    // Submit login
-    await page.click('[data-testid="button-login"]');
-    
-    // Should redirect to dashboard
-    await expect(page).toHaveURL('/dashboard');
+    await page.getByTestId('input-login-email').fill(academy.admin.email);
+    await page.getByTestId('input-login-password').fill(academy.admin.password);
+    await page.getByTestId('button-login-submit').click();
+
+    await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
     await expect(page.locator('h1')).toContainText('Painel da Academia');
-    
-    // Test logout
-    await page.click('[data-testid="user-menu"]');
-    await page.click('[data-testid="button-logout"]');
-    
-    // Should redirect to homepage
+
+    // Logout pela sidebar volta para a landing e limpa o token
+    await page.getByTestId('button-logout').click();
     await expect(page).toHaveURL('/');
+    expect(await page.evaluate(() => localStorage.getItem('auth_token'))).toBeNull();
   });
 
   test('Fluxo 3.6: Validação de formulários e tratamento de erros', async ({ page }) => {
-    // Navigate to signup with invalid data
+    // Cadastro vazio não navega (campos required semânticos do browser)
     await page.goto('/cadastro');
-    
-    // Try to submit empty form
-    await page.click('[data-testid="button-signup"]');
-    
-    // Should show validation errors
-    const errorElements = page.locator('.error, .text-destructive');
-    await expect(errorElements.first()).toBeVisible();
-    
-    // Test invalid email format
-    await page.fill('[data-testid="input-name"]', 'Test User');
-    await page.fill('[data-testid="input-email"]', 'invalid-email');
-    await page.fill('[data-testid="input-password"]', '123');
-    await page.fill('[data-testid="input-academy-name"]', 'Test Academy');
-    
-    await page.click('[data-testid="button-signup"]');
-    
-    // Should show email validation error
-    await expect(page.locator('text=email')).toBeVisible();
+    await page.getByTestId('button-signup-submit').click();
+    await expect(page).toHaveURL('/cadastro');
+
+    // Medidor de força reage a senha fraca
+    await page.getByTestId('input-signup-password').fill('123');
+    await expect(page.getByTestId('password-strength-meter')).toContainText('Muito fraca');
+    await page.getByTestId('input-signup-password').fill('Senha@123');
+    await expect(page.getByTestId('password-strength-meter')).not.toContainText('Muito fraca');
+
+    // Login com credenciais erradas mostra erro e não navega
+    await page.goto('/login');
+    await page.getByTestId('input-login-email').fill(`nao-existe-${Date.now()}@test.com`);
+    await page.getByTestId('input-login-password').fill('SenhaErrada@1');
+    await page.getByTestId('button-login-submit').click();
+    await expect(page).toHaveURL('/login');
+    expect(await page.evaluate(() => localStorage.getItem('auth_token'))).toBeNull();
   });
 
-  test('Fluxo 3.7: Responsividade em dispositivos móveis', async ({ page }) => {
-    // Set mobile viewport
+  test('Fluxo 3.7: Responsividade mobile (bottom nav e formulários)', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
-    
-    const testData = TestHelpers.generateTestData('MOBILE');
-    academy = await helpers.createTestAcademy(testData.academyA);
-    
-    // Test navigation on mobile
+    academy = await helpers.createTestAcademy(e2eData('Mobile').academyA);
+    await authenticate(page, academy);
+
     await page.goto('/dashboard');
-    
-    // Should have mobile-friendly navigation
-    await expect(page.locator('[data-testid="nav-alunos"]')).toBeVisible();
-    
-    // Test student management on mobile
-    await page.goto('/dashboard/alunos');
+    await expect(page.locator('h1')).toContainText('Painel da Academia');
+
+    // No mobile a navegação principal é a bottom nav (sidebar fica oculta)
+    const bottomNav = page.getByRole('navigation', { name: 'Navegação principal' });
+    await expect(bottomNav).toBeVisible();
+
+    // Navegar para Alunos pela bottom nav
+    await bottomNav.getByText('Alunos').click();
+    await expect(page).toHaveURL('/dashboard/alunos');
     await expect(page.locator('h1')).toContainText('Gerenciamento de Alunos');
-    
-    // Forms should be mobile-friendly
-    await page.click('[data-testid="button-add-student"]');
-    await expect(page.locator('[data-testid="input-name"]')).toBeVisible();
+
+    // Formulário de aluno utilizável no viewport mobile
+    await page.getByTestId('button-add-student').click();
+    await expect(page.getByTestId('input-student-name')).toBeVisible();
+    await expect(page.getByTestId('button-submit-student')).toBeVisible();
   });
 });
