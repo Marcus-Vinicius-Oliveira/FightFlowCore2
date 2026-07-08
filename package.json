@@ -19,7 +19,8 @@
     "seed:reset-alunos": "tsx --env-file=.env server/seeds-reset-alunos.ts",
     "seed:restore": "tsx --env-file=.env server/seeds-full-restore.ts",
     "seed:demo:clean": "tsx --env-file=.env server/seeds-demo-clean.ts",
-    "seed:demo:reset": "npm run seed:demo:clean && npm run seed:restore"
+    "seed:demo:reset": "npm run seed:demo:clean && npm run seed:restore",
+    "backfill:modalidades": "tsx --env-file=.env server/backfill-modality-enrollments.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

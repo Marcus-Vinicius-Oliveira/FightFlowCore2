@@ -10,6 +10,7 @@ import {
   type AuthenticatedRequest,
 } from "../auth";
 import { guardianRequirementError, type User } from "@shared/schema";
+import { ensureModalityEnrollment } from "../services/modality-enrollment.service";
 
 const router = Router();
 
@@ -539,47 +540,12 @@ router.post('/:id/modality-enrollments',
 
       const { classTypeId } = z.object({ classTypeId: z.string().uuid() }).parse(req.body);
 
-      const enrollment = await storage.upsertStudentModalityEnrollment({
+      const { enrollment } = await ensureModalityEnrollment({
         studentId: student.id,
         academyId,
         classTypeId,
-        enrolledAt: new Date(),
-        active: true,
+        actorId: req.user!.id,
       });
-
-      // Auto-assign first rank of this modality if student has none yet
-      const existingRanks = await storage.getStudentModalityRanks(student.id);
-      const hasRank = existingRanks.some(r => r.classTypeId === classTypeId);
-      if (!hasRank) {
-        const systems = await storage.getGraduationSystemsByAcademy(academyId);
-        const system = systems.find(s => s.classTypeId === classTypeId);
-        if (system) {
-          const ranks = await storage.getGraduationRanksBySystem(system.id);
-          const firstRank = ranks.sort((a, b) => a.displayOrder - b.displayOrder)[0];
-          if (firstRank) {
-            await Promise.all([
-              storage.upsertStudentModalityRank({
-                studentId: student.id,
-                academyId,
-                classTypeId,
-                rankId: firstRank.id,
-                promotedAt: new Date(),
-                promotedBy: req.user!.id,
-              }),
-              storage.createStudentRankHistory({
-                studentId: student.id,
-                academyId,
-                classTypeId,
-                rankBeforeId: null,
-                rankAfterId: firstRank.id,
-                promotedBy: req.user!.id,
-                promotedAt: new Date(),
-                notes: 'Graduação inicial',
-              }),
-            ]);
-          }
-        }
-      }
 
       res.status(201).json(enrollment);
     } catch (error) {
@@ -601,7 +567,7 @@ router.delete('/:id/modality-enrollments/:classTypeId',
         return res.status(404).json({ error: 'Aluno não encontrado' });
       }
       await storage.deactivateStudentModalityEnrollment(req.params.id, req.params.classTypeId);
-      res.json({ message: 'Matrícula na modalidade removida' });
+      res.json({ message: 'Modalidade removida do perfil do aluno' });
     } catch (error) {
       console.error('Deactivate modality enrollment error:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });

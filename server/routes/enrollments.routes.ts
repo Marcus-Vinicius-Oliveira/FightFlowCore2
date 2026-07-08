@@ -7,6 +7,7 @@ import {
   requireSameAcademy,
   type AuthenticatedRequest,
 } from "../auth";
+import { ensureModalityEnrollment } from "../services/modality-enrollment.service";
 
 const router = Router({ mergeParams: true });
 
@@ -95,7 +96,20 @@ router.post('/',
         updatedBy: req.user!.id,
       });
 
-      res.status(201).json(enrollment);
+      // Matrícula em turma implica vínculo com a modalidade da turma
+      // (cria graduação inicial se o aluno ainda não tem rank nela).
+      const { added: modalityAdded } = await ensureModalityEnrollment({
+        studentId: data.studentId,
+        academyId,
+        classTypeId: existingClass.classTypeId,
+        actorId: req.user!.id,
+      });
+
+      res.status(201).json({
+        ...enrollment,
+        modalityAdded,
+        modalityName: existingClass.classType?.name ?? null,
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });

@@ -22,7 +22,7 @@ import { isMinor, guardianRequirementError, GUARDIAN_RELATIONSHIPS } from "../..
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient as globalQueryClient } from "@/lib/queryClient";
 import { invalidateAfterStudentChange } from "@/lib/cache-helpers";
-import { BeltBar, isLightHex } from "@/components/BeltBadge";
+import { isLightHex } from "@/components/BeltBadge";
 import { StudentClassEnrollments } from "@/components/StudentClassEnrollments";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -703,13 +703,17 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
 
           <Separator />
 
-          {/* ── Modalidades e Graduações ─────────────────────────────────── */}
+          {/* ── Modalidades, graduações e turmas ─────────────────────────────
+              Visualização: seção unificada (StudentClassEnrollments) com um
+              card por modalidade e as turmas aninhadas.
+              Edição: repeater de modalidade + graduação. */}
+          {isEditing ? (
           <div className="space-y-3">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Modalidades e Graduações
             </p>
 
-            {isEditing ? (
+            {(
               /* Repeater de edição */
               <div className="space-y-2">
                 {/* Column headers — visíveis apenas quando há linhas e em telas sm+ */}
@@ -830,52 +834,16 @@ export function StudentDetailDialog({ student, open, onOpenChange }: StudentDeta
                   <p className="text-xs text-muted-foreground">Nenhuma modalidade cadastrada.</p>
                 )}
               </div>
-            ) : (
-              /* Cards de visualização */
-              <div className="space-y-2">
-                {viewModalities.length > 0 ? (
-                  viewModalities.map(m => {
-                    const rankColor = m.rankColor?.split('|')[0];
-                    // Barra cinza neutra quando sem graduação; cor da faixa quando graduado
-                    const barColor = rankColor ?? '#94a3b8'; // slate-400
-                    return (
-                      <div
-                        key={m.classTypeId}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg border bg-card"
-                      >
-                        <svg
-                          width="5" height="28" viewBox="0 0 5 28"
-                          className="shrink-0" aria-hidden="true"
-                        >
-                          <rect width="5" height="28" rx="2.5" fill={barColor} />
-                        </svg>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold leading-tight">{m.name}</p>
-                          {rankColor ? (
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <BeltBar color={m.rankColor!} name={m.rankName!} width={26} height={8} />
-                              <span className="text-xs text-muted-foreground">{m.rankName}</span>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-muted-foreground mt-0.5">Sem graduação</p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <p className="text-sm text-muted-foreground">Nenhuma modalidade vinculada.</p>
-                )}
-              </div>
             )}
           </div>
-
-          {/* ── Turmas (matrículas para presença) ────────────────────────── */}
-          {!isEditing && student && (
-            <>
-              <Separator />
-              <StudentClassEnrollments studentId={student.id} studentName={student.name} />
-            </>
+          ) : (
+            student && (
+              <StudentClassEnrollments
+                studentId={student.id}
+                studentName={student.name}
+                modalities={viewModalities}
+              />
+            )
           )}
         </div>
       </DialogContent>

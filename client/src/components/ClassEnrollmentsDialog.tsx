@@ -72,10 +72,14 @@ function getInitials(name: string) {
 /** Invalida tudo que depende de matrículas: lista de turmas (ocupação),
  *  matrículas do grupo, presença e a ficha do aluno afetado. */
 function invalidateAfterEnrollmentChange(studentId: string) {
-  // Prefixo ['/api/classes'] cobre a lista de turmas, as matrículas do grupo
-  // e as queries de presença ['/api/classes', id, 'attendance', ...].
+  // Prefixo ['/api/classes'] cobre a lista de turmas, as matrículas do grupo,
+  // o resumo por modalidade e as queries de presença ['/api/classes', id, 'attendance', ...].
   queryClient.invalidateQueries({ queryKey: ['/api/classes'] });
   queryClient.invalidateQueries({ queryKey: ['/api/students', studentId, 'enrollments'] });
+  // Matricular em turma pode criar vínculo de modalidade + graduação inicial.
+  queryClient.invalidateQueries({ queryKey: ['/api/students', studentId, 'modality-enrollments'] });
+  queryClient.invalidateQueries({ queryKey: ['/api/students', studentId, 'modality-ranks'] });
+  queryClient.invalidateQueries({ queryKey: ['/api/students/academy-modality-enrollments'] });
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -152,19 +156,29 @@ export function ClassEnrollmentsDialog({ classData, open, onOpenChange }: ClassE
       // Matricula em todos os registros (dias) do grupo em que o aluno ainda
       // não está — sequencial para parar na primeira falha.
       const already = enrolled.find(e => e.studentId === studentId)?.enrolledClassIds ?? [];
+      let modalityAdded = false;
+      let modalityName: string | null = null;
       for (const id of missingEnrollmentIds(groupIds, already)) {
-        await apiRequest('POST', `/api/classes/${id}/enrollments`, {
+        const res = await apiRequest('POST', `/api/classes/${id}/enrollments`, {
           studentId,
           membershipPlanId: planId,
         });
+        const body = await res.json().catch(() => null);
+        if (body?.modalityAdded) {
+          modalityAdded = true;
+          modalityName = body.modalityName ?? null;
+        }
       }
+      return { modalityAdded, modalityName };
     },
-    onSuccess: (_data, { studentId }) => {
+    onSuccess: ({ modalityAdded, modalityName }, { studentId }) => {
       invalidateAfterEnrollmentChange(studentId);
       const student = students.find(s => s.id === studentId);
       toast({
         title: "Aluno matriculado!",
-        description: `${student?.name ?? 'O aluno'} foi matriculado na turma.`,
+        description: modalityAdded
+          ? `${student?.name ?? 'O aluno'} foi matriculado na turma — modalidade${modalityName ? ` ${modalityName}` : ''} adicionada ao perfil.`
+          : `${student?.name ?? 'O aluno'} foi matriculado na turma.`,
       });
       setSelectedStudentId("");
     },

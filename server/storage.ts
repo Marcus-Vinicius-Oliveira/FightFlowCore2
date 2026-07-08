@@ -399,23 +399,39 @@ export class DatabaseStorage implements IStorage {
       .from(classTypes)
       .where(and(eq(classTypes.academyId, academyId), eq(classTypes.active, true)));
 
-    // Alunos ativos distintos por modalidade (não duplica quem faz várias turmas da mesma).
-    const studentRows = await db
+    // Praticantes ativos distintos por modalidade — mesmo critério dos badges da
+    // lista de alunos (/students/academy-modality-enrollments): vínculo explícito
+    // em student_modality_enrollments + rank de legado em student_modality_ranks.
+    // Matrícula em turma garante o vínculo via ensureModalityEnrollment.
+    const enrollmentRows = await db
       .select({
-        classTypeId: classes.classTypeId,
-        total: sql<number>`count(distinct ${enrollments.studentId})`,
+        classTypeId: studentModalityEnrollments.classTypeId,
+        studentId: studentModalityEnrollments.studentId,
       })
-      .from(enrollments)
-      .innerJoin(classes, eq(classes.id, enrollments.classId))
-      .innerJoin(users, eq(users.id, enrollments.studentId))
+      .from(studentModalityEnrollments)
+      .innerJoin(users, eq(users.id, studentModalityEnrollments.studentId))
       .where(and(
-        eq(classes.academyId, academyId),
-        eq(classes.active, true),
-        eq(enrollments.active, true),
+        eq(studentModalityEnrollments.academyId, academyId),
+        eq(studentModalityEnrollments.active, true),
         eq(users.active, true),
-      ))
-      .groupBy(classes.classTypeId);
-    const studentsByCt = new Map(studentRows.map(r => [r.classTypeId, Number(r.total)]));
+      ));
+    const rankRows = await db
+      .select({
+        classTypeId: studentModalityRanks.classTypeId,
+        studentId: studentModalityRanks.studentId,
+      })
+      .from(studentModalityRanks)
+      .innerJoin(users, eq(users.id, studentModalityRanks.studentId))
+      .where(and(
+        eq(studentModalityRanks.academyId, academyId),
+        eq(users.active, true),
+      ));
+
+    const studentsByCt = new Map<string, Set<string>>();
+    for (const r of [...enrollmentRows, ...rankRows]) {
+      if (!studentsByCt.has(r.classTypeId)) studentsByCt.set(r.classTypeId, new Set());
+      studentsByCt.get(r.classTypeId)!.add(r.studentId);
+    }
 
     // Turmas (grupos) ativas por modalidade — distinta combinação professor+horário.
     const classRows = await db
@@ -432,7 +448,7 @@ export class DatabaseStorage implements IStorage {
       .map(ct => ({
         classTypeId: ct.id,
         name: ct.name,
-        students: studentsByCt.get(ct.id) ?? 0,
+        students: studentsByCt.get(ct.id)?.size ?? 0,
         classes: classesByCt.get(ct.id) ?? 0,
       }))
       .sort((a, b) => b.students - a.students || a.name.localeCompare(b.name, 'pt-BR'));
