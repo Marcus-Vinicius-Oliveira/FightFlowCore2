@@ -5,6 +5,7 @@ import { users, payments, attendance, classes } from "@shared/schema";
 import { storage } from "../storage";
 import { authenticateToken, requireRole, type AuthenticatedRequest } from "../auth";
 import { graduationRanks, graduationSystems, studentModalityRanks, classTypes } from "@shared/schema";
+import { classifyRetention, RETENTION_ATTENTION_DAYS, RETENTION_RISK_DAYS } from "../lib/retention";
 
 const router = Router();
 
@@ -265,6 +266,32 @@ router.get('/charts',
       });
     } catch (error) {
       console.error('Dashboard charts error:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+// GET /api/dashboard/retention — alunos ativos sem presença há 14/30+ dias
+router.get('/retention',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório para este recurso' });
+
+      const rows = await storage.getRetentionRows(academyId);
+      const { entries, counts } = classifyRetention(rows);
+
+      res.json({
+        attentionDays: RETENTION_ATTENTION_DAYS,
+        riskDays: RETENTION_RISK_DAYS,
+        counts,
+        // Só quem precisa de ação (attention/risk) — já ordenado dos piores para os melhores
+        students: entries.filter(e => e.bucket !== 'ok'),
+      });
+    } catch (error) {
+      console.error('Dashboard retention error:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }

@@ -53,7 +53,7 @@ import {
   type InsertStudentModalityEnrollment,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, inArray, gte, lt, count, asc, sql } from "drizzle-orm";
+import { eq, and, desc, inArray, gte, lt, count, asc, sql, type SQL } from "drizzle-orm";
 
 export interface ClassFilters {
   classTypeId?: string;
@@ -107,6 +107,8 @@ export interface IStorage {
   getClassTypesByAcademy(academyId: string): Promise<ClassType[]>;
   /** Resumo por modalidade: alunos ativos distintos e nº de turmas (grupos), para a tela de Aulas. */
   getModalityEnrollmentSummary(academyId: string): Promise<{ classTypeId: string; name: string; students: number; classes: number }[]>;
+  /** Alunos ativos com a data da última presença — insumo do relatório de retenção. */
+  getRetentionRows(academyId: string): Promise<{ id: string; name: string; createdAt: Date | null; lastPresenceAt: Date | null }[]>;
   getClassType(id: string): Promise<ClassType | undefined>;
   getClassTypeByName(academyId: string, name: string): Promise<ClassType | undefined>;
   createClassType(classType: InsertClassType): Promise<ClassType>;
@@ -452,6 +454,24 @@ export class DatabaseStorage implements IStorage {
         classes: classesByCt.get(ct.id) ?? 0,
       }))
       .sort((a, b) => b.students - a.students || a.name.localeCompare(b.name, 'pt-BR'));
+  }
+
+  async getRetentionRows(academyId: string): Promise<{ id: string; name: string; createdAt: Date | null; lastPresenceAt: Date | null }[]> {
+    // Última presença por aluno ativo (só status 'presente' conta como "veio treinar").
+    // mapWith(attendance.date) decodifica o timestamp naive do Postgres como o
+    // Drizzle faz para a coluna (UTC) — new Date(string) parsearia como local.
+    return db
+      .select({
+        id: users.id,
+        name: users.name,
+        createdAt: users.createdAt,
+        lastPresenceAt: sql`max(${attendance.date}) filter (where ${attendance.status} = 'presente')`
+          .mapWith(attendance.date) as SQL<Date | null>,
+      })
+      .from(users)
+      .leftJoin(attendance, eq(attendance.studentId, users.id))
+      .where(and(eq(users.academyId, academyId), eq(users.role, 'ALUNO'), eq(users.active, true)))
+      .groupBy(users.id, users.name, users.createdAt);
   }
 
   async getClassType(id: string): Promise<ClassType | undefined> {

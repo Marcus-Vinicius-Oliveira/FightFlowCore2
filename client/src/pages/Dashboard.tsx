@@ -1,5 +1,6 @@
 import { DashboardInfo } from "@/components/DashboardInfo";
 import { DashboardStats } from "@/components/DashboardStats";
+import { DashboardRetention } from "@/components/DashboardRetention";
 import { DashboardCharts } from "@/components/DashboardCharts";
 
 export default function Dashboard() {
@@ -15,6 +16,8 @@ export default function Dashboard() {
       <DashboardInfo />
 
       <DashboardStats />
+
+      <DashboardRetention />
 
       <div>
         <h2 className="text-lg font-semibold mb-3">Tendências</h2>
