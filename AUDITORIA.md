@@ -600,3 +600,19 @@ Extensão natural do §33: o painel de sugestões de graduação ganha **toggle 
 - **Dashboard:** `DashboardGraduationSuggestions` renderiza `null` com `enabled: false` (e continua sumindo quando ligado sem candidatos).
 
 **Verificação:** typecheck limpo + **112/112 Vitest** + suíte Playwright **29 passed**. **e2e dirigido (fixture com candidato pronto + aluno sumido):** padrão = **os dois painéis ocultos** mesmo com dados no banco; ligar só as sugestões exibe o candidato ("Aluno Pronto VT · Branca → Azul") **sem ligar a retenção** (independência provada); desligar esconde de novo. Sem erros de console.
+
+---
+
+## 35. Entrega — Vencimento escolhido pelo aluno (5/15/25) + 1ª mensalidade na matrícula (08/07/2026)
+
+**Decisão de produto do fundador** (desenho refinado em conversa): o aluno escolhe entre 3 datas de vencimento alinhadas aos ciclos de salário; a 1ª mensalidade é paga na matrícula (valor cheio, mês corrido) — **sem pro-rata e sem "taxa de matrícula" disfarçada** —, e a transição para o dia escolhido usa a **regra dos 15 dias** (distorção máxima de ±15 dias, simétrica). Corrige de quebra o vazamento atual: quem entrava depois do vencimento treinava o resto do mês de graça.
+
+- **Schema:** `users.payment_due_day` (nullable; menu fechado **5/15/25** validado na API — dia livre recriaria o problema dos meses de 28–31 dias). Null = padrão da academia. Dev via ALTER; **produção: mesmo `db:push` pendente**.
+- **Motor ([recurring.ts](server/lib/recurring.ts), 42 testes):** vencimento efetivo = dia do aluno ?? dia da academia. **Âncora por (aluno, plano)** = vencimento mais recente do histórico; a próxima mensalidade só cai quando o vencimento do mês alcança `âncora + 1 mês − 15 dias` (`addMonthsClamped` para 31/jan→28/fev). Idempotência mensal blindando cobrança dupla no mês da matrícula; catch-up natural de meses perdidos; plano nunca cobrado (legado) mantém o comportamento antigo.
+- **1ª mensalidade na matrícula ([class-enrollment.service.ts](server/services/class-enrollment.service.ts)):** primeira matrícula num plano cria a mensalidade pendente (vence hoje, valor cheio; desconto individual só se for o único plano) **dentro da transação do grupo**, com nota "Primeira mensalidade (matrícula)". Toast anuncia "1ª mensalidade gerada no Financeiro"; rotas expõem `firstPaymentCreated`.
+- **UI:** seletor "Vencimento" na criação (AddStudentDialog, select nativo) e na ficha (padrão da academia / dia 5 / 15 / 25).
+- **Dois bugs pré-existentes corrigidos no caminho:** o GET /students (lista) omitia `customMonthlyAmount` — a ficha mostrava sempre "Valor do plano" mesmo com desconto; e o `viewStudent` era snapshot do clique — salvar edição na ficha não refletia na visualização até reabrir.
+
+**Verificação:** typecheck limpo + **124/124 Vitest** (12 novos no motor) + suíte Playwright **29 passed**. **Job real contra fixture** (`verify-job.tmp.ts`, removido): aluno com dia 25 e âncora 10/jun → cobrado em **25/07** (dia dele, não o 5 da academia); aluno com âncora deste mês → **não duplicado**; 2ª execução → 0; nenhuma cobrança espúria no resto do banco. **e2e Playwright (porta 5001):** criar aluno com "Dia 15" persiste; ficha edita para "Dia 25" e a view atualiza; matrícula gera 1ª mensalidade (pendente, valor cheio, vence hoje) com toast; rematrícula no mesmo plano **não duplica**; Financeiro lista; API rejeita dia fora do menu (400). Sem erros de console.
+
+**Backlog:** lembrete WhatsApp, multa/bloqueio por inadimplência, check-in QR, ranking de assiduidade, `maxCapacity`, borda do `overdueCutoff`; produção: `db:push` + `backfill:modalidades`.
