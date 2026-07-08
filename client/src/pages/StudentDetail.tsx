@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import {
   ArrowLeft, Edit2, Save, X, Plus, Trash2,
-  Mail, Phone, Calendar, User, ShieldCheck, ShieldOff,
+  Mail, Phone, Calendar, User, Users, Banknote, ShieldCheck, ShieldOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient as globalQueryClient } from "@/lib/queryClient";
 import { invalidateAfterStudentChange } from "@/lib/cache-helpers";
 import { BeltBar, isLightHex } from "@/components/BeltBadge";
+import { isMinor } from "@shared/schema";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,14 @@ interface Student {
   phone?: string;
   dateOfBirth?: string;
   belt?: string;
+  /** Responsável legal — obrigatório quando o aluno é menor de idade */
+  guardianName?: string | null;
+  guardianPhone?: string | null;
+  guardianRelationship?: string | null;
+  /** Desconto individual em centavos (bolsa/família); null/undefined = valor do plano */
+  customMonthlyAmount?: number | null;
+  /** Dia de vencimento escolhido pelo aluno (5/15/25); null = padrão da academia */
+  paymentDueDay?: number | null;
   active: boolean;
   createdAt: string;
 }
@@ -106,6 +115,10 @@ function formatPhone(phone?: string) {
 function formatDate(iso?: string) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+}
+
+function formatBRL(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 function genKey() {
@@ -540,10 +553,66 @@ export default function StudentDetail() {
                 className="w-full border border-input rounded-md px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground h-8"
               />
             ) : (
-              <p className="text-sm font-medium">
-                {student.dateOfBirth ? formatDate(student.dateOfBirth) : '—'}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium">
+                  {student.dateOfBirth ? formatDate(student.dateOfBirth) : '—'}
+                </p>
+                {isMinor(student.dateOfBirth) && (
+                  <Badge variant="outline" className="text-[11px] px-1.5 py-0">
+                    Menor de idade
+                  </Badge>
+                )}
+              </div>
             )}
+          </div>
+
+          {/* Responsável legal — obrigatório para menor de idade; edição fica
+              na ficha do aluno (StudentDetailDialog) */}
+          {(isMinor(student.dateOfBirth) || !!student.guardianName) && (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5" /> Responsável Legal
+              </Label>
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">
+                  {student.guardianName ?? '—'}
+                  {student.guardianRelationship ? (
+                    <span className="font-normal text-muted-foreground"> ({student.guardianRelationship})</span>
+                  ) : null}
+                </p>
+                {student.guardianPhone && (
+                  <p className="text-sm text-muted-foreground">{formatPhone(student.guardianPhone)}</p>
+                )}
+                {isMinor(student.dateOfBirth) && !student.guardianName && (
+                  <p className="text-xs text-amber-600 dark:text-amber-500">
+                    Menor de idade sem responsável cadastrado — complete pela ficha do aluno na lista.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Mensalidade — valor do plano ou desconto individual */}
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Banknote className="h-3.5 w-3.5" /> Mensalidade
+            </Label>
+            <p className="text-sm font-medium">
+              {student.customMonthlyAmount != null
+                ? `${formatBRL(student.customMonthlyAmount)} (desconto individual)`
+                : 'Valor do plano'}
+            </p>
+          </div>
+
+          {/* Vencimento da mensalidade — dia escolhido pelo aluno (5/15/25);
+              edição fica na ficha do aluno (StudentDetailDialog) */}
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5" /> Vencimento
+            </Label>
+            <p className="text-sm font-medium" data-testid="text-payment-due-day">
+              {student.paymentDueDay != null ? `Dia ${student.paymentDueDay}` : 'Padrão da academia'}
+            </p>
           </div>
 
           {/* Enrollment date (read-only always) */}
