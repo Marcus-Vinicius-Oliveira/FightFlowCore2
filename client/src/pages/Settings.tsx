@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Settings2, Plus, Pencil, Trash2, MoreHorizontal, Award, CheckCircle2, X, Users } from "lucide-react";
+import { Settings2, Plus, Pencil, Trash2, MoreHorizontal, Award, CheckCircle2, X, Users, LayoutDashboard } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { BeltBar, isLightHex } from "@/components/BeltBadge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -1000,6 +1001,72 @@ function ModalidadesTab() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+// ─── Painel Tab ───────────────────────────────────────────────────────────────
+
+/** Preferências de exibição do Dashboard. O painel de retenção é opt-in:
+ *  em academias com muitos alunos a lista pode poluir o painel. */
+function PainelTab() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data, isLoading } = useQuery<{ showRetention: boolean }>({
+    queryKey: ['/api/dashboard/preferences'],
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (showRetention: boolean) =>
+      apiRequest('PATCH', '/api/dashboard/preferences', { showRetention }).then(r => r.json()),
+    onSuccess: (updated: { showRetention: boolean }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/preferences'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/retention'] });
+      toast({
+        title: updated.showRetention
+          ? 'Painel de retenção ativado'
+          : 'Painel de retenção oculto',
+        description: updated.showRetention
+          ? 'O Dashboard passa a listar alunos sem treinar há 14/30+ dias.'
+          : 'O painel deixa de aparecer no Dashboard.',
+      });
+    },
+    onError: () => toast({ title: 'Erro ao salvar preferência', variant: 'destructive' }),
+  });
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h2 className="text-lg font-semibold">Painel</h2>
+        <p className="text-sm text-muted-foreground">
+          Escolha o que aparece no Dashboard da academia.
+        </p>
+      </div>
+
+      <Card>
+        <CardContent className="py-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="switch-retention" className="text-sm font-medium">
+                Retenção — presença em queda
+              </Label>
+              <p className="text-xs text-muted-foreground max-w-prose">
+                Lista alunos ativos sem treinar há 14+ dias (atenção) ou 30+ (risco),
+                com atalho para a ficha. Em academias com muitos alunos a lista pode
+                ficar longa — por isso vem desligado por padrão.
+              </p>
+            </div>
+            <Switch
+              id="switch-retention"
+              checked={data?.showRetention ?? false}
+              disabled={isLoading || updateMutation.isPending}
+              onCheckedChange={(checked) => updateMutation.mutate(checked)}
+              data-testid="switch-show-retention"
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   return (
     <div className="container max-w-4xl mx-auto py-6 space-y-6">
@@ -1017,10 +1084,18 @@ export default function SettingsPage() {
             <Award className="h-4 w-4 mr-2" />
             Modalidades & Graduações
           </TabsTrigger>
+          <TabsTrigger value="painel" data-testid="tab-painel">
+            <LayoutDashboard className="h-4 w-4 mr-2" />
+            Painel
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="modalidades" className="mt-6">
           <ModalidadesTab />
+        </TabsContent>
+
+        <TabsContent value="painel" className="mt-6">
+          <PainelTab />
         </TabsContent>
       </Tabs>
     </div>

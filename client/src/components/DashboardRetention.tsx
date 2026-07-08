@@ -15,10 +15,12 @@ interface RetentionStudent {
 }
 
 interface RetentionData {
-  attentionDays: number;
-  riskDays: number;
-  counts: { risk: number; attention: number; ok: number };
-  students: RetentionStudent[];
+  /** Opt-in por academia (Configurações → Painel); desligado, o resto não vem */
+  enabled: boolean;
+  attentionDays?: number;
+  riskDays?: number;
+  counts?: { risk: number; attention: number; ok: number };
+  students?: RetentionStudent[];
 }
 
 const MAX_VISIBLE = 8;
@@ -34,10 +36,12 @@ export function DashboardRetention() {
   if (isLoading) {
     return <Skeleton className="h-40 w-full rounded-xl" data-testid="retention-loading" />;
   }
-  if (!data) return null;
+  // Painel é opt-in (Configurações → Painel) — desligado por padrão
+  if (!data?.enabled) return null;
 
-  const visible = showAll ? data.students : data.students.slice(0, MAX_VISIBLE);
-  const hiddenCount = data.students.length - visible.length;
+  const students = data.students ?? [];
+  const visible = showAll ? students : students.slice(0, MAX_VISIBLE);
+  const hiddenCount = students.length - visible.length;
 
   return (
     <Card data-testid="retention-panel">
@@ -47,26 +51,26 @@ export function DashboardRetention() {
             <UserX className="h-4 w-4 text-muted-foreground" />
             Retenção — presença em queda
           </CardTitle>
-          {data.students.length > 0 && (
+          {students.length > 0 && (
             <div className="flex items-center gap-2 text-xs">
               <span
                 className="rounded-full bg-destructive/10 text-destructive font-semibold px-2.5 py-0.5"
                 data-testid="retention-count-risk"
               >
-                {data.counts.risk} em risco ({data.riskDays}+ dias)
+                {data.counts!.risk} em risco ({data.riskDays}+ dias)
               </span>
               <span
                 className="rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold px-2.5 py-0.5"
                 data-testid="retention-count-attention"
               >
-                {data.counts.attention} em atenção ({data.attentionDays}+)
+                {data.counts!.attention} em atenção ({data.attentionDays}+)
               </span>
             </div>
           )}
         </div>
       </CardHeader>
       <CardContent>
-        {data.students.length === 0 ? (
+        {students.length === 0 ? (
           <p className="text-sm text-muted-foreground" data-testid="retention-empty">
             Todos os alunos ativos treinaram nos últimos {data.attentionDays} dias. 👊
           </p>

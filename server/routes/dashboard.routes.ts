@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { z } from "zod";
 import { eq, and, gte, count, sum, sql } from "drizzle-orm";
 import { db } from "../db";
 import { users, payments, attendance, classes } from "@shared/schema";
@@ -272,7 +273,9 @@ router.get('/charts',
   }
 );
 
-// GET /api/dashboard/retention — alunos ativos sem presença há 14/30+ dias
+// GET /api/dashboard/retention — alunos ativos sem presença há 14/30+ dias.
+// Opt-in por academia (Configurações → Painel): desligado, devolve só
+// { enabled: false } sem rodar a query.
 router.get('/retention',
   authenticateToken,
   requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
@@ -281,10 +284,16 @@ router.get('/retention',
       const academyId = req.user!.academyId;
       if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório para este recurso' });
 
+      const academy = await storage.getAcademy(academyId);
+      if (!academy?.dashboardShowRetention) {
+        return res.json({ enabled: false });
+      }
+
       const rows = await storage.getRetentionRows(academyId);
       const { entries, counts } = classifyRetention(rows);
 
       res.json({
+        enabled: true,
         attentionDays: RETENTION_ATTENTION_DAYS,
         riskDays: RETENTION_RISK_DAYS,
         counts,
@@ -293,6 +302,47 @@ router.get('/retention',
       });
     } catch (error) {
       console.error('Dashboard retention error:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+// GET /api/dashboard/preferences — preferências de exibição do painel
+router.get('/preferences',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório para este recurso' });
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) return res.status(404).json({ error: 'Academia não encontrada' });
+      res.json({ showRetention: academy.dashboardShowRetention });
+    } catch (error) {
+      console.error('Dashboard preferences error:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+// PATCH /api/dashboard/preferences — só admin altera
+router.patch('/preferences',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório para este recurso' });
+
+      const { showRetention } = z.object({ showRetention: z.boolean() }).parse(req.body);
+      const updated = await storage.updateAcademy(academyId, { dashboardShowRetention: showRetention });
+      if (!updated) return res.status(404).json({ error: 'Academia não encontrada' });
+      res.json({ showRetention: updated.dashboardShowRetention });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Erro de validação', details: error.errors });
+      }
+      console.error('Update dashboard preferences error:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
