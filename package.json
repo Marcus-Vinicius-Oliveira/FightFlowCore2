@@ -20,7 +20,8 @@
     "seed:restore": "tsx --env-file=.env server/seeds-full-restore.ts",
     "seed:demo:clean": "tsx --env-file=.env server/seeds-demo-clean.ts",
     "seed:demo:reset": "npm run seed:demo:clean && npm run seed:restore",
-    "backfill:modalidades": "tsx --env-file=.env server/backfill-modality-enrollments.ts"
+    "backfill:modalidades": "tsx --env-file=.env server/backfill-modality-enrollments.ts",
+    "e2e:clean": "tsx --env-file=.env server/faxina-e2e.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
