@@ -20,9 +20,11 @@ interface GraduationSuggestion {
 }
 
 interface SuggestionsData {
-  minDaysInRank: number;
-  minPresences: number;
-  suggestions: GraduationSuggestion[];
+  /** Opt-in por academia (Configurações → Painel); desligado, o resto não vem */
+  enabled: boolean;
+  minDaysInRank?: number;
+  minPresences?: number;
+  suggestions?: GraduationSuggestion[];
 }
 
 const MAX_VISIBLE = 8;
@@ -39,11 +41,13 @@ export function DashboardGraduationSuggestions() {
   if (isLoading) {
     return <Skeleton className="h-32 w-full rounded-xl" data-testid="graduation-suggestions-loading" />;
   }
-  // Sem candidatos: painel some — sugestão vazia não é informação acionável
-  if (!data || data.suggestions.length === 0) return null;
+  // Opt-in (Configurações → Painel) e, mesmo ligado, sem candidatos o painel
+  // some — sugestão vazia não é informação acionável
+  const suggestions = data?.enabled ? data.suggestions ?? [] : [];
+  if (suggestions.length === 0) return null;
 
-  const visible = showAll ? data.suggestions : data.suggestions.slice(0, MAX_VISIBLE);
-  const hiddenCount = data.suggestions.length - visible.length;
+  const visible = showAll ? suggestions : suggestions.slice(0, MAX_VISIBLE);
+  const hiddenCount = suggestions.length - visible.length;
 
   return (
     <Card data-testid="graduation-suggestions-panel">
@@ -54,7 +58,7 @@ export function DashboardGraduationSuggestions() {
             Sugestões de graduação
           </CardTitle>
           <span className="text-xs text-muted-foreground">
-            {data.minPresences}+ presenças e {data.minDaysInRank}+ dias na faixa
+            {data!.minPresences}+ presenças e {data!.minDaysInRank}+ dias na faixa
           </span>
         </div>
       </CardHeader>

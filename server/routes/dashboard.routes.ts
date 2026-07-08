@@ -317,7 +317,10 @@ router.get('/preferences',
       if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório para este recurso' });
       const academy = await storage.getAcademy(academyId);
       if (!academy) return res.status(404).json({ error: 'Academia não encontrada' });
-      res.json({ showRetention: academy.dashboardShowRetention });
+      res.json({
+        showRetention: academy.dashboardShowRetention,
+        showGraduationSuggestions: academy.dashboardShowGraduationSuggestions,
+      });
     } catch (error) {
       console.error('Dashboard preferences error:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
@@ -334,10 +337,22 @@ router.patch('/preferences',
       const academyId = req.user!.academyId;
       if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório para este recurso' });
 
-      const { showRetention } = z.object({ showRetention: z.boolean() }).parse(req.body);
-      const updated = await storage.updateAcademy(academyId, { dashboardShowRetention: showRetention });
+      const prefs = z.object({
+        showRetention: z.boolean().optional(),
+        showGraduationSuggestions: z.boolean().optional(),
+      }).refine(p => p.showRetention !== undefined || p.showGraduationSuggestions !== undefined, {
+        message: 'Informe ao menos uma preferência',
+      }).parse(req.body);
+
+      const updated = await storage.updateAcademy(academyId, {
+        ...(prefs.showRetention !== undefined && { dashboardShowRetention: prefs.showRetention }),
+        ...(prefs.showGraduationSuggestions !== undefined && { dashboardShowGraduationSuggestions: prefs.showGraduationSuggestions }),
+      });
       if (!updated) return res.status(404).json({ error: 'Academia não encontrada' });
-      res.json({ showRetention: updated.dashboardShowRetention });
+      res.json({
+        showRetention: updated.dashboardShowRetention,
+        showGraduationSuggestions: updated.dashboardShowGraduationSuggestions,
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: 'Erro de validação', details: error.errors });
@@ -349,7 +364,8 @@ router.patch('/preferences',
 );
 
 // GET /api/dashboard/graduation-suggestions — candidatos a promoção por modalidade
-// (tempo na faixa + presenças desde a última promoção)
+// (tempo na faixa + presenças desde a última promoção). Opt-in por academia
+// (Configurações → Painel): desligado, devolve só { enabled: false } sem query.
 router.get('/graduation-suggestions',
   authenticateToken,
   requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
@@ -358,8 +374,14 @@ router.get('/graduation-suggestions',
       const academyId = req.user!.academyId;
       if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório para este recurso' });
 
+      const academy = await storage.getAcademy(academyId);
+      if (!academy?.dashboardShowGraduationSuggestions) {
+        return res.json({ enabled: false });
+      }
+
       const rows = await storage.getGraduationCandidateRows(academyId);
       res.json({
+        enabled: true,
         minDaysInRank: GRADUATION_MIN_DAYS_IN_RANK,
         minPresences: GRADUATION_MIN_PRESENCES,
         suggestions: suggestGraduations(rows),

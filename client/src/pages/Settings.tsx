@@ -1009,22 +1009,29 @@ function PainelTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery<{ showRetention: boolean }>({
+  interface DashboardPrefs {
+    showRetention: boolean;
+    showGraduationSuggestions: boolean;
+  }
+
+  const { data, isLoading } = useQuery<DashboardPrefs>({
     queryKey: ['/api/dashboard/preferences'],
   });
 
   const updateMutation = useMutation({
-    mutationFn: (showRetention: boolean) =>
-      apiRequest('PATCH', '/api/dashboard/preferences', { showRetention }).then(r => r.json()),
-    onSuccess: (updated: { showRetention: boolean }) => {
+    mutationFn: (prefs: Partial<DashboardPrefs>) =>
+      apiRequest('PATCH', '/api/dashboard/preferences', prefs).then(r => r.json() as Promise<DashboardPrefs>),
+    onSuccess: (updated, sent) => {
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/preferences'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/retention'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/graduation-suggestions'] });
+      const isRetention = sent.showRetention !== undefined;
+      const on = isRetention ? updated.showRetention : updated.showGraduationSuggestions;
+      const nome = isRetention ? 'retenção' : 'sugestões de graduação';
       toast({
-        title: updated.showRetention
-          ? 'Painel de retenção ativado'
-          : 'Painel de retenção oculto',
-        description: updated.showRetention
-          ? 'O Dashboard passa a listar alunos sem treinar há 14/30+ dias.'
+        title: on ? `Painel de ${nome} ativado` : `Painel de ${nome} oculto`,
+        description: on
+          ? 'O Dashboard passa a exibir o painel.'
           : 'O painel deixa de aparecer no Dashboard.',
       });
     },
@@ -1057,8 +1064,31 @@ function PainelTab() {
               id="switch-retention"
               checked={data?.showRetention ?? false}
               disabled={isLoading || updateMutation.isPending}
-              onCheckedChange={(checked) => updateMutation.mutate(checked)}
+              onCheckedChange={(checked) => updateMutation.mutate({ showRetention: checked })}
               data-testid="switch-show-retention"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="py-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="switch-graduation" className="text-sm font-medium">
+                Sugestões de graduação
+              </Label>
+              <p className="text-xs text-muted-foreground max-w-prose">
+                Sugere candidatos a promoção por modalidade (20+ presenças desde a
+                última graduação e 90+ dias na faixa atual), com atalho para a ficha.
+              </p>
+            </div>
+            <Switch
+              id="switch-graduation"
+              checked={data?.showGraduationSuggestions ?? false}
+              disabled={isLoading || updateMutation.isPending}
+              onCheckedChange={(checked) => updateMutation.mutate({ showGraduationSuggestions: checked })}
+              data-testid="switch-show-graduation"
             />
           </div>
         </CardContent>

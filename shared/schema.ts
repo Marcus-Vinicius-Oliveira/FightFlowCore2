@@ -16,8 +16,10 @@ export const academies = pgTable("academies", {
   description: text("description"),
   logo: text("logo"),
   paymentDueDay: integer("payment_due_day").notNull().default(5), // dia fixo de vencimento das mensalidades (1–28)
-  // Painel de retenção é opt-in: em academias com muitos alunos a lista pode poluir o dashboard
+  // Painéis de inteligência do dashboard são opt-in: em academias com muitos
+  // alunos as listas podem poluir o painel
   dashboardShowRetention: boolean("dashboard_show_retention").notNull().default(false),
+  dashboardShowGraduationSuggestions: boolean("dashboard_show_graduation_suggestions").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
 });
