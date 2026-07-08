@@ -557,3 +557,18 @@ Fecha o bug pré-existente do §18: pagamento registrado dia 06/07 aparecia "pag
 **Operacional:** faxina e2e virou script permanente (`npm run e2e:clean`, guardado por slug ~ e2e). **Pendências para o deploy em produção** (sem credencial local — rodar lá): `npm run db:push` e `npm run backfill:modalidades`.
 
 **Backlog:** lembrete WhatsApp, multa/bloqueio por inadimplência, `maxCapacity` vestigial, borda do `overdueCutoff`, ranking de assiduidade, check-in QR, sugestão de graduação.
+
+---
+
+## 32. Entrega — Sugestão de graduação no Dashboard (08/07/2026)
+
+Último item "só leitura de dados existentes" do roadmap da auditoria (§5.6): candidatos a promoção por modalidade, cruzando presenças acumuladas com tempo na faixa atual. É **sugestão, não automação** — o registro continua manual, pela ficha do aluno.
+
+- **Critério ([graduation-suggestion.ts](server/lib/graduation-suggestion.ts), 8 testes):** tempo na faixa ≥ **90 dias** E presenças na modalidade desde a promoção ≥ **20** E existe próxima faixa no sistema (quem está na última não é candidato). Constantes exportadas, não configuráveis por enquanto. Ordenação por prontidão (presenças, depois tempo de faixa).
+- **Storage `getGraduationCandidateRows`:** 1 query — `student_modality_ranks` × users ativos × class_types ativos × faixa atual, com subqueries correlacionadas para a **próxima faixa do mesmo sistema** (displayOrder) e a **contagem de presenças desde promoted_at** (só status `presente`, via join attendance→classes por modalidade).
+- **`GET /api/dashboard/graduation-suggestions`** devolve limiares + sugestões.
+- **Painel ([DashboardGraduationSuggestions](client/src/components/DashboardGraduationSuggestions.tsx)):** "Sugestões de graduação" entre a retenção e as tendências — linha com nome, modalidade, BeltBar da faixa atual → próxima, "N presenças · há D dias na faixa"; clique abre a ficha; sem candidatos o painel **não renderiza** (sugestão vazia não é informação acionável).
+
+**Verificação:** typecheck limpo + **112/112 Vitest** + suíte Playwright **29 passed**. **e2e dirigido (porta 5001, fixture verify-tmp com 4 cenários):** só o aluno pronto (100 dias, 25 presenças) é sugerido, com "Kickboxing VT · Branca → Azul · **25 presenças** · há 100 dias na faixa" — as 5 presenças **anteriores à promoção** e as 2 **faltas** não contam; recém-promovido (10 dias/30 presenças), poucas presenças (120 dias/3) e faixa máxima (Azul, sem próxima) ficam de fora; clique navega à ficha. Sem erros de console. Faxina pós-suíte: 15 academias e2e removidas, 0 restantes.
+
+**Backlog:** lembrete WhatsApp (aguarda decisão de provedor), multa/bloqueio por inadimplência, check-in QR, ranking de assiduidade, `maxCapacity` vestigial, borda do `overdueCutoff`; produção: `db:push` + `backfill:modalidades` no deploy.
