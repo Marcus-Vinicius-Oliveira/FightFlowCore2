@@ -41,7 +41,7 @@ export default function SuperAdminAcademias() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Gerenciar Academias</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Gerenciar Academias</h1>
           <p className="text-muted-foreground mt-2">
             Visualizar e gerenciar todas as academias cadastradas
           </p>
@@ -56,9 +56,9 @@ export default function SuperAdminAcademias() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap gap-4 items-start sm:items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Gerenciar Academias</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Gerenciar Academias</h1>
           <p className="text-muted-foreground mt-2">
             Visualizar e gerenciar todas as academias cadastradas na plataforma
           </p>

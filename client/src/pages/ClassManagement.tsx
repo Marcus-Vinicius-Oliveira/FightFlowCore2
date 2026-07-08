@@ -593,9 +593,11 @@ export default function ClassManagement() {
 
   return (
     <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
+      {/* flex-wrap: no mobile os botões quebram para baixo do título em vez
+          de espremê-lo em uma palavra por linha */}
+      <div className="flex flex-wrap gap-4 items-start sm:items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Gestão de Aulas</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Gestão de Aulas</h1>
           <p className="text-muted-foreground">
             Gerencie a grade horária e organize as aulas da academia
           </p>

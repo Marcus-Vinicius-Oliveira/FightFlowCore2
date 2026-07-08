@@ -109,7 +109,7 @@ export default function CreatePlan() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <Button
           variant="ghost"
           size="sm"
@@ -120,7 +120,7 @@ export default function CreatePlan() {
           Voltar
         </Button>
         <div>
-          <h1 className="text-3xl font-bold">Criar Novo Plano</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Criar Novo Plano</h1>
           <p className="text-muted-foreground mt-1">
             Configure um novo plano de matrícula para sua academia
           </p>

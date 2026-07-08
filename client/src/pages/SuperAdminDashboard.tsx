@@ -31,7 +31,7 @@ export default function SuperAdminDashboard() {
       <div className="max-w-none w-full space-y-8">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold">Painel Super Admin</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Painel Super Admin</h1>
           <p className="text-muted-foreground mt-2">
             Gerenciamento global da plataforma Fight Club App
           </p>
@@ -89,9 +89,9 @@ export default function SuperAdminDashboard() {
   return (
     <div className="max-w-none w-full space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap gap-4 items-start sm:items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Painel Super Admin</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Painel Super Admin</h1>
           <p className="text-muted-foreground mt-2">
             Gerenciamento global da plataforma Fight Club App
           </p>

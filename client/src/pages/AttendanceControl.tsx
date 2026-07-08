@@ -230,8 +230,8 @@ export default function AttendanceControl() {
 
   return (
     <div className="container mx-auto py-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <div className="flex flex-wrap gap-4 items-start sm:items-center justify-between">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <Button
             variant="ghost"
             onClick={() => setLocation('/dashboard/grade')}
@@ -241,7 +241,7 @@ export default function AttendanceControl() {
             Voltar à Grade
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">Controle de Presença</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">Controle de Presença</h1>
             <p className="text-muted-foreground">
               {attendanceData?.className} - {attendanceData?.instructor}
             </p>

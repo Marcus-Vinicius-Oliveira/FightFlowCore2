@@ -72,9 +72,9 @@ export default function PlanManagement() {
   return (
     <div className="max-w-none w-full space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap gap-4 items-start sm:items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Planos e Matrículas</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Planos e Matrículas</h1>
           <p className="text-muted-foreground mt-2">
             Gerencie os planos de matrícula oferecidos pela sua academia
           </p>
