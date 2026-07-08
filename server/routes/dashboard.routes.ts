@@ -6,6 +6,7 @@ import { storage } from "../storage";
 import { authenticateToken, requireRole, type AuthenticatedRequest } from "../auth";
 import { graduationRanks, graduationSystems, studentModalityRanks, classTypes } from "@shared/schema";
 import { classifyRetention, RETENTION_ATTENTION_DAYS, RETENTION_RISK_DAYS } from "../lib/retention";
+import { suggestGraduations, GRADUATION_MIN_DAYS_IN_RANK, GRADUATION_MIN_PRESENCES } from "../lib/graduation-suggestion";
 
 const router = Router();
 
@@ -292,6 +293,29 @@ router.get('/retention',
       });
     } catch (error) {
       console.error('Dashboard retention error:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+// GET /api/dashboard/graduation-suggestions — candidatos a promoção por modalidade
+// (tempo na faixa + presenças desde a última promoção)
+router.get('/graduation-suggestions',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório para este recurso' });
+
+      const rows = await storage.getGraduationCandidateRows(academyId);
+      res.json({
+        minDaysInRank: GRADUATION_MIN_DAYS_IN_RANK,
+        minPresences: GRADUATION_MIN_PRESENCES,
+        suggestions: suggestGraduations(rows),
+      });
+    } catch (error) {
+      console.error('Dashboard graduation suggestions error:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }

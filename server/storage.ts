@@ -109,6 +109,12 @@ export interface IStorage {
   getModalityEnrollmentSummary(academyId: string): Promise<{ classTypeId: string; name: string; students: number; classes: number }[]>;
   /** Alunos ativos com a data da última presença — insumo do relatório de retenção. */
   getRetentionRows(academyId: string): Promise<{ id: string; name: string; createdAt: Date | null; lastPresenceAt: Date | null }[]>;
+  /** Faixa atual + próxima faixa + presenças desde a promoção — insumo da sugestão de graduação. */
+  getGraduationCandidateRows(academyId: string): Promise<{
+    studentId: string; studentName: string; classTypeId: string; classTypeName: string;
+    rankName: string; rankColor: string | null; nextRankName: string | null;
+    promotedAt: Date | null; presencesSincePromotion: number;
+  }[]>;
   getClassType(id: string): Promise<ClassType | undefined>;
   getClassTypeByName(academyId: string, name: string): Promise<ClassType | undefined>;
   createClassType(classType: InsertClassType): Promise<ClassType>;
@@ -472,6 +478,45 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(attendance, eq(attendance.studentId, users.id))
       .where(and(eq(users.academyId, academyId), eq(users.role, 'ALUNO'), eq(users.active, true)))
       .groupBy(users.id, users.name, users.createdAt);
+  }
+
+  async getGraduationCandidateRows(academyId: string): Promise<{
+    studentId: string; studentName: string; classTypeId: string; classTypeName: string;
+    rankName: string; rankColor: string | null; nextRankName: string | null;
+    promotedAt: Date | null; presencesSincePromotion: number;
+  }[]> {
+    // Uma linha por (aluno ativo, modalidade com rank). Subqueries correlacionadas:
+    // próxima faixa do MESMO sistema da faixa atual; presenças na modalidade
+    // desde a promoção (só status 'presente').
+    return db
+      .select({
+        studentId: studentModalityRanks.studentId,
+        studentName: users.name,
+        classTypeId: studentModalityRanks.classTypeId,
+        classTypeName: classTypes.name,
+        rankName: graduationRanks.name,
+        rankColor: graduationRanks.colorClass,
+        promotedAt: studentModalityRanks.promotedAt,
+        nextRankName: sql<string | null>`(
+          select gr2.name from graduation_ranks gr2
+          where gr2.system_id = ${graduationRanks.systemId}
+            and gr2.display_order > ${graduationRanks.displayOrder}
+          order by gr2.display_order limit 1
+        )`,
+        presencesSincePromotion: sql`(
+          select count(*) from attendance a
+          join classes c on c.id = a.class_id
+          where a.student_id = ${studentModalityRanks.studentId}
+            and c.class_type_id = ${studentModalityRanks.classTypeId}
+            and a.status = 'presente'
+            and a.date >= ${studentModalityRanks.promotedAt}
+        )`.mapWith(Number),
+      })
+      .from(studentModalityRanks)
+      .innerJoin(users, and(eq(users.id, studentModalityRanks.studentId), eq(users.active, true), eq(users.role, 'ALUNO')))
+      .innerJoin(classTypes, and(eq(classTypes.id, studentModalityRanks.classTypeId), eq(classTypes.active, true)))
+      .innerJoin(graduationRanks, eq(graduationRanks.id, studentModalityRanks.rankId))
+      .where(eq(studentModalityRanks.academyId, academyId));
   }
 
   async getClassType(id: string): Promise<ClassType | undefined> {
