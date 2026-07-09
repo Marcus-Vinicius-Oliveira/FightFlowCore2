@@ -20,6 +20,9 @@ export const academies = pgTable("academies", {
   // alunos as listas podem poluir o painel
   dashboardShowRetention: boolean("dashboard_show_retention").notNull().default(false),
   dashboardShowGraduationSuggestions: boolean("dashboard_show_graduation_suggestions").notNull().default(false),
+  // Taxa de presença é opt-out (default true): o card sempre existiu no
+  // dashboard — desligar é escolha, não surpresa
+  dashboardShowAttendanceRate: boolean("dashboard_show_attendance_rate").notNull().default(true),
   // Versão do QR fixo de check-in — "Gerar novo código" incrementa e invalida os impressos antigos
   checkinTokenVersion: integer("checkin_token_version").notNull().default(1),
   createdAt: timestamp("created_at").defaultNow(),

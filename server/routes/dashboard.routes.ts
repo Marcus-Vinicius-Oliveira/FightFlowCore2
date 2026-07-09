@@ -342,6 +342,7 @@ router.get('/preferences',
       res.json({
         showRetention: academy.dashboardShowRetention,
         showGraduationSuggestions: academy.dashboardShowGraduationSuggestions,
+        showAttendanceRate: academy.dashboardShowAttendanceRate,
       });
     } catch (error) {
       console.error('Dashboard preferences error:', error);
@@ -362,18 +363,24 @@ router.patch('/preferences',
       const prefs = z.object({
         showRetention: z.boolean().optional(),
         showGraduationSuggestions: z.boolean().optional(),
-      }).refine(p => p.showRetention !== undefined || p.showGraduationSuggestions !== undefined, {
-        message: 'Informe ao menos uma preferência',
-      }).parse(req.body);
+        showAttendanceRate: z.boolean().optional(),
+      }).refine(
+        p => p.showRetention !== undefined
+          || p.showGraduationSuggestions !== undefined
+          || p.showAttendanceRate !== undefined,
+        { message: 'Informe ao menos uma preferência' },
+      ).parse(req.body);
 
       const updated = await storage.updateAcademy(academyId, {
         ...(prefs.showRetention !== undefined && { dashboardShowRetention: prefs.showRetention }),
         ...(prefs.showGraduationSuggestions !== undefined && { dashboardShowGraduationSuggestions: prefs.showGraduationSuggestions }),
+        ...(prefs.showAttendanceRate !== undefined && { dashboardShowAttendanceRate: prefs.showAttendanceRate }),
       });
       if (!updated) return res.status(404).json({ error: 'Academia não encontrada' });
       res.json({
         showRetention: updated.dashboardShowRetention,
         showGraduationSuggestions: updated.dashboardShowGraduationSuggestions,
+        showAttendanceRate: updated.dashboardShowAttendanceRate,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {

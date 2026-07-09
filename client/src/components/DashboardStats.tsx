@@ -127,6 +127,13 @@ export function DashboardStats() {
     queryKey: ['/api/dashboard/stats'],
   });
 
+  // Preferências de exibição do painel (aba Painel das Configurações).
+  // Default true: o card de presença é opt-out, some só por escolha.
+  const { data: preferences } = useQuery<{ showAttendanceRate: boolean }>({
+    queryKey: ['/api/dashboard/preferences'],
+  });
+  const showAttendanceRate = preferences?.showAttendanceRate ?? true;
+
   const loading = infoLoading || statsLoading;
 
   const totalInstructors = dashboardInfo?.statistics?.totalInstructors ?? 0;
@@ -210,7 +217,7 @@ export function DashboardStats() {
         : { value: "Sem inadimplência", isPositive: true },
       href: "/dashboard/financeiro",
     },
-    {
+    ...(showAttendanceRate ? [{
       title: "Taxa de Presença",
       value: loading ? "..." : (attendanceRate != null ? `${attendanceRate}%` : "Sem dados"),
       description: attendanceTotalRecords > 0
@@ -222,7 +229,7 @@ export function DashboardStats() {
         ? <CalendarOff className="h-9 w-9" />
         : undefined,
       href: "/dashboard/presenca",
-    },
+    } satisfies StatCardProps] : []),
   ];
 
   return (
@@ -234,8 +241,9 @@ export function DashboardStats() {
         ))}
       </div>
 
-      {/* 2 cards largos: empilhados no mobile, lado a lado a partir de sm */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* Cards largos: empilhados no mobile; lado a lado a partir de sm
+          quando há mais de um (com presença oculta, o financeiro ocupa a linha) */}
+      <div className={`grid grid-cols-1 gap-3 ${bottomCards.length > 1 ? 'sm:grid-cols-2' : ''}`}>
         {bottomCards.map((stat, i) => (
           <StatCard key={i} {...stat} />
         ))}

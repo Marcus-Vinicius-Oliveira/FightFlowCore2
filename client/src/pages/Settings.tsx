@@ -1012,11 +1012,18 @@ function PainelTab() {
   interface DashboardPrefs {
     showRetention: boolean;
     showGraduationSuggestions: boolean;
+    showAttendanceRate: boolean;
   }
 
   const { data, isLoading } = useQuery<DashboardPrefs>({
     queryKey: ['/api/dashboard/preferences'],
   });
+
+  const PREF_NAMES: Record<keyof DashboardPrefs, string> = {
+    showRetention: 'retenção',
+    showGraduationSuggestions: 'sugestões de graduação',
+    showAttendanceRate: 'taxa de presença',
+  };
 
   const updateMutation = useMutation({
     mutationFn: (prefs: Partial<DashboardPrefs>) =>
@@ -1025,9 +1032,9 @@ function PainelTab() {
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/preferences'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/retention'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/graduation-suggestions'] });
-      const isRetention = sent.showRetention !== undefined;
-      const on = isRetention ? updated.showRetention : updated.showGraduationSuggestions;
-      const nome = isRetention ? 'retenção' : 'sugestões de graduação';
+      const key = (Object.keys(sent) as (keyof DashboardPrefs)[]).find(k => sent[k] !== undefined)!;
+      const on = updated[key];
+      const nome = PREF_NAMES[key];
       toast({
         title: on ? `Painel de ${nome} ativado` : `Painel de ${nome} oculto`,
         description: on
@@ -1089,6 +1096,30 @@ function PainelTab() {
               disabled={isLoading || updateMutation.isPending}
               onCheckedChange={(checked) => updateMutation.mutate({ showGraduationSuggestions: checked })}
               data-testid="switch-show-graduation"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="py-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="switch-attendance-rate" className="text-sm font-medium">
+                Taxa de presença
+              </Label>
+              <p className="text-xs text-muted-foreground max-w-prose">
+                Card com a taxa de presença dos últimos 30 dias e a tendência
+                vs. o período anterior, com atalho para a página de Presença.
+                Vem ligado por padrão.
+              </p>
+            </div>
+            <Switch
+              id="switch-attendance-rate"
+              checked={data?.showAttendanceRate ?? true}
+              disabled={isLoading || updateMutation.isPending}
+              onCheckedChange={(checked) => updateMutation.mutate({ showAttendanceRate: checked })}
+              data-testid="switch-show-attendance-rate"
             />
           </div>
         </CardContent>
