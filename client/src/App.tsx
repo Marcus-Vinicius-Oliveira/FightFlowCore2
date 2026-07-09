@@ -24,6 +24,8 @@ import InstructorManagement from "@/pages/InstructorManagement";
 import ClassManagement from "@/pages/ClassManagement";
 import WeeklySchedule from "@/pages/WeeklySchedule";
 import AttendanceControl from "@/pages/AttendanceControl";
+import CheckinQR from "@/pages/CheckinQR";
+import PortalCheckin from "@/pages/PortalCheckin";
 import PlanManagement from "@/pages/PlanManagement";
 import CreatePlan from "@/pages/CreatePlan";
 import FinancialControl from "@/pages/FinancialControl";
@@ -60,6 +62,11 @@ function Router() {
       <Route path="/portal/horarios">
         <ProtectedRoute requireRole={['ALUNO']}>
           <PortalSchedule />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/portal/checkin">
+        <ProtectedRoute requireRole={['ALUNO']}>
+          <PortalCheckin />
         </ProtectedRoute>
       </Route>
       
@@ -122,6 +129,11 @@ function Router() {
       <Route path="/dashboard/presenca/:classId">
         <ProtectedRoute requireRole={['ADMIN_ACADEMIA', 'PROFESSOR']}>
           <AttendanceControl />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/dashboard/checkin-qr">
+        <ProtectedRoute requireRole={['ADMIN_ACADEMIA', 'PROFESSOR']}>
+          <CheckinQR />
         </ProtectedRoute>
       </Route>
       

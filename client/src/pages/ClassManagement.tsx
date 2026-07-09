@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Edit, MoreHorizontal, Trash2, Eye, Clock, Calendar, FileDown, ChevronDown, X, Users } from "lucide-react";
+import { Plus, Edit, MoreHorizontal, Trash2, Eye, Clock, Calendar, FileDown, ChevronDown, X, Users, QrCode } from "lucide-react";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
@@ -602,7 +603,13 @@ export default function ClassManagement() {
             Gerencie a grade horária e organize as aulas da academia
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" data-testid="button-checkin-qr">
+            <Link href="/dashboard/checkin-qr">
+              <QrCode className="h-4 w-4 mr-2" />
+              QR de Check-in
+            </Link>
+          </Button>
           <Button
             variant="outline"
             onClick={handleExportPDF}
