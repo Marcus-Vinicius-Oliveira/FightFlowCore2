@@ -32,6 +32,7 @@ interface DashboardStats {
   };
   attendance: {
     rateThisMonth: number | null;
+    ratePreviousMonth: number | null;
     totalRecords: number;
   };
   classes: {
@@ -137,7 +138,23 @@ export function DashboardStats() {
   const overdueCount = stats?.financial.overdueCount ?? 0;
   const overdueAmount = stats?.financial.overdueAmount ?? 0;
   const attendanceRate = stats?.attendance.rateThisMonth;
+  const attendancePrevRate = stats?.attendance.ratePreviousMonth;
   const attendanceTotalRecords = stats?.attendance.totalRecords ?? 0;
+
+  // Tendência da presença: comparação com os 30 dias anteriores quando há
+  // dado; senão recua para o selo saudável/baixa (corte em 70%).
+  let attendanceTrend: { value: string; isPositive: boolean } | undefined;
+  if (attendanceRate != null && attendancePrevRate != null) {
+    const delta = attendanceRate - attendancePrevRate;
+    attendanceTrend = delta === 0
+      ? { value: "Estável vs. 30 dias antes", isPositive: true }
+      : { value: `${delta > 0 ? '+' : ''}${delta}pp vs. 30 dias antes`, isPositive: delta > 0 };
+  } else if (attendanceRate != null) {
+    attendanceTrend = {
+      value: attendanceRate >= 70 ? "Frequência saudável" : "Frequência baixa",
+      isPositive: attendanceRate >= 70,
+    };
+  }
   const activeClasses = stats?.classes.activeTotal ?? 0;
 
   // 4 cards compactos: ficam em linha única a partir de md
@@ -200,9 +217,7 @@ export function DashboardStats() {
         ? `Últimos 30 dias (${attendanceTotalRecords} registros)`
         : "Nenhum registro ainda",
       icon: <Clock className="h-4 w-4" />,
-      trend: attendanceRate != null
-        ? { value: attendanceRate >= 70 ? "Frequência saudável" : "Frequência baixa", isPositive: attendanceRate >= 70 }
-        : undefined,
+      trend: attendanceTrend,
       emptyIcon: !loading && attendanceRate == null
         ? <CalendarOff className="h-9 w-9" />
         : undefined,

@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
-import { eq, and, gte, count, sum, sql } from "drizzle-orm";
+import { eq, and, gte, lt, count, sum, sql } from "drizzle-orm";
 import { db } from "../db";
 import { users, payments, attendance, classes } from "@shared/schema";
 import { storage } from "../storage";
 import { authenticateToken, requireRole, type AuthenticatedRequest } from "../auth";
-import { graduationRanks, graduationSystems, studentModalityRanks, classTypes } from "@shared/schema";
+import { graduationRanks, graduationSystems, studentModalityRanks, studentModalityEnrollments, classTypes } from "@shared/schema";
 import { classifyRetention, RETENTION_ATTENTION_DAYS, RETENTION_RISK_DAYS } from "../lib/retention";
 import { suggestGraduations, GRADUATION_MIN_DAYS_IN_RANK, GRADUATION_MIN_PRESENCES } from "../lib/graduation-suggestion";
 
@@ -63,6 +63,7 @@ router.get('/stats',
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
 
       const [
         totalStudents,
@@ -73,6 +74,8 @@ router.get('/stats',
         attendanceTotal,
         attendancePresent,
         activeClasses,
+        attendancePrevTotal,
+        attendancePrevPresent,
       ] = await Promise.all([
         db.select({ count: count() }).from(users)
           .where(and(eq(users.academyId, academyId), eq(users.role, 'ALUNO'))),
@@ -107,11 +110,29 @@ router.get('/stats',
 
         db.select({ count: count() }).from(classes)
           .where(and(eq(classes.academyId, academyId), eq(classes.active, true))),
+
+        // Janela anterior (60→30 dias atrás) — dá contexto de tendência à taxa
+        db.select({ count: count() }).from(attendance)
+          .where(and(
+            eq(attendance.academyId, academyId),
+            gte(attendance.date, sixtyDaysAgo),
+            lt(attendance.date, thirtyDaysAgo),
+          )),
+        db.select({ count: count() }).from(attendance)
+          .where(and(
+            eq(attendance.academyId, academyId),
+            gte(attendance.date, sixtyDaysAgo),
+            lt(attendance.date, thirtyDaysAgo),
+            eq(attendance.status, 'presente'),
+          )),
       ]);
 
       const totalAtt = Number(attendanceTotal[0]?.count ?? 0);
       const presentAtt = Number(attendancePresent[0]?.count ?? 0);
       const attendanceRate = totalAtt > 0 ? Math.round((presentAtt / totalAtt) * 100) : null;
+      const prevTotalAtt = Number(attendancePrevTotal[0]?.count ?? 0);
+      const prevPresentAtt = Number(attendancePrevPresent[0]?.count ?? 0);
+      const attendancePrevRate = prevTotalAtt > 0 ? Math.round((prevPresentAtt / prevTotalAtt) * 100) : null;
 
       res.json({
         students: {
@@ -126,6 +147,7 @@ router.get('/stats',
         },
         attendance: {
           rateThisMonth: attendanceRate,
+          ratePreviousMonth: attendancePrevRate,
           totalRecords: totalAtt,
         },
         classes: {
@@ -388,6 +410,171 @@ router.get('/graduation-suggestions',
       });
     } catch (error) {
       console.error('Dashboard graduation suggestions error:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+// ─── Visão de presença (/dashboard/presenca) ─────────────────────────────────
+
+export interface AttendanceBucket {
+  start: string; // yyyy-MM-dd (local)
+  total: number;
+  present: number;
+  rate: number | null;
+}
+
+function localDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Agrupa registros de presença em baldes de tempo contíguos cobrindo
+ * [start, end): diários para períodos curtos, semanais para longos.
+ * Baldes sem registros entram zerados — o gráfico mostra o buraco em vez
+ * de esconder a semana sem chamada.
+ */
+export function bucketAttendance(
+  records: { date: Date; status: string }[],
+  start: Date,
+  end: Date,
+  unit: 'day' | 'week',
+): AttendanceBucket[] {
+  const stepDays = unit === 'day' ? 1 : 7;
+  const buckets: (AttendanceBucket & { startMs: number; endMs: number })[] = [];
+
+  const cursor = new Date(start);
+  cursor.setHours(0, 0, 0, 0);
+  while (cursor < end) {
+    const bucketEnd = new Date(cursor.getTime() + stepDays * 24 * 60 * 60 * 1000);
+    buckets.push({
+      start: localDateStr(cursor),
+      startMs: cursor.getTime(),
+      endMs: Math.min(bucketEnd.getTime(), end.getTime()),
+      total: 0,
+      present: 0,
+      rate: null,
+    });
+    cursor.setTime(bucketEnd.getTime());
+  }
+
+  for (const r of records) {
+    const t = r.date.getTime();
+    const bucket = buckets.find(b => t >= b.startMs && t < b.endMs);
+    if (!bucket) continue;
+    bucket.total++;
+    if (r.status === 'presente') bucket.present++;
+  }
+
+  return buckets.map(({ startMs: _s, endMs: _e, ...b }) => ({
+    ...b,
+    rate: b.total > 0 ? Math.round((b.present / b.total) * 100) : null,
+  }));
+}
+
+// GET /api/dashboard/attendance-overview?days=7|30|90
+router.get('/attendance-overview',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA', 'PROFESSOR']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) return res.status(403).json({ error: 'Academy ID obrigatório para este recurso' });
+
+      const days = z.coerce.number().refine(d => [7, 30, 90].includes(d)).catch(30).parse(req.query.days);
+      const now = new Date();
+      const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+      const prevStart = new Date(now.getTime() - 2 * days * 24 * 60 * 60 * 1000);
+
+      const [records, prevCounts, students, lastPresences, modalityRows, classTypeRows] = await Promise.all([
+        // Registros do período atual — agregações feitas em memória (uma
+        // academia gera centenas de registros/mês, não milhões)
+        db.select({ studentId: attendance.studentId, date: attendance.date, status: attendance.status })
+          .from(attendance)
+          .where(and(eq(attendance.academyId, academyId), gte(attendance.date, start))),
+
+        // Período anterior: só os totais, para a comparação
+        db.select({
+          total: count(),
+          present: count(sql`case when ${attendance.status} = 'presente' then 1 end`),
+        })
+          .from(attendance)
+          .where(and(
+            eq(attendance.academyId, academyId),
+            gte(attendance.date, prevStart),
+            lt(attendance.date, start),
+          )),
+
+        // Todos os alunos ativos — quem não tem registro algum é justamente
+        // o caso de risco que a página existe para mostrar
+        db.select({ id: users.id, name: users.name })
+          .from(users)
+          .where(and(eq(users.academyId, academyId), eq(users.role, 'ALUNO'), eq(users.active, true))),
+
+        // Última presença de todos os tempos (não só do período) — alimenta
+        // o "sem presença há X dias"
+        db.select({ studentId: attendance.studentId, last: sql<string>`max(${attendance.date})` })
+          .from(attendance)
+          .where(and(eq(attendance.academyId, academyId), eq(attendance.status, 'presente')))
+          .groupBy(attendance.studentId),
+
+        db.select({
+          studentId: studentModalityEnrollments.studentId,
+          classTypeId: studentModalityEnrollments.classTypeId,
+        })
+          .from(studentModalityEnrollments)
+          .where(and(
+            eq(studentModalityEnrollments.academyId, academyId),
+            eq(studentModalityEnrollments.active, true),
+          )),
+
+        db.select({ id: classTypes.id, name: classTypes.name })
+          .from(classTypes)
+          .where(and(eq(classTypes.academyId, academyId), eq(classTypes.active, true))),
+      ]);
+
+      const total = records.length;
+      const present = records.filter(r => r.status === 'presente').length;
+      const prevTotal = Number(prevCounts[0]?.total ?? 0);
+      const prevPresent = Number(prevCounts[0]?.present ?? 0);
+
+      const presencesByStudent = new Map<string, number>();
+      for (const r of records) {
+        if (r.status !== 'presente') continue;
+        presencesByStudent.set(r.studentId, (presencesByStudent.get(r.studentId) ?? 0) + 1);
+      }
+
+      const lastByStudent = new Map(lastPresences.map(r => [r.studentId, new Date(r.last)]));
+      const modalitiesByStudent = new Map<string, string[]>();
+      for (const m of modalityRows) {
+        const list = modalitiesByStudent.get(m.studentId) ?? [];
+        list.push(m.classTypeId);
+        modalitiesByStudent.set(m.studentId, list);
+      }
+
+      res.json({
+        days,
+        rate: total > 0 ? Math.round((present / total) * 100) : null,
+        totalRecords: total,
+        previousRate: prevTotal > 0 ? Math.round((prevPresent / prevTotal) * 100) : null,
+        buckets: bucketAttendance(records, start, now, days === 7 ? 'day' : 'week'),
+        classTypes: classTypeRows,
+        students: students.map(s => {
+          const last = lastByStudent.get(s.id) ?? null;
+          return {
+            id: s.id,
+            name: s.name,
+            presences: presencesByStudent.get(s.id) ?? 0,
+            lastPresence: last ? last.toISOString() : null,
+            daysSinceLast: last
+              ? Math.floor((now.getTime() - last.getTime()) / (24 * 60 * 60 * 1000))
+              : null,
+            classTypeIds: modalitiesByStudent.get(s.id) ?? [],
+          };
+        }),
+      });
+    } catch (error) {
+      console.error('Dashboard attendance overview error:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }

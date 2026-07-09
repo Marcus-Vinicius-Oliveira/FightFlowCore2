@@ -24,6 +24,7 @@ import InstructorManagement from "@/pages/InstructorManagement";
 import ClassManagement from "@/pages/ClassManagement";
 import WeeklySchedule from "@/pages/WeeklySchedule";
 import AttendanceControl from "@/pages/AttendanceControl";
+import AttendanceOverview from "@/pages/AttendanceOverview";
 import CheckinQR from "@/pages/CheckinQR";
 import PortalCheckin from "@/pages/PortalCheckin";
 import PlanManagement from "@/pages/PlanManagement";
@@ -124,6 +125,11 @@ function Router() {
       <Route path="/settings">
         <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
           <SettingsPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/dashboard/presenca">
+        <ProtectedRoute requireRole={['ADMIN_ACADEMIA', 'PROFESSOR']}>
+          <AttendanceOverview />
         </ProtectedRoute>
       </Route>
       <Route path="/dashboard/presenca/:classId">
