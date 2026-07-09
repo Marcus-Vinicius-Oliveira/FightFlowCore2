@@ -1013,6 +1013,7 @@ function PainelTab() {
     showRetention: boolean;
     showGraduationSuggestions: boolean;
     showAttendanceRate: boolean;
+    showGraduationChart: boolean;
   }
 
   const { data, isLoading } = useQuery<DashboardPrefs>({
@@ -1023,6 +1024,7 @@ function PainelTab() {
     showRetention: 'retenção',
     showGraduationSuggestions: 'sugestões de graduação',
     showAttendanceRate: 'taxa de presença',
+    showGraduationChart: 'graduações por modalidade',
   };
 
   const updateMutation = useMutation({
@@ -1120,6 +1122,29 @@ function PainelTab() {
               disabled={isLoading || updateMutation.isPending}
               onCheckedChange={(checked) => updateMutation.mutate({ showAttendanceRate: checked })}
               data-testid="switch-show-attendance-rate"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="py-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="switch-graduation-chart" className="text-sm font-medium">
+                Graduações por modalidade
+              </Label>
+              <p className="text-xs text-muted-foreground max-w-prose">
+                Gráfico com a distribuição de faixas dos alunos em cada modalidade,
+                com atalho para a lista filtrada por faixa. Vem ligado por padrão.
+              </p>
+            </div>
+            <Switch
+              id="switch-graduation-chart"
+              checked={data?.showGraduationChart ?? true}
+              disabled={isLoading || updateMutation.isPending}
+              onCheckedChange={(checked) => updateMutation.mutate({ showGraduationChart: checked })}
+              data-testid="switch-show-graduation-chart"
             />
           </div>
         </CardContent>

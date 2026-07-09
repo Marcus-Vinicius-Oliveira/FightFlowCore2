@@ -219,6 +219,13 @@ export function DashboardCharts() {
     queryKey: ['/api/dashboard/charts'],
   });
 
+  // Preferência da aba Painel das Configurações — o gráfico de graduações é
+  // opt-out (default true): some só por escolha do admin.
+  const { data: preferences } = useQuery<{ showGraduationChart: boolean }>({
+    queryKey: ['/api/dashboard/preferences'],
+  });
+  const showGraduationChart = preferences?.showGraduationChart ?? true;
+
   const growth = (data?.studentGrowth ?? []).map(d => ({ ...d, month: formatMonth(d.month) }));
   const revenue = (data?.monthlyRevenue ?? []).map(d => ({ ...d, month: formatMonth(d.month) }));
   const modalityRaw = data?.modalityRankDistribution ?? [];
@@ -382,8 +389,8 @@ export function DashboardCharts() {
         </CardContent>
       </Card>
 
-      {/* Graduações por Modalidade */}
-      {hasModality && (
+      {/* Graduações por Modalidade — oculto quando a preferência desliga */}
+      {hasModality && showGraduationChart && (
         // self-start: impede que o grid force o card a esticar na altura de vizinhos
         <Card ref={graduationCardRef} className="col-span-1 md:col-span-2 min-w-0 self-start scroll-mt-4">
           <CardHeader className="pb-3">

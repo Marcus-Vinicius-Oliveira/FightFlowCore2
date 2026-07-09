@@ -23,6 +23,8 @@ export const academies = pgTable("academies", {
   // Taxa de presença é opt-out (default true): o card sempre existiu no
   // dashboard — desligar é escolha, não surpresa
   dashboardShowAttendanceRate: boolean("dashboard_show_attendance_rate").notNull().default(true),
+  // Gráfico "Graduações por Modalidade" — mesmo raciocínio: opt-out
+  dashboardShowGraduationChart: boolean("dashboard_show_graduation_chart").notNull().default(true),
   // Versão do QR fixo de check-in — "Gerar novo código" incrementa e invalida os impressos antigos
   checkinTokenVersion: integer("checkin_token_version").notNull().default(1),
   createdAt: timestamp("created_at").defaultNow(),

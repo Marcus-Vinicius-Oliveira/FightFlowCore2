@@ -343,6 +343,7 @@ router.get('/preferences',
         showRetention: academy.dashboardShowRetention,
         showGraduationSuggestions: academy.dashboardShowGraduationSuggestions,
         showAttendanceRate: academy.dashboardShowAttendanceRate,
+        showGraduationChart: academy.dashboardShowGraduationChart,
       });
     } catch (error) {
       console.error('Dashboard preferences error:', error);
@@ -364,10 +365,9 @@ router.patch('/preferences',
         showRetention: z.boolean().optional(),
         showGraduationSuggestions: z.boolean().optional(),
         showAttendanceRate: z.boolean().optional(),
+        showGraduationChart: z.boolean().optional(),
       }).refine(
-        p => p.showRetention !== undefined
-          || p.showGraduationSuggestions !== undefined
-          || p.showAttendanceRate !== undefined,
+        p => Object.values(p).some(v => v !== undefined),
         { message: 'Informe ao menos uma preferência' },
       ).parse(req.body);
 
@@ -375,12 +375,14 @@ router.patch('/preferences',
         ...(prefs.showRetention !== undefined && { dashboardShowRetention: prefs.showRetention }),
         ...(prefs.showGraduationSuggestions !== undefined && { dashboardShowGraduationSuggestions: prefs.showGraduationSuggestions }),
         ...(prefs.showAttendanceRate !== undefined && { dashboardShowAttendanceRate: prefs.showAttendanceRate }),
+        ...(prefs.showGraduationChart !== undefined && { dashboardShowGraduationChart: prefs.showGraduationChart }),
       });
       if (!updated) return res.status(404).json({ error: 'Academia não encontrada' });
       res.json({
         showRetention: updated.dashboardShowRetention,
         showGraduationSuggestions: updated.dashboardShowGraduationSuggestions,
         showAttendanceRate: updated.dashboardShowAttendanceRate,
+        showGraduationChart: updated.dashboardShowGraduationChart,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
