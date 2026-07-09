@@ -11,11 +11,16 @@ import {
 
 const router = Router();
 
-// ─── Token rotativo do QR ─────────────────────────────────────────────────────
-// O QR da recepção codifica um token HMAC amarrado à academia e à janela de
-// tempo atual (slot de 60s). O aluno que escaneia prova presença física: uma
-// foto antiga do QR expira em no máximo 2 slots. Reutiliza o JWT_SECRET — não
-// há motivo para um segundo segredo só para isto.
+// ─── Tokens do QR de check-in ─────────────────────────────────────────────────
+// Duas variantes, ambas HMAC com o JWT_SECRET (não há motivo para um segundo
+// segredo só para isto):
+//
+// - ESTÁTICO (padrão): amarrado à academia + versão persistida em
+//   academies.checkinTokenVersion. Imprimível — "Gerar novo código"
+//   incrementa a versão e invalida os impressos antigos.
+// - DINÂMICO (opcional): amarrado à janela de tempo atual (slot de 60s),
+//   para academias que preferem exibir numa tela e garantir presença
+//   física — uma foto do QR expira em no máximo 2 slots.
 
 export const CHECKIN_SLOT_MS = 60_000;
 
@@ -33,6 +38,19 @@ function signSlot(academyId: string, slot: number): string {
     .slice(0, 24);
 }
 
+function signStatic(academyId: string, version: number): string {
+  return createHmac("sha256", process.env.JWT_SECRET!)
+    .update(`checkin-static:${academyId}:${version}`)
+    .digest("hex")
+    .slice(0, 24);
+}
+
+function safeSigEquals(sig: string, expected: string): boolean {
+  const sigBuf = Buffer.from(sig);
+  const expectedBuf = Buffer.from(expected);
+  return sigBuf.length === expectedBuf.length && timingSafeEqual(sigBuf, expectedBuf);
+}
+
 export function makeCheckinToken(academyId: string, now: Date = new Date()): {
   token: string;
   expiresInSeconds: number;
@@ -44,30 +62,47 @@ export function makeCheckinToken(academyId: string, now: Date = new Date()): {
   return { token, expiresInSeconds: Math.ceil((expiresAtMs - now.getTime()) / 1000) };
 }
 
+export function makeStaticCheckinToken(academyId: string, version: number): string {
+  return `${academyId}.s.${version}.${signStatic(academyId, version)}`;
+}
+
 export type CheckinTokenResult =
-  | { ok: true; academyId: string }
+  | { ok: true; academyId: string; kind: "dynamic" }
+  | { ok: true; academyId: string; kind: "static"; version: number }
   | { ok: false; reason: "invalid" | "expired" };
 
 export function verifyCheckinToken(token: string, now: Date = new Date()): CheckinTokenResult {
   const parts = token.split(".");
+
+  // Estático: academyId.s.<versão>.<assinatura> — não expira por tempo; a
+  // rota compara a versão com academies.checkinTokenVersion.
+  if (parts.length === 4 && parts[1] === "s") {
+    const [academyId, , versionStr, sig] = parts;
+    const version = Number(versionStr);
+    if (!Number.isInteger(version) || version < 1 || !/^[0-9a-f]{24}$/.test(sig)) {
+      return { ok: false, reason: "invalid" };
+    }
+    if (!safeSigEquals(sig, signStatic(academyId, version))) {
+      return { ok: false, reason: "invalid" };
+    }
+    return { ok: true, academyId, kind: "static", version };
+  }
+
+  // Dinâmico: academyId.<slot>.<assinatura>
   if (parts.length !== 3) return { ok: false, reason: "invalid" };
   const [academyId, slotStr, sig] = parts;
   const slot = Number(slotStr);
   if (!Number.isInteger(slot) || !/^[0-9a-f]{24}$/.test(sig)) {
     return { ok: false, reason: "invalid" };
   }
-
-  const expected = signSlot(academyId, slot);
-  const sigBuf = Buffer.from(sig);
-  const expectedBuf = Buffer.from(expected);
-  if (sigBuf.length !== expectedBuf.length || !timingSafeEqual(sigBuf, expectedBuf)) {
+  if (!safeSigEquals(sig, signSlot(academyId, slot))) {
     return { ok: false, reason: "invalid" };
   }
 
   const currentSlot = Math.floor(now.getTime() / CHECKIN_SLOT_MS);
   if (slot > currentSlot) return { ok: false, reason: "invalid" }; // slot futuro = token forjado
   if (currentSlot - slot > CHECKIN_SLOT_TOLERANCE) return { ok: false, reason: "expired" };
-  return { ok: true, academyId };
+  return { ok: true, academyId, kind: "dynamic" };
 }
 
 // ─── Resolução da turma pela grade ────────────────────────────────────────────
@@ -93,7 +128,7 @@ export function isClassHappeningNow(cls: ClassWindow, now: Date): boolean {
 
 // ─── Rotas ────────────────────────────────────────────────────────────────────
 
-// GET /api/checkin/qr-token — token para a tela de QR da recepção
+// GET /api/checkin/qr-token — token dinâmico para a tela de QR da recepção
 router.get(
   "/qr-token",
   authenticateToken,
@@ -101,6 +136,43 @@ router.get(
   async (req: AuthenticatedRequest, res) => {
     const { token, expiresInSeconds } = makeCheckinToken(req.user!.academyId!);
     res.json({ token, expiresInSeconds });
+  }
+);
+
+// GET /api/checkin/qr-static — token fixo (imprimível) da academia
+router.get(
+  "/qr-static",
+  authenticateToken,
+  requireRole(["ADMIN_ACADEMIA", "PROFESSOR"]),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academy = await storage.getAcademy(req.user!.academyId!);
+      if (!academy) return res.status(404).json({ error: "Academia não encontrada" });
+      res.json({ token: makeStaticCheckinToken(academy.id, academy.checkinTokenVersion) });
+    } catch (error) {
+      console.error("Get static checkin token error:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  }
+);
+
+// POST /api/checkin/qr-static/regenerate — invalida os QRs impressos antigos.
+// Só o admin: regenerar é destrutivo (todos os cartazes viram papel).
+router.post(
+  "/qr-static/regenerate",
+  authenticateToken,
+  requireRole(["ADMIN_ACADEMIA"]),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const academy = await storage.getAcademy(req.user!.academyId!);
+      if (!academy) return res.status(404).json({ error: "Academia não encontrada" });
+      const newVersion = academy.checkinTokenVersion + 1;
+      await storage.updateAcademy(academy.id, { checkinTokenVersion: newVersion });
+      res.json({ token: makeStaticCheckinToken(academy.id, newVersion) });
+    } catch (error) {
+      console.error("Regenerate static checkin token error:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
   }
 );
 
@@ -125,6 +197,16 @@ router.post(
       }
       if (verified.academyId !== req.user!.academyId) {
         return res.status(403).json({ error: "Este QR Code pertence a outra academia." });
+      }
+
+      // QR fixo de versão antiga (código foi regenerado) não vale mais
+      if (verified.kind === "static") {
+        const academy = await storage.getAcademy(verified.academyId);
+        if (!academy || academy.checkinTokenVersion !== verified.version) {
+          return res.status(410).json({
+            error: "Este QR Code foi substituído. Escaneie o código atual na entrada da academia.",
+          });
+        }
       }
 
       const now = new Date();

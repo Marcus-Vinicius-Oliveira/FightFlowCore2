@@ -13,6 +13,7 @@ vi.mock('../auth', () => ({
 
 import {
   makeCheckinToken,
+  makeStaticCheckinToken,
   verifyCheckinToken,
   isClassHappeningNow,
   CHECKIN_SLOT_MS,
@@ -24,14 +25,14 @@ describe('makeCheckinToken / verifyCheckinToken', () => {
   it('token recém-gerado é aceito para a mesma academia', () => {
     const now = new Date('2026-07-08T19:00:00');
     const { token } = makeCheckinToken(ACADEMY, now);
-    expect(verifyCheckinToken(token, now)).toEqual({ ok: true, academyId: ACADEMY });
+    expect(verifyCheckinToken(token, now)).toEqual({ ok: true, academyId: ACADEMY, kind: 'dynamic' });
   });
 
   it('token continua válido no slot seguinte (tolerância de 1 slot)', () => {
     const now = new Date('2026-07-08T19:00:00');
     const { token } = makeCheckinToken(ACADEMY, now);
     const later = new Date(now.getTime() + CHECKIN_SLOT_MS);
-    expect(verifyCheckinToken(token, later)).toEqual({ ok: true, academyId: ACADEMY });
+    expect(verifyCheckinToken(token, later)).toEqual({ ok: true, academyId: ACADEMY, kind: 'dynamic' });
   });
 
   it('token expira depois de 2 slots (foto antiga do QR não vale)', () => {
@@ -76,6 +77,38 @@ describe('makeCheckinToken / verifyCheckinToken', () => {
     const { expiresInSeconds } = makeCheckinToken(ACADEMY);
     expect(expiresInSeconds).toBeGreaterThanOrEqual(60);
     expect(expiresInSeconds).toBeLessThanOrEqual(120);
+  });
+});
+
+describe('makeStaticCheckinToken / verifyCheckinToken (QR fixo)', () => {
+  it('token estático é aceito e devolve a versão para a rota comparar', () => {
+    const token = makeStaticCheckinToken(ACADEMY, 3);
+    expect(verifyCheckinToken(token)).toEqual({
+      ok: true, academyId: ACADEMY, kind: 'static', version: 3,
+    });
+  });
+
+  it('token estático não expira com o tempo (é a versão que o invalida)', () => {
+    const token = makeStaticCheckinToken(ACADEMY, 1);
+    const muitoDepois = new Date('2030-01-01T12:00:00');
+    expect(verifyCheckinToken(token, muitoDepois)).toMatchObject({ ok: true, kind: 'static' });
+  });
+
+  it('adulterar a versão invalida a assinatura (não dá para "voltar" a versão)', () => {
+    const token = makeStaticCheckinToken(ACADEMY, 2);
+    const forged = token.replace('.s.2.', '.s.1.');
+    expect(verifyCheckinToken(forged)).toEqual({ ok: false, reason: 'invalid' });
+  });
+
+  it('assinatura adulterada é rejeitada', () => {
+    const parts = makeStaticCheckinToken(ACADEMY, 1).split('.');
+    const tampered = `${parts[0]}.s.${parts[2]}.${'0'.repeat(24)}`;
+    expect(verifyCheckinToken(tampered)).toEqual({ ok: false, reason: 'invalid' });
+  });
+
+  it('token dinâmico continua identificado como dynamic', () => {
+    const { token } = makeCheckinToken(ACADEMY);
+    expect(verifyCheckinToken(token)).toMatchObject({ ok: true, kind: 'dynamic' });
   });
 });
 
