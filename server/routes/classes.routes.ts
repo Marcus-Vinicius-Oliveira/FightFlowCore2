@@ -290,6 +290,7 @@ router.get('/schedule/weekly',
         weeklySchedule[day].push({
           id: cls.id,
           classType: cls.classType?.name,
+          classTypeId: cls.classTypeId,
           instructor: cls.instructor?.name,
           startTime: cls.startTime,
           endTime: cls.endTime,
