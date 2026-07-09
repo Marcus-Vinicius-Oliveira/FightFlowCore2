@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Calendar, CalendarOff, DollarSign, TrendingUp, UserCheck, Clock, AlertCircle } from "lucide-react";
+import { Users, Calendar, CalendarOff, DollarSign, TrendingUp, UserCheck, Clock, AlertCircle, Dumbbell } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 interface DashboardInfo {
@@ -162,15 +162,16 @@ export function DashboardStats() {
     {
       title: "Modalidades",
       value: loading ? "..." : totalClassTypes,
-      description: "Tipos de aula",
-      icon: <TrendingUp className="h-4 w-4" />,
-      href: "/dashboard/aulas",
+      description: "Gerenciar tipos de aula",
+      icon: <Dumbbell className="h-4 w-4" />,
+      // Modalidades são cadastradas em Configurações (aba padrão é Modalidades)
+      href: "/settings",
       compact: true,
     },
     {
       title: "Aulas Ativas",
       value: loading ? "..." : activeClasses,
-      description: "Turmas na grade",
+      description: "Ver grade de turmas",
       icon: <Calendar className="h-4 w-4" />,
       href: "/dashboard/aulas",
       compact: true,
