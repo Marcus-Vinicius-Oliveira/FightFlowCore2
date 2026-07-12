@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -53,9 +53,15 @@ function displayDateToISO(display: string): string {
 interface AddStudentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Pré-preenchimento — usado na conversão de lead ganho do Pipeline */
+  initialValues?: {
+    name?: string;
+    phone?: string;
+    classTypeIds?: string[];
+  };
 }
 
-export function AddStudentDialog({ open, onOpenChange }: AddStudentDialogProps) {
+export function AddStudentDialog({ open, onOpenChange, initialValues }: AddStudentDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedClassTypeIds, setSelectedClassTypeIds] = useState<string[]>([]);
@@ -79,6 +85,16 @@ export function AddStudentDialog({ open, onOpenChange }: AddStudentDialogProps) 
       guardianRelationship: "",
     },
   });
+
+  // Pré-preenche na abertura quando vem de uma conversão de lead
+  useEffect(() => {
+    if (open && initialValues) {
+      if (initialValues.name) form.setValue("name", initialValues.name);
+      if (initialValues.phone) form.setValue("phone", initialValues.phone);
+      if (initialValues.classTypeIds?.length) setSelectedClassTypeIds(initialValues.classTypeIds);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialValues]);
 
   // Menor de idade? Reage à digitação da data e controla a seção de responsável.
   const minor = isMinor(form.watch("dateOfBirth") || undefined);

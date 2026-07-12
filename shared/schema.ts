@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, integer, timestamp, boolean, uuid, pgEnum, index, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, boolean, uuid, pgEnum, index, unique, doublePrecision } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -255,6 +255,35 @@ export const studentModalityEnrollments = pgTable("student_modality_enrollments"
   uniqueStudentClassType: unique("student_modality_enrollments_unique").on(t.studentId, t.classTypeId),
   academyIdIdx: index("student_modality_enrollments_academy_id_idx").on(t.academyId),
   studentIdIdx: index("student_modality_enrollments_student_id_idx").on(t.studentId),
+}));
+
+// Etapas do pipeline de vendas (Kanban). Ordem do funil; ganho/perdido são terminais.
+export const LEAD_STAGES = [
+  'lead-inicial', 'aula-agendada', 'aula-realizada', 'negociacao', 'ganho', 'perdido',
+] as const;
+export type LeadStage = (typeof LEAD_STAGES)[number];
+
+export const leads = pgTable("leads", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: uuid("academy_id").references(() => academies.id).notNull(),
+  name: text("name").notNull(),
+  phone: text("phone"),
+  // Modalidade de interesse — null = "Outra" / ainda não definida
+  classTypeId: uuid("class_type_id").references(() => classTypes.id),
+  stage: text("stage").notNull().default('lead-inicial'),
+  // Ordem manual dentro da coluna (fractional indexing: mover = média dos vizinhos)
+  position: doublePrecision("position").notNull().default(0),
+  nextInteractionAt: timestamp("next_interaction_at"),
+  // Base do indicador de estagnação ("Xd nesta etapa")
+  stageChangedAt: timestamp("stage_changed_at").notNull().defaultNow(),
+  // Preenchido ao cair em "perdido" — alimenta aprendizado do funil
+  lostReason: text("lost_reason"),
+  archived: boolean("archived").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),
+}, (t) => ({
+  academyIdIdx: index("leads_academy_id_idx").on(t.academyId),
+  academyStageIdx: index("leads_academy_stage_idx").on(t.academyId, t.stage),
 }));
 
 export const beltHistory = pgTable("belt_history", {

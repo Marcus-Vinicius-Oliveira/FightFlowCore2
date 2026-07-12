@@ -1,4 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import {
   DndContext,
   DragEndEvent,
@@ -28,11 +30,11 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -55,11 +57,15 @@ import {
   Clock,
   AlertTriangle,
   Target,
+  PartyPopper,
 } from "lucide-react";
 import { format, differenceInDays, isPast } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { getModalityColor } from "@/lib/modality-colors";
+import { positionAtIndex } from "@/lib/kanban";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -71,14 +77,33 @@ type ColumnId =
   | "ganho"
   | "perdido";
 
+/** Lead como vem da API (datas em ISO string) */
+interface ApiLead {
+  id: string;
+  name: string;
+  phone: string | null;
+  classTypeId: string | null;
+  stage: ColumnId;
+  position: number;
+  nextInteractionAt: string | null;
+  stageChangedAt: string;
+  lostReason: string | null;
+}
+
 interface Lead {
   id: string;
   name: string;
-  modality: string;
-  phone: string;
-  nextInteraction: Date;
+  phone: string | null;
+  classTypeId: string | null;
   columnId: ColumnId;
+  position: number;
+  nextInteraction: Date | null;
   movedAt: Date;
+}
+
+interface ClassType {
+  id: string;
+  name: string;
 }
 
 // ─── Column Config ─────────────────────────────────────────────────────────────
@@ -132,118 +157,29 @@ const COLUMNS: ColumnConfig[] = [
   },
 ];
 
-const MODALITIES = [
-  "BJJ",
-  "Muay Thai",
-  "Boxe",
-  "Judo",
-  "MMA",
-  "Karatê",
-  "Wrestling",
-  "Outra",
-];
-
-const MODALITY_BADGE_STYLE: Record<string, string> = {
-  BJJ: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-  "Muay Thai": "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
-  Boxe: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
-  Judo: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
-  MMA: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
-  Karatê: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-  Wrestling: "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300",
-  Outra: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-};
-
-// ─── Mock Data ─────────────────────────────────────────────────────────────────
-
-const ago = (days: number) => new Date(Date.now() - days * 86_400_000);
-const from = (days: number) => new Date(Date.now() + days * 86_400_000);
-
-const INITIAL_LEADS: Lead[] = [
-  {
-    id: "1",
-    name: "Pedro Alves",
-    modality: "BJJ",
-    phone: "5511991234567",
-    nextInteraction: from(2),
-    columnId: "lead-inicial",
-    movedAt: ago(5),
-  },
-  {
-    id: "2",
-    name: "Ana Carolina Silva",
-    modality: "Muay Thai",
-    phone: "5511992345678",
-    nextInteraction: from(1),
-    columnId: "lead-inicial",
-    movedAt: ago(1),
-  },
-  {
-    id: "3",
-    name: "Lucas Mendes",
-    modality: "MMA",
-    phone: "5511993456789",
-    nextInteraction: from(3),
-    columnId: "aula-agendada",
-    movedAt: ago(2),
-  },
-  {
-    id: "4",
-    name: "Beatriz Costa",
-    modality: "Boxe",
-    phone: "5511994567890",
-    nextInteraction: ago(1),
-    columnId: "aula-agendada",
-    movedAt: ago(4),
-  },
-  {
-    id: "5",
-    name: "Rafael Gomes",
-    modality: "BJJ",
-    phone: "5511995678901",
-    nextInteraction: from(1),
-    columnId: "aula-realizada",
-    movedAt: ago(1),
-  },
-  {
-    id: "6",
-    name: "Camila Ferreira",
-    modality: "Muay Thai",
-    phone: "5511996789012",
-    nextInteraction: from(1),
-    columnId: "negociacao",
-    movedAt: ago(7),
-  },
-  {
-    id: "7",
-    name: "Thiago Oliveira",
-    modality: "Judo",
-    phone: "5511997890123",
-    nextInteraction: from(5),
-    columnId: "negociacao",
-    movedAt: ago(2),
-  },
-  {
-    id: "8",
-    name: "Mariana Souza",
-    modality: "BJJ",
-    phone: "5511998901234",
-    nextInteraction: from(30),
-    columnId: "ganho",
-    movedAt: ago(1),
-  },
-  {
-    id: "9",
-    name: "Fernando Lima",
-    modality: "Boxe",
-    phone: "5511999012345",
-    nextInteraction: ago(5),
-    columnId: "perdido",
-    movedAt: ago(10),
-  },
+const LOST_REASONS = [
+  "Preço",
+  "Distância",
+  "Horários incompatíveis",
+  "Parou de responder",
+  "Escolheu outra academia",
+  "Outro",
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function parseLead(api: ApiLead): Lead {
+  return {
+    id: api.id,
+    name: api.name,
+    phone: api.phone,
+    classTypeId: api.classTypeId,
+    columnId: api.stage,
+    position: api.position,
+    nextInteraction: api.nextInteractionAt ? new Date(api.nextInteractionAt) : null,
+    movedAt: new Date(api.stageChangedAt),
+  };
+}
 
 function getStagnationLevel(movedAt: Date, isTerminal = false): 0 | 1 | 2 {
   if (isTerminal) return 0;
@@ -263,219 +199,81 @@ function formatInteractionLabel(date: Date): string {
   return format(date, "dd 'de' MMM", { locale: ptBR });
 }
 
-// ─── Add Lead Dialog ──────────────────────────────────────────────────────────
+const tomorrowStr = () => format(new Date(Date.now() + 86_400_000), "yyyy-MM-dd");
 
-interface AddLeadDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onAdd: (data: Omit<Lead, "id" | "columnId" | "movedAt">) => void;
+// ─── Lead form dialog (add + edit compartilham o corpo) ───────────────────────
+
+interface LeadFormValues {
+  name: string;
+  phone: string;
+  classTypeId: string; // '' = Outra
+  nextInteraction: string; // '' = sem data
 }
 
-function AddLeadDialog({ open, onOpenChange, onAdd }: AddLeadDialogProps) {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [modality, setModality] = useState("BJJ");
-  const [nextInteraction, setNextInteraction] = useState(
-    format(from(1), "yyyy-MM-dd"),
-  );
-
-  const reset = () => {
-    setName("");
-    setPhone("");
-    setModality("BJJ");
-    setNextInteraction(format(from(1), "yyyy-MM-dd"));
-  };
-
-  const handleAdd = () => {
-    if (!name.trim()) return;
-    onAdd({
-      name: name.trim(),
-      phone: phone.trim(),
-      modality,
-      nextInteraction: new Date(`${nextInteraction}T12:00:00`),
-    });
-    reset();
-    onOpenChange(false);
-  };
-
+function LeadFormFields({
+  values,
+  onChange,
+  classTypes,
+  onEnter,
+}: {
+  values: LeadFormValues;
+  onChange: (v: LeadFormValues) => void;
+  classTypes: ClassType[];
+  onEnter?: () => void;
+}) {
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        onOpenChange(o);
-        if (!o) reset();
-      }}
-    >
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Novo Lead</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="add-name">Nome *</Label>
-            <Input
-              id="add-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Nome do lead"
-              autoFocus
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="add-phone">WhatsApp</Label>
-            <Input
-              id="add-phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="5511999999999"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Modalidade de Interesse</Label>
-            <Select value={modality} onValueChange={setModality}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {MODALITIES.map((m) => (
-                  <SelectItem key={m} value={m}>
-                    {m}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="add-date">Próxima Interação</Label>
-            <Input
-              id="add-date"
-              type="date"
-              value={nextInteraction}
-              onChange={(e) => setNextInteraction(e.target.value)}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => {
-              reset();
-              onOpenChange(false);
-            }}
-          >
-            Cancelar
-          </Button>
-          <Button onClick={handleAdd} disabled={!name.trim()}>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Adicionar Lead
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── Edit Lead Dialog ─────────────────────────────────────────────────────────
-
-interface EditLeadDialogProps {
-  lead: Lead | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSave: (id: string, updates: Partial<Lead>) => void;
-}
-
-function EditLeadDialog({
-  lead,
-  open,
-  onOpenChange,
-  onSave,
-}: EditLeadDialogProps) {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [modality, setModality] = useState("BJJ");
-  const [nextInteraction, setNextInteraction] = useState("");
-
-  useEffect(() => {
-    if (lead && open) {
-      setName(lead.name);
-      setPhone(lead.phone);
-      setModality(lead.modality);
-      setNextInteraction(format(lead.nextInteraction, "yyyy-MM-dd"));
-    }
-  }, [lead, open]);
-
-  const handleSave = () => {
-    if (!lead || !name.trim()) return;
-    onSave(lead.id, {
-      name: name.trim(),
-      phone: phone.trim(),
-      modality,
-      nextInteraction: new Date(`${nextInteraction}T12:00:00`),
-    });
-    onOpenChange(false);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Editar Lead</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-name">Nome *</Label>
-            <Input
-              id="edit-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Nome do lead"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-phone">WhatsApp</Label>
-            <Input
-              id="edit-phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="5511999999999"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Modalidade de Interesse</Label>
-            <Select value={modality} onValueChange={setModality}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {MODALITIES.map((m) => (
-                  <SelectItem key={m} value={m}>
-                    {m}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-date">Próxima Interação</Label>
-            <Input
-              id="edit-date"
-              type="date"
-              value={nextInteraction}
-              onChange={(e) => setNextInteraction(e.target.value)}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={!name.trim()}>
-            Salvar
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div className="space-y-4 py-2">
+      <div className="space-y-1.5">
+        <Label htmlFor="lead-name">Nome *</Label>
+        <Input
+          id="lead-name"
+          value={values.name}
+          onChange={(e) => onChange({ ...values, name: e.target.value })}
+          placeholder="Nome do lead"
+          autoFocus
+          onKeyDown={(e) => e.key === "Enter" && onEnter?.()}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="lead-phone">WhatsApp</Label>
+        <Input
+          id="lead-phone"
+          value={values.phone}
+          onChange={(e) => onChange({ ...values, phone: e.target.value })}
+          placeholder="(11) 99999-9999"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Modalidade de Interesse</Label>
+        <Select
+          value={values.classTypeId || "outra"}
+          onValueChange={(v) => onChange({ ...values, classTypeId: v === "outra" ? "" : v })}
+        >
+          <SelectTrigger data-testid="lead-modality-select">
+            {values.classTypeId
+              ? classTypes.find(ct => ct.id === values.classTypeId)?.name ?? "Outra"
+              : "Outra / não sabe ainda"}
+          </SelectTrigger>
+          <SelectContent>
+            {classTypes.map((ct) => (
+              <SelectItem key={ct.id} value={ct.id}>
+                {ct.name}
+              </SelectItem>
+            ))}
+            <SelectItem value="outra">Outra / não sabe ainda</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="lead-date">Próxima Interação</Label>
+        <Input
+          id="lead-date"
+          type="date"
+          value={values.nextInteraction}
+          onChange={(e) => onChange({ ...values, nextInteraction: e.target.value })}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -483,6 +281,7 @@ function EditLeadDialog({
 
 interface KanbanCardProps {
   lead: Lead;
+  modalityName: string;
   isTerminal?: boolean;
   isDragOverlay?: boolean;
   onEdit: (lead: Lead) => void;
@@ -491,6 +290,7 @@ interface KanbanCardProps {
 
 function KanbanCard({
   lead,
+  modalityName,
   isTerminal = false,
   isDragOverlay = false,
   onEdit,
@@ -511,11 +311,9 @@ function KanbanCard({
   };
 
   const stagnation = getStagnationLevel(lead.movedAt, isTerminal);
-  const interactionPast = isPast(lead.nextInteraction);
-  const interactionLabel = formatInteractionLabel(lead.nextInteraction);
+  const interactionPast = !!lead.nextInteraction && isPast(lead.nextInteraction) && !isTerminal;
   const daysStuck = differenceInDays(new Date(), lead.movedAt);
-  const badgeStyle =
-    MODALITY_BADGE_STYLE[lead.modality] ?? MODALITY_BADGE_STYLE["Outra"];
+  const modalityColor = getModalityColor(lead.classTypeId ?? "outra", modalityName);
 
   return (
     <div
@@ -563,14 +361,16 @@ function KanbanCard({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem
-              onClick={() =>
-                window.open(`https://wa.me/${lead.phone}`, "_blank")
-              }
-            >
-              <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
-              Chamar no WhatsApp
-            </DropdownMenuItem>
+            {lead.phone && (
+              <DropdownMenuItem
+                onClick={() =>
+                  window.open(`https://wa.me/${lead.phone!.replace(/\D/g, "")}`, "_blank")
+                }
+              >
+                <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
+                Chamar no WhatsApp
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={() => onEdit(lead)}>
               <Edit className="h-4 w-4 mr-2" />
               Editar
@@ -587,34 +387,36 @@ function KanbanCard({
         </DropdownMenu>
       </div>
 
-      {/* Modality badge */}
+      {/* Modality badge — cor da modalidade compartilhada com o resto do app */}
       <div className="mb-2">
-        <span
-          className={cn(
-            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-            badgeStyle,
-          )}
-        >
-          {lead.modality}
-        </span>
+        <Badge variant="outline" className="text-xs font-medium gap-1.5 px-2 py-0.5">
+          <span
+            className="w-2 h-2 rounded-full shrink-0"
+            style={{ backgroundColor: modalityColor }}
+            aria-hidden="true"
+          />
+          {modalityName}
+        </Badge>
       </div>
 
       {/* Next interaction */}
-      <div
-        className={cn(
-          "flex items-center gap-1.5 text-xs",
-          interactionPast
-            ? "text-destructive font-medium"
-            : "text-muted-foreground",
-        )}
-      >
-        {interactionPast ? (
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-        ) : (
-          <Calendar className="h-3.5 w-3.5 shrink-0" />
-        )}
-        <span>{interactionLabel}</span>
-      </div>
+      {lead.nextInteraction && (
+        <div
+          className={cn(
+            "flex items-center gap-1.5 text-xs",
+            interactionPast
+              ? "text-destructive font-medium"
+              : "text-muted-foreground",
+          )}
+        >
+          {interactionPast ? (
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          ) : (
+            <Calendar className="h-3.5 w-3.5 shrink-0" />
+          )}
+          <span>{formatInteractionLabel(lead.nextInteraction)}</span>
+        </div>
+      )}
 
       {/* Stagnation pill */}
       {stagnation > 0 && (
@@ -642,6 +444,7 @@ function KanbanCard({
 interface KanbanColumnProps {
   column: ColumnConfig;
   leads: Lead[];
+  modalityNameOf: (lead: Lead) => string;
   onEdit: (lead: Lead) => void;
   onArchive: (id: string) => void;
 }
@@ -649,6 +452,7 @@ interface KanbanColumnProps {
 function KanbanColumn({
   column,
   leads,
+  modalityNameOf,
   onEdit,
   onArchive,
 }: KanbanColumnProps) {
@@ -687,6 +491,7 @@ function KanbanColumn({
             <KanbanCard
               key={lead.id}
               lead={lead}
+              modalityName={modalityNameOf(lead)}
               isTerminal={column.isTerminal}
               onEdit={onEdit}
               onArchive={onArchive}
@@ -708,12 +513,17 @@ function KanbanColumn({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const EMPTY_FORM: LeadFormValues = {
+  name: "",
+  phone: "",
+  classTypeId: "",
+  nextInteraction: "",
+};
+
 export default function SalesPipeline() {
-  const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [editingLead, setEditingLead] = useState<Lead | null>(null);
-  const [isAddOpen, setIsAddOpen] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -722,6 +532,149 @@ export default function SalesPipeline() {
     }),
   );
 
+  // ── Server state ────────────────────────────────────────────────────────────
+  const { data: apiLeads, isLoading } = useQuery<ApiLead[]>({
+    queryKey: ["/api/leads"],
+  });
+
+  const { data: classTypes = [] } = useQuery<ClassType[]>({
+    queryKey: ["/api/classes/class-types"],
+  });
+
+  const classTypeNameById = useMemo(
+    () => new Map(classTypes.map((ct) => [ct.id, ct.name])),
+    [classTypes],
+  );
+  const modalityNameOf = useCallback(
+    (lead: Lead) =>
+      lead.classTypeId
+        ? classTypeNameById.get(lead.classTypeId) ?? "Outra"
+        : "Outra",
+    [classTypeNameById],
+  );
+
+  // ── Board local (espelho do servidor; o drag mexe aqui e persiste no fim) ──
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [dragOriginColumn, setDragOriginColumn] = useState<ColumnId | null>(null);
+  // Movimentos em voo: enquanto > 0, o cache do servidor está desatualizado em
+  // relação ao board otimista — sincronizar reverteria o card para a coluna
+  // antiga por um instante (flicker). O contador só zera depois do refetch.
+  const [pendingMoves, setPendingMoves] = useState(0);
+
+  useEffect(() => {
+    // Não sobrescrever o board no meio de um arrasto nem com cache defasado
+    if (activeId === null && pendingMoves === 0 && apiLeads) {
+      setLeads(apiLeads.map(parseLead));
+    }
+  }, [apiLeads, activeId, pendingMoves]);
+
+  // ── Dialogs ─────────────────────────────────────────────────────────────────
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [addForm, setAddForm] = useState<LeadFormValues>({ ...EMPTY_FORM, nextInteraction: tomorrowStr() });
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [editForm, setEditForm] = useState<LeadFormValues>(EMPTY_FORM);
+  const [wonLead, setWonLead] = useState<Lead | null>(null);
+  const [lostLead, setLostLead] = useState<Lead | null>(null);
+  const [lostReason, setLostReason] = useState(LOST_REASONS[0]);
+
+  useEffect(() => {
+    if (editingLead) {
+      setEditForm({
+        name: editingLead.name,
+        phone: editingLead.phone ?? "",
+        classTypeId: editingLead.classTypeId ?? "",
+        nextInteraction: editingLead.nextInteraction
+          ? format(editingLead.nextInteraction, "yyyy-MM-dd")
+          : "",
+      });
+    }
+  }, [editingLead]);
+
+  // ── Mutations ───────────────────────────────────────────────────────────────
+  const invalidateLeads = () =>
+    queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+
+  const formToPayload = (v: LeadFormValues) => ({
+    name: v.name.trim(),
+    phone: v.phone.trim() || null,
+    classTypeId: v.classTypeId || null,
+    nextInteractionAt: v.nextInteraction || null,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (v: LeadFormValues) => {
+      const p = formToPayload(v);
+      return apiRequest("POST", "/api/leads", {
+        name: p.name,
+        phone: p.phone ?? undefined,
+        classTypeId: p.classTypeId,
+        nextInteractionAt: p.nextInteractionAt ?? undefined,
+      }).then((r) => r.json());
+    },
+    onSuccess: (_, v) => {
+      invalidateLeads();
+      setIsAddOpen(false);
+      setAddForm({ ...EMPTY_FORM, nextInteraction: tomorrowStr() });
+      toast({ title: "Lead adicionado!", description: `${v.name.trim()} entrou no pipeline.` });
+    },
+    onError: (e: Error) =>
+      toast({ variant: "destructive", title: "Erro ao adicionar lead", description: e.message }),
+  });
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, v }: { id: string; v: LeadFormValues }) =>
+      apiRequest("PATCH", `/api/leads/${id}`, formToPayload(v)).then((r) => r.json()),
+    onSuccess: () => {
+      invalidateLeads();
+      setEditingLead(null);
+      toast({ title: "Lead atualizado com sucesso!" });
+    },
+    onError: (e: Error) =>
+      toast({ variant: "destructive", title: "Erro ao salvar", description: e.message }),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest("PATCH", `/api/leads/${id}`, { archived: true }).then((r) => r.json()),
+    onSuccess: (_, id) => {
+      const lead = leads.find((l) => l.id === id);
+      invalidateLeads();
+      toast({
+        title: "Lead arquivado",
+        description: `${lead?.name ?? "Lead"} saiu do pipeline.`,
+      });
+    },
+    onError: (e: Error) =>
+      toast({ variant: "destructive", title: "Erro ao arquivar", description: e.message }),
+  });
+
+  // Drag é otimista: o board local já mudou; falha do servidor reverte via
+  // refetch. O contador pendingMoves segura a ressincronização até o refetch
+  // trazer dados frescos (await no invalidate → resolve após o refetch).
+  const moveMutation = useMutation({
+    mutationFn: ({ id, stage, position }: { id: string; stage: ColumnId; position: number }) =>
+      apiRequest("PATCH", `/api/leads/${id}/move`, { stage, position }).then((r) => r.json()),
+    // O incremento de pendingMoves acontece no handleDragEnd, NÃO em onMutate:
+    // onMutate roda num microtask após o commit do React, e nesse frame o
+    // efeito de sincronização reverteria o board com o cache velho.
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+    },
+    onError: async (e: Error) => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ variant: "destructive", title: "Não foi possível mover o lead", description: e.message });
+    },
+    onSettled: () => setPendingMoves((n) => n - 1),
+  });
+
+  const lostReasonMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      apiRequest("PATCH", `/api/leads/${id}`, { lostReason: reason }).then((r) => r.json()),
+    onSuccess: () => invalidateLeads(),
+  });
+
+  // ── Derived ─────────────────────────────────────────────────────────────────
   const activeLead = useMemo(
     () => leads.find((l) => l.id === activeId) ?? null,
     [leads, activeId],
@@ -743,8 +696,10 @@ export default function SalesPipeline() {
   // ── DnD handlers ────────────────────────────────────────────────────────────
 
   const handleDragStart = useCallback(({ active }: DragStartEvent) => {
-    setActiveId(active.id as string);
-  }, []);
+    const id = active.id as string;
+    setActiveId(id);
+    setDragOriginColumn(leads.find((l) => l.id === id)?.columnId ?? null);
+  }, [leads]);
 
   const handleDragOver = useCallback(({ active, over }: DragOverEvent) => {
     if (!over) return;
@@ -774,78 +729,67 @@ export default function SalesPipeline() {
   const handleDragEnd = useCallback(
     ({ active, over }: DragEndEvent) => {
       setActiveId(null);
-      if (!over || active.id === over.id) return;
+      const originColumn = dragOriginColumn;
+      setDragOriginColumn(null);
 
       const activeCardId = active.id as string;
-      const overId = over.id as string;
+      const overId = over?.id as string | undefined;
 
-      setLeads((prev) => {
-        const activeCard = prev.find((l) => l.id === activeCardId);
-        const overCard = prev.find((l) => l.id === overId);
+      // Computa fora do setState: efeitos colaterais (mutação, dialogs) não
+      // podem viver dentro de um updater — StrictMode os dispararia em dobro.
+      const prev = leads;
+      const activeCard = prev.find((l) => l.id === activeCardId);
+      if (!activeCard) return;
 
-        // Reorder within same column
-        if (
-          activeCard &&
-          overCard &&
-          activeCard.columnId === overCard.columnId
-        ) {
-          const col = activeCard.columnId;
-          const colLeads = prev.filter((l) => l.columnId === col);
-          const rest = prev.filter((l) => l.columnId !== col);
-          const oldIdx = colLeads.findIndex((l) => l.id === activeCardId);
-          const newIdx = colLeads.findIndex((l) => l.id === overId);
-          return [...rest, ...arrayMove(colLeads, oldIdx, newIdx)];
-        }
+      // Ordem final da coluna de destino (com reordenação se soltou sobre um card)
+      let next = prev;
+      const overCard = overId ? prev.find((l) => l.id === overId) : undefined;
+      if (overCard && overCard.id !== activeCardId && overCard.columnId === activeCard.columnId) {
+        const col = activeCard.columnId;
+        const colLeads = prev.filter((l) => l.columnId === col);
+        const rest = prev.filter((l) => l.columnId !== col);
+        const oldIdx = colLeads.findIndex((l) => l.id === activeCardId);
+        const newIdx = colLeads.findIndex((l) => l.id === overId);
+        next = [...rest, ...arrayMove(colLeads, oldIdx, newIdx)];
+      }
 
-        return prev;
-      });
+      // Persistir: posição = vizinhos na ordem final da coluna
+      const finalCard = next.find((l) => l.id === activeCardId)!;
+      const columnCards = next.filter((l) => l.columnId === finalCard.columnId);
+      const idx = columnCards.findIndex((l) => l.id === activeCardId);
+      const position = positionAtIndex(columnCards.map((l) => l.position), idx);
+      const stageChanged = originColumn !== null && finalCard.columnId !== originColumn;
+
+      setLeads(next.map((l) => (l.id === activeCardId ? { ...l, position } : l)));
+
+      if (stageChanged || overCard) {
+        // Síncrono e no mesmo batch do setLeads: o commit que aplica o board
+        // otimista já sai com pendingMoves > 0, sem janela para o revert
+        setPendingMoves((n) => n + 1);
+        moveMutation.mutate({ id: activeCardId, stage: finalCard.columnId, position });
+      }
+
+      // Fecho de ciclo: ganho oferece cadastro; perdido pergunta o motivo
+      if (stageChanged && finalCard.columnId === "ganho") setWonLead(finalCard);
+      if (stageChanged && finalCard.columnId === "perdido") {
+        setLostReason(LOST_REASONS[0]);
+        setLostLead(finalCard);
+      }
     },
-    [],
+    [leads, dragOriginColumn, moveMutation],
   );
 
-  // ── CRUD ─────────────────────────────────────────────────────────────────────
-
-  const handleAddLead = useCallback(
-    (data: Omit<Lead, "id" | "columnId" | "movedAt">) => {
-      const newLead: Lead = {
-        ...data,
-        id: `lead-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-        columnId: "lead-inicial",
-        movedAt: new Date(),
-      };
-      setLeads((prev) => [newLead, ...prev]);
-      toast({
-        title: "Lead adicionado!",
-        description: `${data.name} entrou no pipeline.`,
-      });
-    },
-    [toast],
-  );
-
-  const handleSaveEdit = useCallback(
-    (id: string, updates: Partial<Lead>) => {
-      setLeads((prev) =>
-        prev.map((l) => (l.id === id ? { ...l, ...updates } : l)),
-      );
-      toast({ title: "Lead atualizado com sucesso!" });
-    },
-    [toast],
-  );
-
-  const handleArchive = useCallback(
-    (id: string) => {
-      const lead = leads.find((l) => l.id === id);
-      setLeads((prev) => prev.filter((l) => l.id !== id));
-      toast({
-        title: "Lead arquivado",
-        description: `${lead?.name ?? "Lead"} foi removido do pipeline.`,
-      });
-    },
-    [leads, toast],
-  );
+  // ── Ganho → aluno ───────────────────────────────────────────────────────────
+  const handleConvertToStudent = useCallback(() => {
+    if (!wonLead) return;
+    const params = new URLSearchParams({ novoAluno: "1", nome: wonLead.name });
+    if (wonLead.phone) params.set("telefone", wonLead.phone);
+    if (wonLead.classTypeId) params.set("leadModalidade", wonLead.classTypeId);
+    setWonLead(null);
+    navigate(`/dashboard/alunos?${params.toString()}`);
+  }, [wonLead, navigate]);
 
   // ── Stats ────────────────────────────────────────────────────────────────────
-
   const totalLeads = leads.length;
   const wonLeads = leadsByColumn["ganho"].length;
   const stalledLeads = leads.filter(
@@ -894,7 +838,7 @@ export default function SalesPipeline() {
             )}
           </div>
 
-          <Button onClick={() => setIsAddOpen(true)}>
+          <Button onClick={() => setIsAddOpen(true)} data-testid="button-add-lead">
             <Plus className="h-4 w-4 mr-2" />
             Novo Lead
           </Button>
@@ -918,54 +862,175 @@ export default function SalesPipeline() {
       </div>
 
       {/* Board */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="overflow-x-auto -mx-4 px-4 md:-mx-8 md:px-8 pb-6 flex-1">
-          <div className="flex gap-4 min-w-max h-full">
-            {COLUMNS.map((column) => (
-              <KanbanColumn
-                key={column.id}
-                column={column}
-                leads={leadsByColumn[column.id]}
-                onEdit={setEditingLead}
-                onArchive={handleArchive}
-              />
-            ))}
-          </div>
+      {isLoading ? (
+        <div className="flex gap-4 overflow-hidden">
+          {COLUMNS.map((c) => (
+            <div key={c.id} className="flex-shrink-0 w-72 h-[540px] rounded-xl bg-muted/50 animate-pulse" />
+          ))}
         </div>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="overflow-x-auto -mx-4 px-4 md:-mx-8 md:px-8 pb-6 flex-1">
+            <div className="flex gap-4 min-w-max h-full">
+              {COLUMNS.map((column) => (
+                <KanbanColumn
+                  key={column.id}
+                  column={column}
+                  leads={leadsByColumn[column.id]}
+                  modalityNameOf={modalityNameOf}
+                  onEdit={setEditingLead}
+                  onArchive={(id) => archiveMutation.mutate(id)}
+                />
+              ))}
+            </div>
+          </div>
 
-        <DragOverlay dropAnimation={null}>
-          {activeLead ? (
-            <KanbanCard
-              lead={activeLead}
-              isTerminal={
-                COLUMNS.find((c) => c.id === activeLead.columnId)?.isTerminal
-              }
-              isDragOverlay
-              onEdit={() => {}}
-              onArchive={() => {}}
-            />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+          <DragOverlay dropAnimation={null}>
+            {activeLead ? (
+              <KanbanCard
+                lead={activeLead}
+                modalityName={modalityNameOf(activeLead)}
+                isTerminal={
+                  COLUMNS.find((c) => c.id === activeLead.columnId)?.isTerminal
+                }
+                isDragOverlay
+                onEdit={() => {}}
+                onArchive={() => {}}
+              />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
 
-      {/* Dialogs */}
-      <AddLeadDialog
+      {/* ── Novo lead ── */}
+      <Dialog
         open={isAddOpen}
-        onOpenChange={setIsAddOpen}
-        onAdd={handleAddLead}
-      />
-      <EditLeadDialog
-        lead={editingLead}
-        open={!!editingLead}
-        onOpenChange={(open) => !open && setEditingLead(null)}
-        onSave={handleSaveEdit}
-      />
+        onOpenChange={(o) => {
+          setIsAddOpen(o);
+          if (!o) setAddForm({ ...EMPTY_FORM, nextInteraction: tomorrowStr() });
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Novo Lead</DialogTitle>
+          </DialogHeader>
+          <LeadFormFields
+            values={addForm}
+            onChange={setAddForm}
+            classTypes={classTypes}
+            onEnter={() => addForm.name.trim() && createMutation.mutate(addForm)}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => createMutation.mutate(addForm)}
+              disabled={!addForm.name.trim() || createMutation.isPending}
+              data-testid="button-save-lead"
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Adicionar Lead
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Editar lead ── */}
+      <Dialog open={!!editingLead} onOpenChange={(o) => !o && setEditingLead(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Lead</DialogTitle>
+          </DialogHeader>
+          <LeadFormFields
+            values={editForm}
+            onChange={setEditForm}
+            classTypes={classTypes}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingLead(null)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => editingLead && editMutation.mutate({ id: editingLead.id, v: editForm })}
+              disabled={!editForm.name.trim() || editMutation.isPending}
+            >
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Ganho → cadastrar como aluno ── */}
+      <Dialog open={!!wonLead} onOpenChange={(o) => !o && setWonLead(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PartyPopper className="h-5 w-5 text-green-600" />
+              Lead ganho!
+            </DialogTitle>
+            <DialogDescription>
+              {wonLead?.name} fechou com a academia. Quer já cadastrar como aluno?
+              O cadastro abre preenchido com nome, telefone e modalidade.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWonLead(null)}>
+              Agora não
+            </Button>
+            <Button onClick={handleConvertToStudent} data-testid="button-convert-lead">
+              <UserPlus className="h-4 w-4 mr-2" />
+              Cadastrar como Aluno
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Perdido → motivo ── */}
+      <Dialog open={!!lostLead} onOpenChange={(o) => !o && setLostLead(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Por que perdemos {lostLead?.name}?</DialogTitle>
+            <DialogDescription>
+              O motivo alimenta as estatísticas do funil — leva um clique e ajuda
+              a descobrir onde os leads escapam.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Select value={lostReason} onValueChange={setLostReason}>
+              <SelectTrigger data-testid="lost-reason-select">{lostReason}</SelectTrigger>
+              <SelectContent>
+                {LOST_REASONS.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLostLead(null)}>
+              Pular
+            </Button>
+            <Button
+              onClick={() => {
+                if (lostLead) lostReasonMutation.mutate({ id: lostLead.id, reason: lostReason });
+                setLostLead(null);
+              }}
+              data-testid="button-save-lost-reason"
+            >
+              Salvar motivo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

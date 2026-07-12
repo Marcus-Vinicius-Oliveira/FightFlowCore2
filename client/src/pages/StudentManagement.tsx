@@ -466,6 +466,26 @@ export default function StudentManagement() {
   const [permanentDeleteStudent, setPermanentDeleteStudent] = useState<Student | undefined>();
   const [graduateStudent, setGraduateStudent] = useState<Student | undefined>();
   
+  // Deep-link do Pipeline: ?novoAluno=1&nome=...&telefone=...&leadModalidade=<classTypeId>
+  // abre o cadastro pré-preenchido (conversão de lead ganho em aluno)
+  const [leadPrefill] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("novoAluno") !== "1") return undefined;
+    const classTypeId = params.get("leadModalidade");
+    return {
+      name: params.get("nome") ?? undefined,
+      phone: params.get("telefone") ?? undefined,
+      classTypeIds: classTypeId ? [classTypeId] : undefined,
+    };
+  });
+  useEffect(() => {
+    if (leadPrefill) {
+      setShowAddStudentDialog(true);
+      // Limpa a URL: um refresh não deve reabrir o cadastro
+      window.history.replaceState({}, "", "/dashboard/alunos");
+    }
+  }, [leadPrefill]);
+
   // Deep-link do dashboard: /dashboard/alunos?modalidade=<classTypeId>&graduacao=<rankId>
   const [filters, setFilters] = useState<FilterOptions>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -900,9 +920,10 @@ export default function StudentManagement() {
           Adicionar Novo Aluno
         </Button>
         
-        <AddStudentDialog 
-          open={showAddStudentDialog} 
-          onOpenChange={setShowAddStudentDialog} 
+        <AddStudentDialog
+          open={showAddStudentDialog}
+          onOpenChange={setShowAddStudentDialog}
+          initialValues={leadPrefill}
         />
         
         {/* Dialog apenas para edição de alunos existentes */}
