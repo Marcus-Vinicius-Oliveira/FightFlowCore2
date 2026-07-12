@@ -202,7 +202,7 @@ Motor de cobrança recorrente aprovado com as seguintes regras de negócio (deci
 - Plano do aluno: matrícula ativa em turma mais recente; na falta (bases anteriores à UI de matrícula), o plano da última mensalidade. Aluno sem nenhuma referência de plano não é cobrado automaticamente. Aluno criado depois do vencimento do mês é cobrado a partir do mês seguinte.
 - Valor: `users.custom_monthly_amount` (centavos, editável na ficha do aluno como "Mensalidade com Desconto") prevalece sobre `membership_plans.price`; zero é válido (bolsista 100%).
 - Lembrete: mensalidades pendentes vencendo em até `PAYMENT_REMINDER_DAYS_BEFORE` dias (default 3) recebem e-mail em pt-BR (1 por mensalidade, controlado por `payments.reminder_sent_at`). Sem `SMTP_HOST` configurado (ver `.env.example`), o lembrete é apenas logado — e ainda assim marcado, para não repetir a cada hora; mensalidades já vencidas não recebem lembrete.
-- Configuração do dia de vencimento: botão "Vencimento: dia N" no Controle Financeiro (`GET/PATCH /api/academy/billing-settings`).
+- Configuração do dia de vencimento padrão: botão "Vencimento padrão: dia N" no Controle Financeiro (`GET/PATCH /api/academy/billing-settings`). Alunos com dia de vencimento individual no cadastro não são afetados.
 - Dependência adicionada: `nodemailer` (padrão de mercado para SMTP, sem dependências transitivas).
 
 **Migração (aplicada no banco de desenvolvimento via `npm run db:push`; rode após o deploy em outros ambientes).** Mudanças aditivas: `academies.payment_due_day` (int, not null, default 5), `users.custom_monthly_amount` (int, nullable), `payments.reminder_sent_at` (timestamp, nullable).

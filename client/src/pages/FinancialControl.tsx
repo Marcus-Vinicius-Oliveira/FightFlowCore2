@@ -560,7 +560,7 @@ export default function FinancialControl() {
           data-testid="button-due-day-settings"
         >
           <CalendarClock className="h-4 w-4 mr-2" />
-          Vencimento: dia {billingSettings?.paymentDueDay ?? 5}
+          Vencimento padrão: dia {billingSettings?.paymentDueDay ?? 5}
         </Button>
       </div>
 
@@ -568,11 +568,11 @@ export default function FinancialControl() {
       <Dialog open={isDueDayDialogOpen} onOpenChange={setIsDueDayDialogOpen}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle>Dia de vencimento das mensalidades</DialogTitle>
+            <DialogTitle>Dia de vencimento padrão das mensalidades</DialogTitle>
             <DialogDescription>
-              As mensalidades são geradas automaticamente na virada do mês para todos os
-              alunos ativos, vencendo neste dia. Use um dia entre 1 e 28 para que exista
-              em todos os meses.
+              Vale para os alunos que não têm um dia de vencimento próprio escolhido no
+              cadastro — quem escolheu um dia individual não é afetado. Use um dia entre
+              1 e 28 para que exista em todos os meses.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
