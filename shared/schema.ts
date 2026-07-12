@@ -48,6 +48,9 @@ export const users = pgTable("users", {
   guardianPhone: text("guardian_phone"),
   guardianRelationship: text("guardian_relationship"),
   active: boolean("active").default(true),
+  // Quando o aluno foi desativado (cancelamento) — alimenta o relatório de
+  // crescimento; null enquanto ativo ou para desativações anteriores à coluna
+  deactivatedAt: timestamp("deactivated_at"),
   firstAccess: boolean("first_access").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().$onUpdateFn(() => new Date()),

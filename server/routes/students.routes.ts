@@ -240,6 +240,9 @@ router.patch('/:id',
       const updated = await storage.updateUser(studentId, {
         ...updateData,
         dateOfBirth: updateData.dateOfBirth ? new Date(updateData.dateOfBirth) : undefined,
+        // Data de cancelamento acompanha o toggle: desativar carimba, reativar limpa
+        ...(updateData.active === false && existing.active !== false && { deactivatedAt: new Date() }),
+        ...(updateData.active === true && { deactivatedAt: null }),
       });
 
       if (!updated) return res.status(404).json({ error: 'Aluno não encontrado' });
@@ -265,7 +268,10 @@ router.delete('/:id',
       if (!existing || existing.academyId !== req.user!.academyId || existing.role !== 'ALUNO') {
         return res.status(404).json({ error: 'Aluno não encontrado' });
       }
-      await storage.updateUser(req.params.id, { active: false });
+      await storage.updateUser(req.params.id, {
+        active: false,
+        ...(existing.active !== false && { deactivatedAt: new Date() }),
+      });
       res.json({ message: 'Aluno desativado com sucesso' });
     } catch (error) {
       console.error('Delete student error:', error);

@@ -11,11 +11,15 @@ const NAV_ITEMS = [
 export function BottomNav() {
   const [location] = useLocation();
 
-  // Only render on admin/professor dashboard routes
+  // Only render on admin/professor dashboard routes. Atenção: páginas de
+  // admin fora de /dashboard/* (como /reports) precisam constar aqui, senão
+  // o usuário fica sem navegação no mobile (a sidebar é escondida em favor
+  // desta barra).
   const isDashboardRoute =
     location === "/dashboard" ||
     (location.startsWith("/dashboard/") && !location.startsWith("/dashboard/presenca")) ||
-    location === "/settings";
+    location === "/settings" ||
+    location === "/reports";
 
   if (!isDashboardRoute) return null;
 

@@ -38,6 +38,7 @@ import SuperAdminAcademias from "@/pages/SuperAdminAcademias";
 import SuperAdminPlanos from "@/pages/SuperAdminPlanos";
 import SettingsPage from "@/pages/Settings";
 import SalesPipeline from "@/pages/SalesPipeline";
+import Reports from "@/pages/Reports";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BottomNav } from "@/components/BottomNav";
@@ -115,6 +116,11 @@ function Router() {
       <Route path="/dashboard/pipeline">
         <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
           <SalesPipeline />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/reports">
+        <ProtectedRoute requireRole={['ADMIN_ACADEMIA']}>
+          <Reports />
         </ProtectedRoute>
       </Route>
       <Route path="/dashboard/grade">
