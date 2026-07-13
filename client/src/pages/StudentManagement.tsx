@@ -1083,16 +1083,19 @@ export default function StudentManagement() {
             </div>
           ) : (
             <>
-            {/* ── MOBILE: cards (< md) ─────────────────────────────────── */}
-            <div className="md:hidden space-y-1.5">
+            {/* ── MOBILE: cards (< md) — scroll interno para a página não crescer ── */}
+            <div className="md:hidden space-y-1.5 max-h-[65vh] overflow-y-auto">
               {renderMobileStudentCards(filteredStudents)}
             </div>
 
-            {/* ── DESKTOP: tabela (≥ md) ───────────────────────────────── */}
-            <div className="hidden md:block w-full overflow-x-auto border rounded-md">
-              <div className="min-w-[700px]">
-                <Table>
-                  <TableHeader>
+            {/* ── DESKTOP: tabela (≥ md) ───────────────────────────────────
+                max-h no wrapper interno do Table (o div overflow-auto, que já
+                cuida do eixo X) para o sticky header funcionar; borda do
+                cabeçalho via shadow porque border-collapse não acompanha
+                thead sticky. Mesmo padrão dos Maiores devedores em /reports. */}
+            <div className="hidden md:block w-full border rounded-md [&>div]:max-h-[65vh]">
+              <Table className="min-w-[700px]">
+                <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_0_hsl(var(--border))] [&_tr]:border-b-0">
                     <TableRow>
                       <TableHead>Nome</TableHead>
                       <TableHead>Telefone</TableHead>
@@ -1207,8 +1210,7 @@ export default function StudentManagement() {
                       </TableRow>
                     ))}
                   </TableBody>
-                </Table>
-              </div>
+              </Table>
             </div>
             </>
           )}
