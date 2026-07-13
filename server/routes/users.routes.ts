@@ -72,8 +72,10 @@ router.get('/student/me',
   requireRole(['ALUNO']),
   async (req: AuthenticatedRequest, res) => {
     try {
+      // Com a relação class (classType + instructor): o portal do aluno
+      // renderiza horários a partir de enrollment.class.*
       const [enrollmentsList, attendanceList, paymentsList] = await Promise.all([
-        storage.getEnrollmentsByStudent(req.user!.id),
+        storage.getEnrollmentsByStudentWithClass(req.user!.id),
         storage.getAttendanceByStudent(req.user!.id),
         storage.getPaymentsByStudent(req.user!.id),
       ]);
