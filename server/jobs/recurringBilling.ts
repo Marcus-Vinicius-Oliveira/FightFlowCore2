@@ -1,16 +1,19 @@
 // Motor de cobrança recorrente: na virada do mês gera a mensalidade pendente de
 // cada aluno ativo (idempotente — roda a cada hora com catch-up; nunca duplica
-// dentro do mês) e dispara o lembrete de vencimento D-N por e-mail.
+// dentro do mês) e dispara o lembrete de vencimento D-N por e-mail e WhatsApp.
 
 import { and, eq, gte, lt, isNull, inArray, desc, sql } from "drizzle-orm";
 import { db } from "../db";
 import { users, academies, enrollments, membershipPlans, payments } from "@shared/schema";
+import { normalizePhoneBR, whatsappReminderText } from "@shared/whatsapp";
 import { log } from "../vite";
 import {
   monthStart, nextMonthStart, buildMonthlyCharges, shouldRemind, reminderEmail,
+  formatBRL, formatDateBR,
   type ChargeCandidate,
 } from "../lib/recurring";
 import { sendMail, isMailerConfigured } from "../lib/mailer";
+import { sendWhatsAppTemplate, isWhatsAppConfigured } from "../lib/whatsapp";
 
 const INTERVAL_MS = 60 * 60 * 1000; // 1 hora — a idempotência garante gerar 1x por mês
 
@@ -141,6 +144,7 @@ export async function sendDueReminders(now: Date = new Date()): Promise<number> 
       amount: payments.amount,
       studentName: users.name,
       studentEmail: users.email,
+      studentPhone: users.phone,
       planName: membershipPlans.name,
       academyName: academies.name,
     })
@@ -167,7 +171,32 @@ export async function sendDueReminders(now: Date = new Date()): Promise<number> 
       dueDate: r.dueDate,
     });
     await sendMail({ to: r.studentEmail, subject: content.subject, text: content.text });
-    // Marcado mesmo em modo log (sem SMTP) para não repetir a cada hora.
+
+    // WhatsApp complementa o e-mail (mesmo evento de lembrete, dois canais).
+    // Falha aqui não bloqueia a marcação: o e-mail é o canal primário.
+    const phone = normalizePhoneBR(r.studentPhone);
+    if (phone) {
+      const valor = formatBRL(r.amount);
+      const data = formatDateBR(r.dueDate);
+      try {
+        await sendWhatsAppTemplate({
+          to: phone,
+          // Ordem dos parâmetros = ordem das variáveis do template aprovado no Meta
+          params: [r.studentName, r.planName, r.academyName, valor, data],
+          fallbackText: whatsappReminderText({
+            studentName: r.studentName,
+            planName: r.planName,
+            academyName: r.academyName,
+            valor,
+            data,
+          }),
+        });
+      } catch (err) {
+        console.error(`[billing-job] WhatsApp falhou para pagamento ${r.paymentId}:`, err);
+      }
+    }
+
+    // Marcado mesmo em modo log (sem SMTP/WhatsApp) para não repetir a cada hora.
     await db.update(payments).set({ reminderSentAt: now }).where(eq(payments.id, r.paymentId));
     sent++;
   }
@@ -181,8 +210,9 @@ export function startRecurringBillingJob(): void {
       if (created > 0) log(`[billing-job] ${created} mensalidade(s) gerada(s) para o mês corrente`);
       const reminded = await sendDueReminders();
       if (reminded > 0) {
-        const mode = isMailerConfigured() ? 'enviado(s) por e-mail' : 'registrado(s) em log (SMTP não configurado)';
-        log(`[billing-job] ${reminded} lembrete(s) de vencimento ${mode}`);
+        const email = isMailerConfigured() ? 'e-mail' : 'e-mail em modo log';
+        const zap = isWhatsAppConfigured() ? 'WhatsApp' : 'WhatsApp em modo log';
+        log(`[billing-job] ${reminded} lembrete(s) de vencimento (${email} + ${zap} p/ quem tem telefone)`);
       }
     } catch (err) {
       console.error('[billing-job] erro:', err);

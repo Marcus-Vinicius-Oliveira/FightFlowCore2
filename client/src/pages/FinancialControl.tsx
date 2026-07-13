@@ -63,8 +63,10 @@ import {
   Undo2,
   FileText,
   FileDown,
-  Printer
+  Printer,
+  MessageCircle
 } from "lucide-react";
+import { waLink, whatsappChargeText, whatsappReminderText } from "@shared/whatsapp";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiClient, type Payment, type MembershipPlan, type Student } from "@/lib/api";
@@ -97,6 +99,34 @@ interface DebtorGroup {
   payments: PaymentRecord[];
   totalCents: number;
   oldestMs: number;
+}
+
+/** Ícone de cobrança via WhatsApp (wa.me). Sem telefone cadastrado, mostra o
+ *  ícone apagado com tooltip — some seria pior: o dono não saberia que dá. */
+function WhatsAppIconLink({ link, label, testId }: { link: string | null; label: string; testId: string }) {
+  if (!link) {
+    return (
+      <span
+        title="Aluno sem telefone cadastrado"
+        className="inline-flex h-8 w-8 items-center justify-center text-muted-foreground/30"
+      >
+        <MessageCircle className="h-4 w-4" />
+      </span>
+    );
+  }
+  return (
+    <a
+      href={link}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={label}
+      onClick={e => e.stopPropagation()}
+      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-green-600 hover:bg-green-600/10 transition-colors"
+      data-testid={testId}
+    >
+      <MessageCircle className="h-4 w-4" />
+    </a>
+  );
 }
 
 /** Busca sem acento/caixa (ex.: "patricia" acha "Patrícia") */
@@ -469,6 +499,29 @@ export default function FinancialControl() {
     setTimeout(() => window.print(), 150);
   };
 
+  // ── Cobrança manual via WhatsApp (wa.me) — null quando o aluno não tem fone ──
+  const whatsappForPayment = (payment: PaymentRecord): string | null => {
+    const phone = studentsData?.find(s => s.id === payment.studentId)?.phone;
+    const academyName = user?.academy?.name ?? 'academia';
+    const valor = formatPrice(payment.valor);
+    const text = payment.status === 'atrasado'
+      ? whatsappChargeText({ studentName: payment.aluno, academyName, valor, count: 1, data: payment.vencimento })
+      : whatsappReminderText({ studentName: payment.aluno, planName: payment.plano, academyName, valor, data: payment.vencimento });
+    return waLink(phone, text);
+  };
+
+  /** Grupo de atrasados: uma mensagem só com o total devido do aluno. */
+  const whatsappForGroup = (group: DebtorGroup): string | null => {
+    const phone = studentsData?.find(s => s.id === group.studentId)?.phone;
+    return waLink(phone, whatsappChargeText({
+      studentName: group.aluno,
+      academyName: user?.academy?.name ?? 'academia',
+      valor: formatPrice(group.totalCents),
+      count: group.payments.length,
+      data: group.payments.length === 1 ? group.payments[0].vencimento : undefined,
+    }));
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       pago: { label: 'Pago', className: 'status-pago bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
@@ -826,6 +879,21 @@ export default function FinancialControl() {
                       </button>
                       {expanded && (
                         <div className="border-t divide-y bg-muted/40">
+                          {whatsappForGroup(group) && (
+                            <div className="p-3">
+                              <Button asChild variant="outline" className="w-full text-green-600 hover:text-green-600">
+                                <a
+                                  href={whatsappForGroup(group)!}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  data-testid={`whatsapp-group-card-${group.studentId}`}
+                                >
+                                  <MessageCircle className="h-4 w-4 mr-2" />
+                                  Cobrar tudo no WhatsApp ({formatPrice(group.totalCents)})
+                                </a>
+                              </Button>
+                            </div>
+                          )}
                           {group.payments.map(payment => (
                             <div key={payment.id} className="p-3 space-y-2" data-testid={`card-payment-${payment.id}`}>
                               <div className="flex items-center justify-between gap-2 text-sm">
@@ -912,14 +980,29 @@ export default function FinancialControl() {
                       Ver Detalhes
                     </Button>
                   ) : (
-                    <Button
-                      variant="default"
-                      className="w-full btn-marcar-pago"
-                      onClick={() => handleMarcarPago(payment.id)}
-                      data-testid={`button-card-mark-paid-${payment.id}`}
-                    >
-                      Marcar como Pago
-                    </Button>
+                    <div className="flex gap-2">
+                      {whatsappForPayment(payment) && (
+                        <Button asChild variant="outline" className="shrink-0 px-3 text-green-600 hover:text-green-600">
+                          <a
+                            href={whatsappForPayment(payment)!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={`Cobrar ${payment.aluno} no WhatsApp`}
+                            data-testid={`whatsapp-card-${payment.id}`}
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      )}
+                      <Button
+                        variant="default"
+                        className="flex-1 btn-marcar-pago"
+                        onClick={() => handleMarcarPago(payment.id)}
+                        data-testid={`button-card-mark-paid-${payment.id}`}
+                      >
+                        Marcar como Pago
+                      </Button>
+                    </div>
                   )}
                 </div>
               ))
@@ -977,7 +1060,14 @@ export default function FinancialControl() {
                       </TableCell>
                       <TableCell>{formatDateOnly(group.oldestMs)}</TableCell>
                       <TableCell className="text-right text-xs text-muted-foreground">
-                        {expanded ? 'Recolher' : `Ver ${group.payments.length} mensalidade${group.payments.length > 1 ? 's' : ''}`}
+                        <span className="inline-flex items-center gap-2">
+                          <WhatsAppIconLink
+                            link={whatsappForGroup(group)}
+                            label={`Cobrar ${group.aluno} no WhatsApp (total devido)`}
+                            testId={`whatsapp-debtor-${group.studentId}`}
+                          />
+                          {expanded ? 'Recolher' : `Ver ${group.payments.length} mensalidade${group.payments.length > 1 ? 's' : ''}`}
+                        </span>
                       </TableCell>
                     </TableRow>
                     {expanded && group.payments.map(payment => (
@@ -1106,15 +1196,22 @@ export default function FinancialControl() {
                         Ver Detalhes
                       </Button>
                     ) : (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="btn-marcar-pago"
-                        onClick={() => handleMarcarPago(payment.id)}
-                        data-testid={`button-mark-paid-${payment.id}`}
-                      >
-                        Marcar como Pago
-                      </Button>
+                      <span className="inline-flex items-center gap-1">
+                        <WhatsAppIconLink
+                          link={whatsappForPayment(payment)}
+                          label={`Cobrar ${payment.aluno} no WhatsApp`}
+                          testId={`whatsapp-payment-${payment.id}`}
+                        />
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="btn-marcar-pago"
+                          onClick={() => handleMarcarPago(payment.id)}
+                          data-testid={`button-mark-paid-${payment.id}`}
+                        >
+                          Marcar como Pago
+                        </Button>
+                      </span>
                     )}
                   </TableCell>
                 </TableRow>
@@ -1347,7 +1444,7 @@ export default function FinancialControl() {
         exibe só este bloco. "Salvar como PDF" do navegador gera o arquivo.
       */}
       {createPortal(
-        <div id="print-financeiro" aria-hidden="true">
+        <div id="print-financeiro" className="print-sheet" aria-hidden="true">
           <h1>Relatório Financeiro</h1>
           <p className="print-sub">
             {user?.academy?.name ? `${user.academy.name} — ` : ''}
