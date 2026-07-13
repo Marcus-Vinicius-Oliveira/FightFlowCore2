@@ -1,18 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
+import { createPortal } from "react-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  Calendar, 
-  Clock, 
-  Users, 
+import {
+  Calendar,
+  Clock,
+  Users,
   ArrowLeft,
   LogOut,
   Award,
   AlertCircle,
-  MapPin 
+  MapPin,
+  Printer
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
@@ -64,9 +66,10 @@ export default function PortalSchedule() {
     setLocation("/portal/dashboard");
   };
 
-  // Group classes by day of week
+  // Group classes by day of week. O filtro de enrollment.class protege contra
+  // matrícula cuja turma foi apagada (relação null) — sem ele a página quebra.
   const weeklySchedule = studentData?.enrollments
-    ?.filter(enrollment => enrollment.active)
+    ?.filter(enrollment => enrollment.active && enrollment.class)
     ?.reduce((acc, enrollment) => {
       const dayOfWeek = enrollment.class.dayOfWeek;
       if (!acc[dayOfWeek]) {
@@ -122,13 +125,24 @@ export default function PortalSchedule() {
       <main className="container max-w-6xl mx-auto p-6">
         <div className="space-y-6">
           {/* Header Section */}
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">
-              Grade de Horários
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Suas aulas matriculadas organizadas por dia da semana
-            </p>
+          <div className="flex flex-wrap gap-4 items-start sm:items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">
+                Grade de Horários
+              </h1>
+              <p className="text-muted-foreground mt-2">
+                Suas aulas matriculadas organizadas por dia da semana
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              disabled={Object.keys(weeklySchedule).length === 0}
+              onClick={() => window.print()}
+              data-testid="button-print-schedule"
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              Imprimir / Salvar PDF
+            </Button>
           </div>
 
           {/* Summary Card */}
@@ -263,11 +277,54 @@ export default function PortalSchedule() {
           </Card>
         </div>
       </main>
+
+      {/*
+        Horários imprimíveis — portal direto no <body> (padrão .print-sheet,
+        ver index.css): na tela fica oculto; ao imprimir, esconde-se o app e
+        sai só esta folha. "Salvar como PDF" do navegador gera o arquivo.
+      */}
+      {Object.keys(weeklySchedule).length > 0 && createPortal(
+        <div id="print-meus-horarios" className="print-sheet" aria-hidden="true">
+          <h1>Meus Horários</h1>
+          <p className="print-sub">
+            {user?.name ? `${user.name} — ` : ''}{user?.academy?.name ?? 'academia'}
+          </p>
+          <p className="print-sub">
+            Gerado em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+          </p>
+
+          <table>
+            <thead>
+              <tr><th>Dia</th><th>Aula</th><th>Horário</th><th>Professor</th></tr>
+            </thead>
+            <tbody>
+              {daysOfWeek.flatMap(day =>
+                (weeklySchedule[day.id] || [])
+                  .slice()
+                  .sort((a, b) => a.class.startTime.localeCompare(b.class.startTime))
+                  .map((enrollment, i) => (
+                    <tr key={enrollment.id}>
+                      <td>{i === 0 ? day.name : ''}</td>
+                      <td>{enrollment.class.classType.name}</td>
+                      <td>{enrollment.class.startTime}–{enrollment.class.endTime}</td>
+                      <td>{enrollment.class.instructor.name}</td>
+                    </tr>
+                  )),
+              )}
+            </tbody>
+          </table>
+
+          <p className="print-footer">
+            Os horários podem sofrer alterações — confirme com a recepção. Chegue 10 minutos antes da aula.
+          </p>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }
 
-function PortalHeader({ 
+function PortalHeader({
   user, 
   onLogout, 
   onBack 

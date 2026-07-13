@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
+import { createPortal } from "react-dom";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, Users, Plus } from "lucide-react";
+import { Calendar, Clock, Users, Plus, Printer } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { getModalityColor } from "@/lib/modality-colors";
@@ -123,16 +124,20 @@ function WeeklyGrid({ schedule, onOpen }: WeeklyGridProps) {
   const today = new Date().getDay().toString();
 
   return (
-    <div className="overflow-x-auto">
-      <div className="border rounded-lg overflow-hidden bg-background min-w-[700px]">
-        {/* Header com dias da semana — hoje ganha destaque */}
-        <div className="grid grid-cols-8 border-b bg-muted/30">
-          <div className="p-3 border-r font-medium text-sm">Horário</div>
+    // Scroll interno (X e Y) num único container: a grade rola por dentro em vez
+    // de crescer a página, e o header dos dias fica sticky. O overflow-hidden
+    // interno saiu — ele viraria o "scrollport" do sticky e o header não grudaria.
+    <div className="border rounded-lg bg-background overflow-auto max-h-[65vh]">
+      <div className="min-w-[700px]">
+        {/* Header com dias da semana — hoje ganha destaque. bg-background opaco
+            por baixo dos tints: as linhas passam por trás durante o scroll. */}
+        <div className="grid grid-cols-8 border-b bg-background sticky top-0 z-10">
+          <div className="p-3 border-r font-medium text-sm bg-muted/30">Horário</div>
           {DAYS_OF_WEEK.map((day) => (
             <div
               key={day.value}
               className={cn(
-                "p-3 border-r last:border-r-0 text-center",
+                "p-3 border-r last:border-r-0 text-center bg-muted/30",
                 day.value === today && "bg-primary/10",
               )}
             >
@@ -218,15 +223,26 @@ export default function WeeklySchedule() {
           </p>
         </div>
 
-        {user?.role === 'ADMIN_ACADEMIA' && (
+        <div className="flex items-center gap-2">
           <Button
-            onClick={() => navigate('/dashboard/aulas')}
-            data-testid="button-manage-classes"
+            variant="outline"
+            disabled={isLoading || isEmpty}
+            onClick={() => window.print()}
+            data-testid="button-print-grade"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Gerenciar Aulas
+            <Printer className="h-4 w-4 mr-2" />
+            Imprimir / Salvar PDF
           </Button>
-        )}
+          {user?.role === 'ADMIN_ACADEMIA' && (
+            <Button
+              onClick={() => navigate('/dashboard/aulas')}
+              data-testid="button-manage-classes"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Gerenciar Aulas
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -276,6 +292,63 @@ export default function WeeklySchedule() {
           )}
         </CardContent>
       </Card>
+
+      {/*
+        Grade imprimível — portal direto no <body> (padrão .print-sheet, ver
+        index.css): na tela fica oculto; ao imprimir, esconde-se o app e sai só
+        a grade. O <style> embutido força paisagem enquanto ESTA página está
+        montada — @page não é escopável por seletor, então o override vive e
+        morre com o portal, sem afetar a impressão das outras páginas.
+      */}
+      {!isEmpty && createPortal(
+        <div id="print-grade" className="print-sheet" aria-hidden="true">
+          <style>{'@media print { @page { size: A4 landscape; margin: 10mm; } }'}</style>
+          <h1>Grade de Aulas</h1>
+          <p className="print-sub">
+            {user?.academy?.name ? `${user.academy.name} — ` : ''}grade semanal
+          </p>
+          <p className="print-sub">
+            Gerado em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+          </p>
+
+          <table className="print-grade-table">
+            <thead>
+              <tr>
+                <th>Horário</th>
+                {DAYS_OF_WEEK.map(day => <th key={day.value}>{day.label}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {visibleHours(schedule).map(hour => (
+                <tr key={hour}>
+                  <td className="print-grade-hour">{String(hour).padStart(2, '0')}:00</td>
+                  {DAYS_OF_WEEK.map(day => {
+                    const classesAtTime = (schedule[day.value] || [])
+                      .filter(cls => startHour(cls) === hour)
+                      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+                    return (
+                      <td key={`${day.value}-${hour}`}>
+                        {classesAtTime.map(cls => (
+                          <div key={cls.id} className="print-grade-class">
+                            <strong>{cls.classType}</strong>{!cls.active && ' (inativa)'}
+                            <br />{cls.startTime}–{cls.endTime}
+                            <br />{cls.instructor}
+                          </div>
+                        ))}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <p className="print-footer">
+            Fight Club App — grade gerada automaticamente a partir das turmas ativas da academia.
+          </p>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }
