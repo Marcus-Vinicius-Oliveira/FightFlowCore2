@@ -247,7 +247,7 @@ function AppWithAuthentication() {
         </div>
       </div>
       {/* Bottom navigation — renders only on mobile for admin/professor roles */}
-      {isAdminRole && <BottomNav />}
+      {isAdminRole && <BottomNav userRole={user?.role as 'ADMIN_ACADEMIA' | 'PROFESSOR'} />}
     </SidebarProvider>
   );
 }
