@@ -10,6 +10,7 @@ import {
   type AuthenticatedRequest,
 } from "../auth";
 import { loginLimiter, signupLimiter } from "../middleware";
+import { slugify, nextAvailableSlug } from "../lib/slug";
 
 const router = Router();
 
@@ -81,16 +82,12 @@ router.post('/signup', signupLimiter, async (req, res) => {
       return res.status(409).json({ error: 'Já existe um usuário com este email' });
     }
 
-    const academySlug = validatedData.academyName
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
-
-    const existingAcademy = await storage.getAcademyBySlug(academySlug);
-    if (existingAcademy) {
-      return res.status(409).json({ error: 'Nome de academia já em uso' });
-    }
+    // Nome repetido não bloqueia o cadastro: o slug ganha sufixo (-2, -3...).
+    // O unique do banco continua como guarda final contra corrida.
+    const academySlug = await nextAvailableSlug(
+      slugify(validatedData.academyName),
+      async slug => Boolean(await storage.getAcademyBySlug(slug)),
+    );
 
     // Resolve free trial plan before opening the transaction.
     const allPlanos = await storage.getAllPlanos();

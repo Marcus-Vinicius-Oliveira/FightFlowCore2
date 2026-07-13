@@ -90,8 +90,12 @@ export function DashboardInfo() {
               <p className="text-sm text-muted-foreground">Academia: {data.academy.name}</p>
               <p className="text-sm text-muted-foreground">Email: {data.academy.email}</p>
             </div>
-            <Badge variant="secondary" className="text-xs">
-              ID: {data.academy.slug}
+            <Badge
+              variant="secondary"
+              className="text-xs"
+              title="Identificador público da academia — usado nas URLs do portal do aluno e do QR de check-in. O ID interno é um UUID."
+            >
+              Identificador: {data.academy.slug}
             </Badge>
           </div>
         </CardContent>
