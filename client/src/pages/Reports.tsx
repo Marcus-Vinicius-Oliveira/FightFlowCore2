@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -6,21 +7,32 @@ import {
 } from "recharts";
 import {
   DollarSign, AlertTriangle, Users, TrendingUp, TrendingDown, Minus, Clock, ChevronRight,
+  ChevronDown, FileDown, FileText, Printer, MessageCircle,
 } from "lucide-react";
+import { waLink, whatsappChargeText } from "@shared/whatsapp";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 // Vermelho fixo para a série de cancelamentos/inadimplência: o --destructive
 // do tema escuro (35% de luminosidade) não atinge 3:1 de contraste como barra
 // sobre a superfície; este tom passa a validação nos dois temas.
 const CHART_RED = 'hsl(0 75% 55%)';
 const CHART_BLUE = 'hsl(var(--chart-1))';
+// Impressão é sempre sobre fundo branco — azul fixo em vez da var do tema,
+// que no modo escuro resolve para um tom pensado para superfície escura.
+const PRINT_BLUE = 'hsl(217 91% 55%)';
 
 interface MonthlyPoint {
   month: string; // YYYY-MM
@@ -45,7 +57,7 @@ interface ClassAttendance {
 interface ReportsData {
   months: number;
   monthly: MonthlyPoint[];
-  topDebtors: { studentId: string; name: string; total: number; count: number }[];
+  topDebtors: { studentId: string; name: string; phone: string | null; total: number; count: number }[];
   activeStudents: number;
   attendance: {
     days: number;
@@ -102,6 +114,9 @@ export default function Reports() {
   const [section, setSection] = useState<Section>('faturamento');
   const [months, setMonths] = useState<'6' | '12'>('12');
   const [attendanceDays, setAttendanceDays] = useState<'30' | '90'>('30');
+  const [isExporting, setIsExporting] = useState(false);
+  const { toast } = useToast();
+  const { user } = useAuth();
 
   const { data, isLoading } = useQuery<ReportsData>({
     queryKey: ['/api/reports/overview', months, attendanceDays],
@@ -169,6 +184,37 @@ export default function Reports() {
 
   const periodLabel = months === '6' ? '6 meses' : '12 meses';
 
+  // O .xlsx é gerado no servidor pela mesma agregação da tela; como o auth é
+  // JWT via header, o download precisa ser fetch + blob (um <a href> não
+  // levaria o token).
+  const handleExportExcel = async () => {
+    if (!data) return;
+    setIsExporting(true);
+    try {
+      const res = await apiRequest('GET', `/api/reports/export?months=${months}&attendanceDays=${attendanceDays}`);
+      const blob = await res.blob();
+      const filename = res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1]
+        ?? `relatorios-${months}meses.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: 'Excel exportado', description: 'Uma aba por seção — abra no Excel ou Google Sheets.' });
+    } catch {
+      toast({ title: 'Erro ao exportar', description: 'Não foi possível gerar a planilha. Tente novamente.', variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handlePrintReport = () => {
+    if (!data) return;
+    // Deixa o dropdown fechar antes de congelar a página no diálogo de impressão
+    setTimeout(() => window.print(), 150);
+  };
+
   return (
     <div className="space-y-6">
       {/* ── Cabeçalho: título + janela de meses ──────────────────────────── */}
@@ -179,12 +225,33 @@ export default function Reports() {
             Faturamento, inadimplência, crescimento e frequência dos últimos {periodLabel}
           </p>
         </div>
-        <Tabs value={months} onValueChange={v => setMonths(v as typeof months)}>
-          <TabsList>
-            <TabsTrigger value="6" data-testid="months-6">6 meses</TabsTrigger>
-            <TabsTrigger value="12" data-testid="months-12">12 meses</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-2">
+          <Tabs value={months} onValueChange={v => setMonths(v as typeof months)}>
+            <TabsList>
+              <TabsTrigger value="6" data-testid="months-6">6 meses</TabsTrigger>
+              <TabsTrigger value="12" data-testid="months-12">12 meses</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={isLoading || !data} data-testid="button-exportar">
+                <FileText className="h-4 w-4 mr-2" />
+                Exportar
+                <ChevronDown className="h-4 w-4 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportExcel} disabled={isExporting} data-testid="menu-export-excel">
+                <FileDown className="h-4 w-4 mr-2" />
+                {isExporting ? 'Gerando planilha...' : 'Exportar Excel (.xlsx)'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handlePrintReport} data-testid="menu-print-pdf">
+                <Printer className="h-4 w-4 mr-2" />
+                Imprimir / Salvar PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* ── Resumo do período (sempre visível) ────────────────────────────── */}
@@ -383,33 +450,68 @@ export default function Reports() {
               </CardHeader>
               <CardContent>
                 {(data?.topDebtors.length ?? 0) > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Aluno</TableHead>
-                        <TableHead className="text-right">Mensalidades</TableHead>
-                        <TableHead className="text-right">Total devido</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data!.topDebtors.map(d => (
-                        <TableRow key={d.studentId} data-testid={`debtor-${d.studentId}`}>
-                          <TableCell>
-                            <Link
-                              href={`/dashboard/alunos/${d.studentId}`}
-                              className="hover:underline text-foreground"
-                            >
-                              {d.name}
-                            </Link>
-                          </TableCell>
-                          <TableCell className="text-right">{d.count}</TableCell>
-                          <TableCell className="text-right font-mono text-red-600">
-                            {formatPrice(d.total)}
-                          </TableCell>
+                  /* max-h no wrapper interno do Table (o div overflow-auto) para o
+                     sticky header funcionar; borda via shadow porque border-collapse
+                     não acompanha thead sticky */
+                  <div className="[&>div]:max-h-[280px] md:[&>div]:max-h-[340px]">
+                    <Table>
+                      <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_0_hsl(var(--border))] [&_tr]:border-b-0">
+                        <TableRow>
+                          <TableHead>Aluno</TableHead>
+                          <TableHead className="text-right">Mensalidades</TableHead>
+                          <TableHead className="text-right">Total devido</TableHead>
+                          <TableHead className="w-10 pl-0"><span className="sr-only">Cobrar no WhatsApp</span></TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {data!.topDebtors.map(d => {
+                          const link = waLink(d.phone, whatsappChargeText({
+                            studentName: d.name,
+                            academyName: user?.academy?.name ?? 'academia',
+                            valor: formatPrice(d.total),
+                            count: d.count,
+                          }));
+                          return (
+                            <TableRow key={d.studentId} data-testid={`debtor-${d.studentId}`}>
+                              <TableCell>
+                                <Link
+                                  href={`/dashboard/alunos/${d.studentId}`}
+                                  className="hover:underline text-foreground"
+                                >
+                                  {d.name}
+                                </Link>
+                              </TableCell>
+                              <TableCell className="text-right">{d.count}</TableCell>
+                              <TableCell className="text-right font-mono text-red-600">
+                                {formatPrice(d.total)}
+                              </TableCell>
+                              <TableCell className="w-10 pl-0">
+                                {link ? (
+                                  <a
+                                    href={link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={`Cobrar ${d.name} no WhatsApp`}
+                                    className="inline-flex items-center justify-center h-7 w-7 rounded-md text-green-600 hover:bg-green-600/10 transition-colors"
+                                    data-testid={`whatsapp-debtor-${d.studentId}`}
+                                  >
+                                    <MessageCircle className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <span
+                                    title="Aluno sem telefone cadastrado"
+                                    className="inline-flex items-center justify-center h-7 w-7 text-muted-foreground/30"
+                                  >
+                                    <MessageCircle className="h-4 w-4" />
+                                  </span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
                 ) : (
                   <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">
                     {isLoading ? 'Carregando...' : 'Nenhum aluno com mensalidade vencida em aberto'}
@@ -494,6 +596,168 @@ export default function Reports() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/*
+        Relatório imprimível — portal direto no <body> para escapar dos
+        contêineres com overflow do layout (que cortam a impressão na 1ª página).
+        Invisível na tela; o CSS de @media print em index.css esconde o app e
+        exibe só este bloco, com as 4 seções empilhadas. Os gráficos usam
+        width/height fixos: ResponsiveContainer mede 0 dentro de display:none.
+      */}
+      {data && createPortal(
+        <div id="print-reports" className="print-sheet" aria-hidden="true">
+          <h1>Relatórios Gerenciais</h1>
+          <p className="print-sub">
+            {user?.academy?.name ? `${user.academy.name} — ` : ''}
+            últimos {periodLabel}
+            {monthly.length > 0 ? ` (${monthly[0].label} a ${monthly[monthly.length - 1].label})` : ''}
+          </p>
+          <p className="print-sub">
+            Gerado em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+          </p>
+
+          <div className="print-kpis">
+            <div>
+              <span className="print-kpi-label">Receita no período</span>
+              <span className="print-kpi-value">{formatPrice(totals.revenue)}</span>
+            </div>
+            <div>
+              <span className="print-kpi-label">Vencido sem pagamento</span>
+              <span className="print-kpi-value">{formatPrice(totals.overdue)}</span>
+            </div>
+            <div>
+              <span className="print-kpi-label">Alunos ativos hoje</span>
+              <span className="print-kpi-value">{data.activeStudents}</span>
+            </div>
+            <div>
+              <span className="print-kpi-label">Saldo de alunos</span>
+              <span className="print-kpi-value">
+                {totals.net > 0 ? '+' : ''}{totals.net}
+                <span className="print-kpi-detail"> ({totals.newStudents} novos − {totals.cancellations} cancelados)</span>
+              </span>
+            </div>
+          </div>
+
+          <h2>Faturamento mensal</h2>
+          <div className="print-chart">
+            <BarChart width={680} height={180} data={monthly} margin={chartMargin}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e5e5" />
+              <XAxis dataKey="label" tick={tickStyle} axisLine={false} tickLine={false} />
+              <YAxis tick={tickStyle} axisLine={false} tickLine={false} width={72} tickFormatter={v => formatPriceCompact(v)} />
+              <Bar dataKey="revenue" fill={PRINT_BLUE} radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={false} />
+            </BarChart>
+          </div>
+          <table>
+            <thead>
+              <tr><th>Mês</th><th>Receita paga</th></tr>
+            </thead>
+            <tbody>
+              {monthly.map(p => (
+                <tr key={p.month}><td>{p.label}</td><td>{formatPrice(p.revenue)}</td></tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr><td>Total</td><td>{formatPrice(totals.revenue)}</td></tr>
+            </tfoot>
+          </table>
+
+          <h2>Crescimento de alunos</h2>
+          <div className="print-chart">
+            <BarChart width={680} height={180} data={monthly} margin={chartMargin}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e5e5" />
+              <XAxis dataKey="label" tick={tickStyle} axisLine={false} tickLine={false} />
+              <YAxis tick={tickStyle} axisLine={false} tickLine={false} allowDecimals={false} width={32} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="newStudents" name="Novos alunos" fill={PRINT_BLUE} radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive={false} />
+              <Bar dataKey="cancellations" name="Cancelamentos" fill={CHART_RED} radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive={false} />
+            </BarChart>
+          </div>
+          <table>
+            <thead>
+              <tr><th>Mês</th><th>Novos alunos</th><th>Cancelamentos</th><th>Saldo</th></tr>
+            </thead>
+            <tbody>
+              {monthly.map(p => (
+                <tr key={p.month}>
+                  <td>{p.label}</td><td>{p.newStudents}</td><td>{p.cancellations}</td><td>{p.newStudents - p.cancellations}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr><td>Total</td><td>{totals.newStudents}</td><td>{totals.cancellations}</td><td>{totals.net}</td></tr>
+            </tfoot>
+          </table>
+          <p className="print-footer">
+            Cancelamentos são contabilizados a partir de julho/2026; desativações anteriores não aparecem.
+          </p>
+
+          <h2>Inadimplência por mês de vencimento</h2>
+          <table>
+            <thead>
+              <tr><th>Mês</th><th>Valor vencido</th><th>Alunos devedores</th></tr>
+            </thead>
+            <tbody>
+              {monthly.map(p => (
+                <tr key={p.month}><td>{p.label}</td><td>{formatPrice(p.overdueAmount)}</td><td>{p.overdueStudents}</td></tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr><td>Total</td><td>{formatPrice(totals.overdue)}</td><td /></tr>
+            </tfoot>
+          </table>
+
+          {data.topDebtors.length > 0 && (
+            <>
+              <h2>Maiores devedores</h2>
+              <p className="print-sub">Toda a dívida vencida em aberto, sem limite de período.</p>
+              <table>
+                <thead>
+                  <tr><th>Aluno</th><th>Mensalidades em aberto</th><th>Total devido</th><th>Telefone</th></tr>
+                </thead>
+                <tbody>
+                  {data.topDebtors.map(d => (
+                    <tr key={d.studentId}>
+                      <td>{d.name}</td><td>{d.count}</td><td>{formatPrice(d.total)}</td><td>{d.phone ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+
+          <h2>Frequência por turma — últimos {attendanceDays} dias</h2>
+          <table>
+            <thead>
+              <tr><th>Modalidade / turma</th><th>Presenças</th><th>Registros</th><th>Taxa</th></tr>
+            </thead>
+            <tbody>
+              {modalityGroups.map(g => (
+                <Fragment key={g.name}>
+                  <tr className="print-group-row">
+                    <td>{g.name}</td>
+                    <td>{g.present}</td>
+                    <td>{g.total}</td>
+                    <td>{g.rate == null ? 'Sem chamadas' : `${g.rate}%`}</td>
+                  </tr>
+                  {g.classes.map(c => (
+                    <tr key={c.classId}>
+                      <td className="print-indent">{DAY_NAMES[c.dayOfWeek]}, {c.startTime}–{c.endTime}</td>
+                      <td>{c.present}</td>
+                      <td>{c.total}</td>
+                      <td>{c.rate == null ? 'Sem chamadas' : `${c.rate}%`}</td>
+                    </tr>
+                  ))}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+
+          <p className="print-footer">
+            Fight Club App — relatório gerado automaticamente a partir dos dados da academia.
+          </p>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

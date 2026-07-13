@@ -369,20 +369,21 @@
   height: 32px !important;
   width: 32px !important;
 }
-/* ── Relatório imprimível do Financeiro (#print-financeiro) ──
+/* ── Relatórios imprimíveis (.print-sheet: .print-sheet, #print-reports) ──
    O portal vive como filho direto do <body> (fora do #root) para escapar dos
    contêineres com overflow do layout, que cortariam a impressão na 1ª página.
-   Na tela fica oculto; ao imprimir, esconde-se todo o resto e exibe-se só ele. */
-#print-financeiro {
+   Na tela fica oculto; ao imprimir, esconde-se todo o resto e exibe-se só ele.
+   Só um portal existe por vez — cada página monta o seu. */
+.print-sheet {
   display: none;
 }
 
 @media print {
-  body > *:not(#print-financeiro) {
+  body > *:not(.print-sheet) {
     display: none !important;
   }
 
-  #print-financeiro {
+  .print-sheet {
     display: block;
     font-family: ui-sans-serif, system-ui, sans-serif;
     font-size: 12px;
@@ -391,30 +392,30 @@
     background: #fff;
   }
 
-  #print-financeiro h1 {
+  .print-sheet h1 {
     font-size: 20px;
     font-weight: 700;
     margin-bottom: 2px;
   }
 
-  #print-financeiro h2 {
+  .print-sheet h2 {
     font-size: 14px;
     font-weight: 600;
     margin: 16px 0 4px;
   }
 
-  #print-financeiro .print-sub {
+  .print-sheet .print-sub {
     color: #444;
     margin: 0;
   }
 
-  #print-financeiro .print-kpis {
+  .print-sheet .print-kpis {
     display: flex;
     gap: 24px;
     margin: 12px 0 4px;
   }
 
-  #print-financeiro .print-kpis > div {
+  .print-sheet .print-kpis > div {
     display: flex;
     flex-direction: column;
     border: 1px solid #ddd;
@@ -423,48 +424,97 @@
     flex: 1;
   }
 
-  #print-financeiro .print-kpi-label {
+  .print-sheet .print-kpi-label {
     font-size: 11px;
     color: #444;
   }
 
-  #print-financeiro .print-kpi-value {
+  .print-sheet .print-kpi-value {
     font-size: 16px;
     font-weight: 700;
   }
 
-  #print-financeiro table {
+  .print-sheet table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 4px;
   }
 
-  #print-financeiro th,
-  #print-financeiro td {
+  .print-sheet th,
+  .print-sheet td {
     border: 1px solid #ccc;
     padding: 4px 8px;
     text-align: left;
     vertical-align: top;
   }
 
-  #print-financeiro th {
+  .print-sheet th {
     background: #f2f2f2;
     font-weight: 600;
   }
 
-  #print-financeiro tfoot td {
+  .print-sheet tfoot td {
     font-weight: 700;
     background: #fafafa;
   }
 
-  #print-financeiro tr {
+  .print-sheet tr {
     break-inside: avoid;
   }
 
-  #print-financeiro .print-footer {
+  .print-sheet .print-footer {
     margin-top: 16px;
     font-size: 10px;
     color: #777;
+  }
+
+  .print-sheet .print-kpi-detail {
+    font-size: 10px;
+    font-weight: 400;
+    color: #444;
+  }
+
+  /* Gráficos Recharts (SVG com tamanho fixo) — não quebrar no meio da página */
+  .print-sheet .print-chart {
+    break-inside: avoid;
+    margin: 4px 0 8px;
+  }
+
+  .print-sheet h2 {
+    break-after: avoid;
+  }
+
+  /* Frequência: linha da modalidade agregada + turmas indentadas */
+  .print-sheet .print-group-row td {
+    font-weight: 600;
+    background: #fafafa;
+  }
+
+  .print-sheet .print-indent {
+    padding-left: 24px;
+    color: #444;
+  }
+
+  /* Grade de aulas (paisagem): coluna de horário estreita, células compactas */
+  .print-sheet .print-grade-table {
+    table-layout: fixed;
+    font-size: 10px;
+  }
+
+  .print-sheet .print-grade-table th:first-child {
+    width: 44px;
+  }
+
+  .print-sheet .print-grade-hour {
+    font-weight: 600;
+    white-space: nowrap;
+    background: #fafafa;
+  }
+
+  .print-sheet .print-grade-class + .print-grade-class {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed #ddd;
   }
 
   @page {
