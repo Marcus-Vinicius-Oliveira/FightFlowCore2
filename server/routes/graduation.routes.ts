@@ -152,6 +152,36 @@ router.post('/systems/:id/ranks',
   }
 );
 
+// PATCH /api/graduation/systems/:id/ranks/reorder — recebe a lista completa de
+// ids na nova ordem e regrava displayOrder = índice. Lista completa (não delta)
+// para a ordem final ser determinística mesmo com displayOrders duplicados.
+router.patch('/systems/:id/ranks/reorder',
+  authenticateToken,
+  requireRole(['ADMIN_ACADEMIA']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const sys = await storage.getGraduationSystem(req.params.id);
+      if (!sys || sys.academyId !== req.user!.academyId) return res.status(404).json({ error: 'Sistema não encontrado' });
+
+      const schema = z.object({ rankIds: z.array(z.string().uuid()).min(1) });
+      const { rankIds } = schema.parse(req.body);
+
+      const ranks = await storage.getGraduationRanksBySystem(req.params.id);
+      const validIds = new Set(ranks.map(r => r.id));
+      if (rankIds.length !== ranks.length || !rankIds.every(id => validIds.has(id))) {
+        return res.status(400).json({ error: 'A lista deve conter exatamente todas as graduações do sistema' });
+      }
+
+      await Promise.all(rankIds.map((id, i) => storage.updateGraduationRank(id, { displayOrder: i })));
+      res.json(await storage.getGraduationRanksBySystem(req.params.id));
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: 'Validação', details: error.errors });
+      console.error('Reorder ranks error:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
 // PATCH /api/graduation/ranks/:id
 router.patch('/ranks/:id',
   authenticateToken,

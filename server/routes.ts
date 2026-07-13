@@ -15,6 +15,7 @@ import dashboardRouter from "./routes/dashboard.routes";
 import usersRouter from "./routes/users.routes";
 import graduationRouter from "./routes/graduation.routes";
 import reportsRouter from "./routes/reports.routes";
+import academyRouter from "./routes/academy.routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/auth', authRouter);
@@ -30,6 +31,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/dashboard', dashboardRouter);
   app.use('/api/graduation', graduationRouter);
   app.use('/api/reports', reportsRouter);
+  // Só GET/PATCH '/'; /api/academy/billing-settings segue no financialRouter
+  app.use('/api/academy', academyRouter);
   app.use('/api', usersRouter);               // /api/users + /api/student/me
 
   return createServer(app);

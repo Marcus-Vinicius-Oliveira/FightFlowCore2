@@ -1,20 +1,35 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  DndContext, PointerSensor, TouchSensor, KeyboardSensor, closestCenter,
+  useSensor, useSensors, type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext, useSortable, rectSortingStrategy, arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Settings2, Plus, Pencil, Trash2, MoreHorizontal, Award, CheckCircle2, X, Users, LayoutDashboard } from "lucide-react";
+import {
+  Settings2, Plus, Pencil, Trash2, MoreHorizontal, Award, CheckCircle2, X, Users,
+  LayoutDashboard, Building2, KeyRound, ChevronRight, GripVertical,
+} from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { BeltBar, isLightHex } from "@/components/BeltBadge";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
+import { apiClient } from "@/lib/api";
 
 // ─── Graduation Templates ─────────────────────────────────────────────────────
 
@@ -315,6 +330,55 @@ function RankForm({ systemId, rank, nextOrder, onClose }: RankFormProps) {
 
 // ─── System Panel ─────────────────────────────────────────────────────────────
 
+/** Chip de faixa arrastável: alça dedicada (grip) para o toque no chip ou no
+ *  menu não disparar o drag; `touch-none` na alça evita o scroll da página
+ *  brigar com o arrasto no celular. */
+function SortableRankChip({ rank, onEdit, onDelete }: {
+  rank: GraduationRank;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: rank.id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`group flex items-center gap-0.5 rounded ${isDragging ? 'opacity-60 relative z-10 bg-muted' : ''}`}
+      data-testid={`rank-chip-${rank.id}`}
+    >
+      <button
+        type="button"
+        title="Arrastar para reordenar"
+        {...attributes}
+        {...listeners}
+        className="touch-none cursor-grab active:cursor-grabbing p-0.5 rounded text-muted-foreground/40 hover:text-muted-foreground"
+        data-testid={`rank-drag-${rank.id}`}
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
+      <RankBadge rank={rank} />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button type="button" title="Opções" className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted">
+            <MoreHorizontal className="h-3 w-3" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="text-sm">
+          <DropdownMenuItem onClick={onEdit}>
+            <Pencil className="h-3 w-3 mr-2" />
+            Editar
+          </DropdownMenuItem>
+          <DropdownMenuItem className="text-destructive" onClick={onDelete}>
+            <Trash2 className="h-3 w-3 mr-2" />
+            Remover
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 interface SystemPanelProps {
   system: GraduationSystem;
   classTypeName: string;
@@ -322,6 +386,7 @@ interface SystemPanelProps {
 }
 
 function SystemPanel({ system, classTypeName, onDeleteSystem }: SystemPanelProps) {
+  const [open, setOpen] = useState(false);
   const [rankDialog, setRankDialog] = useState<{ open: boolean; rank?: GraduationRank }>({ open: false });
   const [deleteRank, setDeleteRank] = useState<GraduationRank | undefined>();
   const { toast } = useToast();
@@ -337,58 +402,108 @@ function SystemPanel({ system, classTypeName, onDeleteSystem }: SystemPanelProps
     onError: () => toast({ title: 'Erro ao remover graduação', variant: 'destructive' }),
   });
 
+  // Reordenação otimista: aplica a nova ordem no cache na hora e reverte se a
+  // API falhar — arrastar e ver o chip voltar depois de 1s seria pior que não ter drag.
+  const reorderMutation = useMutation({
+    mutationFn: (rankIds: string[]) =>
+      apiRequest('PATCH', `/api/graduation/systems/${system.id}/ranks/reorder`, { rankIds }).then(r => r.json()),
+    onMutate: async (rankIds) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/graduation/systems'] });
+      const prev = queryClient.getQueryData<GraduationSystem[]>(['/api/graduation/systems']);
+      queryClient.setQueryData<GraduationSystem[]>(['/api/graduation/systems'], old =>
+        old?.map(s => s.id !== system.id ? s : {
+          ...s,
+          ranks: rankIds.map((id, i) => ({ ...s.ranks.find(r => r.id === id)!, displayOrder: i })),
+        }),
+      );
+      return { prev };
+    },
+    onError: (_err, _ids, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['/api/graduation/systems'], ctx.prev);
+      toast({ title: 'Erro ao reordenar graduações', variant: 'destructive' });
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['/api/graduation/systems'] }),
+  });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor),
+  );
+
+  const sortedRanks = [...system.ranks].sort((a, b) => a.displayOrder - b.displayOrder);
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = sortedRanks.map(r => r.id);
+    const newIds = arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id)));
+    reorderMutation.mutate(newIds);
+  }
+
   const nextOrder = system.ranks.length > 0
     ? Math.max(...system.ranks.map(r => r.displayOrder)) + 1
     : 0;
 
   return (
-    <div className="border rounded-lg p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-semibold flex items-center gap-2">
-            <Award className="h-4 w-4 text-yellow-500" />
-            {system.name}
-          </h3>
+    <div className="border rounded-lg px-4 py-3 space-y-3">
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <div className="flex items-center justify-between gap-2">
+          <CollapsibleTrigger
+            className="flex items-center gap-2 flex-1 min-w-0 text-left py-1 hover-elevate rounded"
+            data-testid={`system-toggle-${system.id}`}
+          >
+            <ChevronRight
+              className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`}
+            />
+            <Award className="h-4 w-4 shrink-0 text-yellow-500" />
+            <span className="font-semibold truncate">{system.name}</span>
+            {classTypeName && (
+              <Badge variant="outline" className="shrink-0 hidden sm:inline-flex">{classTypeName}</Badge>
+            )}
+            <span className="text-xs text-muted-foreground shrink-0 ml-auto sm:ml-0">
+              {system.ranks.length} faixa{system.ranks.length === 1 ? '' : 's'}
+            </span>
+          </CollapsibleTrigger>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button size="sm" variant="outline" onClick={() => { setOpen(true); setRankDialog({ open: true }); }}>
+              <Plus className="h-3 w-3 mr-1" />
+              Graduação
+            </Button>
+            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => onDeleteSystem(system)}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => setRankDialog({ open: true })}>
-            <Plus className="h-3 w-3 mr-1" />
-            Graduação
-          </Button>
-          <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => onDeleteSystem(system)}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
 
-      {system.ranks.length === 0 ? (
-        <p className="text-sm text-muted-foreground italic">Nenhuma graduação cadastrada. Clique em "+ Graduação" para adicionar.</p>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {[...system.ranks].sort((a, b) => a.displayOrder - b.displayOrder).map(rank => (
-            <div key={rank.id} className="group flex items-center gap-1">
-              <RankBadge rank={rank} />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button type="button" title="Opções" className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted">
-                    <MoreHorizontal className="h-3 w-3" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="text-sm">
-                  <DropdownMenuItem onClick={() => setRankDialog({ open: true, rank })}>
-                    <Pencil className="h-3 w-3 mr-2" />
-                    Editar
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive" onClick={() => setDeleteRank(rank)}>
-                    <Trash2 className="h-3 w-3 mr-2" />
-                    Remover
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          ))}
-        </div>
-      )}
+        <CollapsibleContent>
+          <div className="pt-3">
+            {system.ranks.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">Nenhuma graduação cadastrada. Clique em "+ Graduação" para adicionar.</p>
+            ) : (
+              <>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={sortedRanks.map(r => r.id)} strategy={rectSortingStrategy}>
+                    <div className="flex flex-wrap gap-x-3 gap-y-2">
+                      {sortedRanks.map(rank => (
+                        <SortableRankChip
+                          key={rank.id}
+                          rank={rank}
+                          onEdit={() => setRankDialog({ open: true, rank })}
+                          onDelete={() => setDeleteRank(rank)}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+                <p className="text-xs text-muted-foreground mt-3">
+                  Arraste pela alça <GripVertical className="h-3 w-3 inline -mt-0.5" /> para reordenar — a ordem define a progressão da faixa mais iniciante à mais graduada.
+                </p>
+              </>
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Rank Create/Edit Dialog */}
       <Dialog open={rankDialog.open} onOpenChange={open => !open && setRankDialog({ open: false })}>
@@ -449,6 +564,7 @@ function ModalidadesTab() {
   const [newSystemClassTypeId, setNewSystemClassTypeId] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<GraduationTemplate | null>(null);
   const [deleteSystem, setDeleteSystem] = useState<GraduationSystem | undefined>();
+  const [removeModality, setRemoveModality] = useState<ClassType | undefined>();
   const [deleteBlockedInfo, setDeleteBlockedInfo] = useState<{ system: GraduationSystem; count: number; message: string } | undefined>();
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const { toast } = useToast();
@@ -589,6 +705,7 @@ function ModalidadesTab() {
     onSuccess: (_data, ct) => {
       queryClient.invalidateQueries({ queryKey: ['/api/classes/class-types'] });
       toast({ title: `Modalidade "${ct.name}" removida.` });
+      setRemoveModality(undefined);
     },
     onError: () => toast({ title: 'Erro ao remover modalidade', variant: 'destructive' }),
   });
@@ -637,7 +754,7 @@ function ModalidadesTab() {
           {activeClassTypes.length > 0 && (
             <Button size="sm" variant="outline" onClick={() => setAddModalityDialog(true)}>
               <Plus className="h-3 w-3 mr-1" />
-              Personalizada
+              Nova modalidade
             </Button>
           )}
         </div>
@@ -682,9 +799,10 @@ function ModalidadesTab() {
                 <button
                   type="button"
                   title={`Remover ${ct.name}`}
-                  onClick={() => removeModalityMutation.mutate(ct)}
+                  onClick={() => setRemoveModality(ct)}
                   disabled={removeModalityMutation.isPending}
                   className="rounded-full hover:bg-muted-foreground/20 p-0.5 transition-colors"
+                  data-testid={`remove-modality-${ct.id}`}
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -716,10 +834,15 @@ function ModalidadesTab() {
             Defina as faixas/graus de cada modalidade ensinada na academia.
           </p>
         </div>
-        <Button onClick={() => setCreateDialog(true)} disabled={activeClassTypes.length === 0}>
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Sistema
-        </Button>
+        <div className="flex flex-col items-end gap-1">
+          <Button onClick={() => setCreateDialog(true)} disabled={activeClassTypes.length === 0}>
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Sistema
+          </Button>
+          {activeClassTypes.length === 0 && (
+            <p className="text-xs text-muted-foreground">Cadastre uma modalidade primeiro</p>
+          )}
+        </div>
       </div>
 
       {isLoading && (
@@ -937,6 +1060,33 @@ function ModalidadesTab() {
         </DialogContent>
       </Dialog>
 
+      {/* Remove Modality Confirmation — o × da chip é alvo pequeno (toque
+          acidental fácil no celular); remoção é soft (active: false) mas some
+          das listas de matrícula, então merece confirmação como o sistema. */}
+      <AlertDialog open={!!removeModality} onOpenChange={open => !open && setRemoveModality(undefined)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover modalidade</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover <strong>{removeModality?.name}</strong>?
+              Ela deixa de aparecer nas listas de matrícula e nos filtros.
+              As turmas da grade e os sistemas de graduação vinculados não são apagados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => removeModality && removeModalityMutation.mutate(removeModality)}
+              disabled={removeModalityMutation.isPending}
+              data-testid="confirm-remove-modality"
+            >
+              {removeModalityMutation.isPending ? 'Removendo...' : 'Remover'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Delete System Confirmation */}
       <AlertDialog open={!!deleteSystem} onOpenChange={open => !open && setDeleteSystem(undefined)}>
         <AlertDialogContent>
@@ -995,6 +1145,259 @@ function ModalidadesTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+// ─── Academia Tab ─────────────────────────────────────────────────────────────
+
+interface AcademyProfile {
+  id: string;
+  name: string;
+  slug: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  description: string | null;
+}
+
+/** Perfil da academia — o nome aparece na sidebar, no portal do aluno e nos
+ *  relatórios impressos, por isso o updateUser sincroniza o localStorage. */
+function AcademiaTab() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { user, updateUser } = useAuth();
+
+  const { data, isLoading } = useQuery<AcademyProfile>({ queryKey: ['/api/academy'] });
+
+  const emptyForm = { name: '', phone: '', email: '', address: '', description: '' };
+  const [form, setForm] = useState(emptyForm);
+  const fromData = (d: AcademyProfile) => ({
+    name: d.name,
+    phone: d.phone ?? '',
+    email: d.email ?? '',
+    address: d.address ?? '',
+    description: d.description ?? '',
+  });
+  useEffect(() => { if (data) setForm(fromData(data)); }, [data]);
+
+  const dirty = !!data && JSON.stringify(form) !== JSON.stringify(fromData(data));
+  const nameValid = form.name.trim().length >= 2;
+
+  const saveMutation = useMutation({
+    mutationFn: () => apiRequest('PATCH', '/api/academy', form).then(r => r.json() as Promise<AcademyProfile>),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/academy'] });
+      if (user?.academy) {
+        updateUser({ academy: { ...user.academy, name: updated.name } });
+        // updateUser só atualiza esta instância do hook + localStorage; o evento
+        // faz as demais (sidebar) relerem o storage e refletirem o nome na hora
+        window.dispatchEvent(new CustomEvent('auth:login'));
+      }
+      toast({ title: 'Perfil atualizado', description: 'Os dados da academia foram salvos.' });
+    },
+    onError: () => toast({ title: 'Erro ao salvar', description: 'Verifique os campos e tente novamente.', variant: 'destructive' }),
+  });
+
+  const set = (field: keyof typeof emptyForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm(f => ({ ...f, [field]: e.target.value }));
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h2 className="text-lg font-semibold">Perfil da academia</h2>
+        <p className="text-sm text-muted-foreground">
+          Nome e contatos exibidos para os alunos no portal e nos relatórios.
+        </p>
+      </div>
+
+      <Card>
+        <CardContent className="py-5">
+          <form
+            className="space-y-4 max-w-lg"
+            onSubmit={e => { e.preventDefault(); if (dirty && nameValid) saveMutation.mutate(); }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="academy-name">Nome da academia</Label>
+              <Input
+                id="academy-name"
+                value={form.name}
+                onChange={set('name')}
+                disabled={isLoading}
+                data-testid="input-academy-name"
+              />
+              {!nameValid && form.name !== '' && (
+                <p className="text-xs text-destructive">O nome deve ter pelo menos 2 caracteres.</p>
+              )}
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="academy-phone">Telefone</Label>
+                <Input
+                  id="academy-phone"
+                  value={form.phone}
+                  onChange={set('phone')}
+                  placeholder="(11) 99999-9999"
+                  disabled={isLoading}
+                  data-testid="input-academy-phone"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="academy-email">E-mail de contato</Label>
+                <Input
+                  id="academy-email"
+                  type="email"
+                  value={form.email}
+                  onChange={set('email')}
+                  placeholder="contato@academia.com"
+                  disabled={isLoading}
+                  data-testid="input-academy-email"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="academy-address">Endereço</Label>
+              <Input
+                id="academy-address"
+                value={form.address}
+                onChange={set('address')}
+                placeholder="Rua, número, bairro, cidade"
+                disabled={isLoading}
+                data-testid="input-academy-address"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="academy-description">Descrição</Label>
+              <Textarea
+                id="academy-description"
+                value={form.description}
+                onChange={set('description')}
+                placeholder="Breve apresentação da academia"
+                rows={3}
+                disabled={isLoading}
+                data-testid="input-academy-description"
+              />
+            </div>
+
+            {data && (
+              <p className="text-xs text-muted-foreground">
+                Identificador nas URLs públicas (check-in, portal): <code className="font-mono">{data.slug}</code> — não editável,
+                QR codes já impressos dependem dele.
+              </p>
+            )}
+
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                disabled={!dirty || !nameValid || saveMutation.isPending}
+                data-testid="button-save-academy"
+              >
+                {saveMutation.isPending ? 'Salvando...' : 'Salvar alterações'}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <p className="text-xs text-muted-foreground">
+        O dia de vencimento padrão das mensalidades é configurado na página{' '}
+        <a href="/dashboard/financeiro" className="underline text-primary">Financeiro</a>, junto do contexto de cobrança.
+      </p>
+    </div>
+  );
+}
+
+// ─── Conta Tab ────────────────────────────────────────────────────────────────
+
+function ContaTab() {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const mismatch = confirmPassword !== '' && newPassword !== confirmPassword;
+  const tooShort = newPassword !== '' && newPassword.length < 6;
+  const canSubmit = currentPassword !== '' && newPassword.length >= 6 && newPassword === confirmPassword;
+
+  // apiClient.changePassword já grava o novo token que o servidor rotaciona —
+  // a sessão continua válida sem relogin.
+  const changeMutation = useMutation({
+    mutationFn: () => apiClient.changePassword({ currentPassword, newPassword, confirmPassword }),
+    onSuccess: () => {
+      toast({ title: 'Senha alterada', description: 'Sua nova senha já está valendo.' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    },
+    onError: (error: Error) =>
+      toast({ title: 'Erro ao alterar senha', description: error.message, variant: 'destructive' }),
+  });
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h2 className="text-lg font-semibold">Conta</h2>
+        <p className="text-sm text-muted-foreground">
+          Dados de acesso de <strong>{user?.email}</strong>.
+        </p>
+      </div>
+
+      <Card>
+        <CardContent className="py-5">
+          <form
+            className="space-y-4 max-w-sm"
+            onSubmit={e => { e.preventDefault(); if (canSubmit) changeMutation.mutate(); }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="current-password">Senha atual</Label>
+              <Input
+                id="current-password"
+                type="password"
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={e => setCurrentPassword(e.target.value)}
+                data-testid="input-current-password"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new-password">Nova senha</Label>
+              <Input
+                id="new-password"
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                data-testid="input-new-password"
+              />
+              {tooShort && <p className="text-xs text-destructive">A nova senha deve ter pelo menos 6 caracteres.</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirmar nova senha</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                data-testid="input-confirm-password"
+              />
+              {mismatch && <p className="text-xs text-destructive">As senhas não coincidem.</p>}
+            </div>
+
+            <div className="flex justify-end">
+              <Button type="submit" disabled={!canSubmit || changeMutation.isPending} data-testid="button-change-password">
+                {changeMutation.isPending ? 'Alterando...' : 'Alterar senha'}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -1165,8 +1568,12 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="modalidades">
-        <TabsList>
-          <TabsTrigger value="modalidades">
+        <TabsList className="grid w-full h-auto grid-cols-2 sm:flex sm:w-auto">
+          <TabsTrigger value="academia" data-testid="tab-academia">
+            <Building2 className="h-4 w-4 mr-2" />
+            Academia
+          </TabsTrigger>
+          <TabsTrigger value="modalidades" data-testid="tab-modalidades">
             <Award className="h-4 w-4 mr-2" />
             Modalidades & Graduações
           </TabsTrigger>
@@ -1174,7 +1581,15 @@ export default function SettingsPage() {
             <LayoutDashboard className="h-4 w-4 mr-2" />
             Painel
           </TabsTrigger>
+          <TabsTrigger value="conta" data-testid="tab-conta">
+            <KeyRound className="h-4 w-4 mr-2" />
+            Conta
+          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="academia" className="mt-6">
+          <AcademiaTab />
+        </TabsContent>
 
         <TabsContent value="modalidades" className="mt-6">
           <ModalidadesTab />
@@ -1182,6 +1597,10 @@ export default function SettingsPage() {
 
         <TabsContent value="painel" className="mt-6">
           <PainelTab />
+        </TabsContent>
+
+        <TabsContent value="conta" className="mt-6">
+          <ContaTab />
         </TabsContent>
       </Tabs>
     </div>
